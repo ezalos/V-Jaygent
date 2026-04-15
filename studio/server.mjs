@@ -156,10 +156,11 @@ function sendJson(res, status, obj) {
 // Allow `node studio/server.mjs` to boot a dev server.
 if (import.meta.url === `file://${process.argv[1]}`) {
   const port = Number(process.env.STUDIO_PORT ?? 7777);
+  const host = process.env.STUDIO_HOST ?? '127.0.0.1';
   const piecesDir = process.env.PIECES_DIR
     ?? fileURLToPath(new URL('../pieces', import.meta.url));
   const server = createStudioServer({ piecesDir });
-  server.listen(port, '127.0.0.1', () => {
-    console.log(`[studio] listening on http://127.0.0.1:${port}  pieces=${piecesDir}`);
+  server.listen(port, host, () => {
+    console.log(`[studio] listening on http://${host}:${port}  pieces=${piecesDir}`);
   });
 }
