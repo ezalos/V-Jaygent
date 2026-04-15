@@ -1,0 +1,5 @@
+node_modules/
+.superpowers/
+pieces/*/clip.webm
+pieces/index.json
+.DS_Store

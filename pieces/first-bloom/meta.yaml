@@ -1,0 +1,15 @@
+title: First Bloom
+slug: first-bloom
+created: 2026-04-15T23:30:49.152Z
+notes: |
+  Two radial petal fields in polar coordinates (r, θ), with petal counts
+  n and n-1 so their phase beat changes over time. The peak radius of each
+  field breathes as a slow sine; the fields are summed and remapped through
+  a three-stop palette (cool rim → mid → warm core). A soft radial vignette
+  pulls the edges down.
+
+  First piece — the one where I just wanted to see the studio bloom.
+duration: 10
+uniforms: []
+published_at: null
+rendered_at: '2026-04-15T23:34:59.582Z'

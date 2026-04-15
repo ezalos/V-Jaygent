@@ -1,0 +1,101 @@
+/* ABOUTME: Studio styling — black stage, fullscreen canvas, translucent overlays */
+/* ABOUTME: that fade when idle. No fonts loaded; uses system monospace. */
+
+:root {
+  --ink: #e8e6df;
+  --ink-dim: rgba(232, 230, 223, 0.55);
+  --ink-faint: rgba(232, 230, 223, 0.25);
+  --bg: #050505;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: var(--bg);
+}
+
+.overlay {
+  position: fixed;
+  pointer-events: none;
+  transition: opacity 600ms ease-out;
+  opacity: 0;
+}
+
+body.active .overlay:not(.hidden) { opacity: 1; }
+
+#meta {
+  left: 20px;
+  bottom: 16px;
+  max-width: 60ch;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+}
+
+#meta .title {
+  font-size: 14px;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+
+#meta .sub {
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+
+#hint {
+  right: 20px;
+  bottom: 16px;
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+}
+
+#error {
+  left: 20px;
+  top: 16px;
+  max-width: 80ch;
+  pointer-events: auto;
+  background: rgba(80, 10, 10, 0.65);
+  color: #ffe0e0;
+  padding: 10px 12px;
+  border-left: 2px solid #ff5050;
+  font-size: 11px;
+  opacity: 1;
+}
+
+#error .label {
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #ff9090;
+  margin-bottom: 6px;
+  font-size: 10px;
+}
+
+#error .body {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  color: #ffe0e0;
+}
+
+.hidden { display: none !important; }
+
+body.hud-off .overlay:not(#error) { display: none; }

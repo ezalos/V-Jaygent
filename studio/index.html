@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<!-- ABOUTME: Live studio page — fullscreen WebGL2 canvas with hot-reloading fragment -->
+<!-- ABOUTME: shader, standard uniforms, keyboard navigation, and a faint metadata overlay. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>V-Jaygent · Studio</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <canvas id="stage"></canvas>
+
+  <div id="meta" class="overlay">
+    <div class="title"></div>
+    <div class="sub"></div>
+  </div>
+
+  <div id="error" class="overlay hidden">
+    <div class="label">compile error</div>
+    <pre class="body"></pre>
+  </div>
+
+  <div id="hint" class="overlay hint">
+    ← →  next/prev     r  reset time     h  toggle hud
+  </div>
+
+  <script type="module" src="/runtime.mjs"></script>
+</body>
+</html>

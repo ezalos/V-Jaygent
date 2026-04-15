@@ -1,0 +1,9 @@
+title: "Test Piece — Rolling Gradient"
+slug: test-piece
+created: 2026-04-16T00:00:00Z
+notes: |
+  Reference fixture. Shadertoy-style cosine palette over (uv, time).
+  Exists to prove the pipeline works end-to-end; not intended as art.
+duration: 6
+uniforms: []
+published_at: null
