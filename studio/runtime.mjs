@@ -599,6 +599,7 @@ function setStandardUniforms(vw, vh, now) {
   setUniform2fv('u_ball_pos',     billiards.posArray);
   setUniform1fv('u_ball_hit',     billiards.hitArray);
   setUniform2fv('u_ball_hit_pos', billiards.hitPosArray);
+  setUniform1fv('u_ball_radius',  billiards.radiusArray);
 }
 
 // ---------- piece loading ----------
@@ -663,6 +664,11 @@ async function loadPiece(slug) {
     currentMeta = meta;
     currentSlug = slug;
     currentMtime = mtime;
+    // Reconfigure the billiard sim if the piece declared its own ball setup
+    // (pos / vel / radius / mass per ball). Omitted meta → sim keeps defaults.
+    if (Array.isArray(meta?.billiards) && meta.billiards.length > 0) {
+      billiards.reset(meta.billiards);
+    }
     attachAudio(slug, meta);
     pushSlugToUrl(slug);
     setMetaOverlay(meta);
