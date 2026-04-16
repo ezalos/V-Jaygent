@@ -19,6 +19,22 @@ brief).
 - `~/.claude/projects/-home-ezalos-42-V-Jaygent/memory/MEMORY.md` — any
   stored preferences.
 - `brainstorming/README.md` — the cultivation convention.
+- **`lib/` — shared GLSL modules.** Know what's there before writing a
+  shader. Current modules:
+  - `lib/math.glsl` — `PI`, `TAU`, `PHI`, `saturate`, `rot2d`, `cmul`,
+    `cconj`, `cmod2`
+  - `lib/noise.glsl` — `hash21`, `hash22`, `vnoise`, `fbm`
+    (canonical across all pieces; do not re-implement)
+  - `lib/sdf.glsl` — `sdCircle`, `sdBox`, `sdSegment`, `sdTriangle`,
+    `opSmin`
+  - `lib/tonemap.glsl` — `reinhard`, `reinhardPartial`, `aces`
+  - `lib/diffusion.glsl` — `laplacian`, `laplacian4`, `laplacian9`
+    (for multi-pass RD pieces)
+  - `lib/billiards.glsl` — `ballMask`, `ballRim`, `ballHitRing`,
+    `ballWallEnergy` (for pieces using the CPU billiard sim)
+
+  Include via `#include "<name>.glsl"` — the runtime resolves from `lib/`.
+  `ls lib/` at the start of a run if this list looks stale.
 
 Don't skip these. They shape every decision that follows.
 
@@ -155,7 +171,10 @@ Background. Continue with steps 3-5 while it runs.
 Write `brainstorming/pieces/<slug>.md` with:
 - Thesis: one sentence on what this piece is about.
 - Form candidates: 2-3 concrete technical shapes (e.g., "curl-noise
-  smoke", "hyperbolic tiling", "Julia set parameter walk").
+  smoke", "hyperbolic tiling", "Julia set parameter walk"). For each
+  candidate, note which `lib/` modules it would lean on — that's a
+  cheap way to spot "oh, we already have laplacian4, RD is halfway
+  built" or "this wants sdTriangle-based composition".
 - What I don't want: explicit anti-patterns for this piece (generic
   FFT bars, literal illustration, loops-with-no-end, whatever's
   tempting to default to).
@@ -206,9 +225,14 @@ Write `pieces/<slug>/shader.frag`. Respect:
 - **`#version 300 es`** on the first code line (the hoister handles it
   even if ABOUTME is above)
 - **`precision highp float;`** second
-- **Warm palette** per VISION — cream/amber/ember/wine/mauve family.
-  `warmCycle` or `ember` function inline (duplicated per piece is
-  correct).
+- **Use `lib/` via `#include`** for anything generic. `fbm`, `vnoise`,
+  `hash21`, `rot2d`, `reinhard`, `sdCircle`, `laplacian4` — all live in
+  `lib/`. Do not re-implement them inline. Check `ls lib/` if unsure
+  what's available.
+- **Keep the palette inline.** Palette functions are aesthetic choices
+  that diverge per piece — `warmCycle`, `ember`, or a tuned variant
+  written for this piece. This is the *one* kind of duplication VISION
+  endorses.
 - **Audio uniforms declared if audio is used**: u_audio_bass,
   u_audio_mid, u_audio_high, u_audio_level, u_audio_playing, u_audio_time.
 - **`render_scale`** set in meta.yaml for any shader with:
@@ -217,6 +241,11 @@ Write `pieces/<slug>/shader.frag`. Respect:
   - > 32 inner iterations per pixel
   - Suggested starting values: 0.45-0.55 for expensive, 0.65-0.75 for
     moderate, 1.0 for cheap.
+
+If the piece needs state (RD, particle accumulation, trails), scaffold
+with `node bin/new-piece.mjs <slug> --sim` — produces a `sim.frag`
+ping-pong pair plus display shader, with `lib/diffusion.glsl` and
+`lib/noise.glsl` already included.
 
 ### 8. Meta
 

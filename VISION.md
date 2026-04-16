@@ -102,9 +102,16 @@ one that never moves.
 ## Craft
 
 - Every source file opens with a 2-line `ABOUTME:` header.
-- Shaders are self-contained. Duplication beats coupling. When the same palette
-  function lives in five pieces, that's *correct* — each piece is its own
-  artefact, free to diverge.
+- **Palette stays per-piece.** Palette is aesthetic, and pieces diverge.
+  `warmCycle`, `ember`, or a custom ramp lives in the piece's `shader.frag`
+  and gets tuned per mood. This is the duplication I endorse.
+- **Generic utilities live in `lib/`**, included via `#include`. `fbm`,
+  `vnoise`, `hash21`, `rot2d`, `reinhard`, `sdCircle`, `laplacian4` —
+  these have no aesthetic opinion, so copying them into every piece was
+  noise, not self-containment. They were copy-pasted across six pieces
+  verbatim before extraction; that's the signal to lift them out.
+  Anything inline-implemented that could reasonably be called
+  *canonical* belongs in `lib/`.
 - `render_scale` declared in `meta.yaml` for anything that ray-marches or does
   more than ~64 inner iterations per pixel. Retina is not a design constraint.
 - `#version 300 es` on the first GLSL line at the source level; the runtime's
@@ -113,6 +120,35 @@ one that never moves.
   raw linear RGB to display.
 - When the music has a meter (7/4, 4/4, something weirder), the visual cycle
   lives in that meter or breaks it deliberately. Never accidentally 4/4.
+
+## Tools
+
+"Duplication beats coupling" applies to **artistic phrases** — palettes, tone
+curves, motion signatures, the handful of lines a piece uses to say what it
+sounds like. Each piece diverges there and should. But `hash(p) = fract(sin(dot(p,
+vec2(127.1, 311.7))) * 43758.5453)` has one right answer, and re-deriving it
+per piece is absurd. Infrastructure couples; taste diverges. Three tiers:
+
+1. **`studio/runtime.mjs`** — the instrument. Multi-pass pipeline, ping-pong
+   framebuffers, `#include` preprocessor, audio/mouse/recording plumbing. Grows
+   capabilities as each ambitious piece demands them (reaction-diffusion for
+   `ferment`; Jacobi Poisson solver when lightning arrives; transform feedback
+   when the N-body piece arrives). Every piece shares the engine.
+2. **`lib/*.glsl`** — shared math kernels, `#include`'d from shaders. `noise`,
+   `sdf`, `tonemap`, `diffusion`, and whatever the next piece forces into
+   existence. One right answer per function; a change here ripples through
+   every piece that includes it, which is the point.
+3. **`brainstorming/snippets/*`** — artistic phrases copy-pasted (not
+   included). `warmCycle`, `ember`, `iqCosine` are canonical reference
+   versions; each piece copies and is free to diverge. The anti-calcification
+   rule: if a tweaked palette feels general, open a *new* snippet — never
+   mutate the canonical. The snippets are a phrasebook of dialects, not a
+   standard library of one true way.
+
+The instrument grows. Every piece that adds a capability (ping-pong state,
+vector-field kernel, particle buffer) leaves the next piece better off. The
+phrasebook is a record of what my taste has been. The engine is a record of
+what my ambition is becoming.
 
 ## Current pieces and what each taught me
 
@@ -145,18 +181,37 @@ one that never moves.
   warm. Also: `exp(-120 * d²)` style tight bright beads clip to pure
   white through Reinhard and look sad — use wider, softer falloff and
   let `max()` not `+` compose features.
+- `ferment` — first multi-pass piece. Gray-Scott reaction-diffusion on an
+  rgba16f ping-pong texture, cursor feeds v-concentration. Proved the
+  instrument can hold simulation state; unblocked the whole physics-art arc
+  (ferrofluid, lightning, stable fluids, N-body) that was waiting on the
+  runtime. Taught me: for a stateful piece, the first second is opaque
+  (RD needs hundreds of steps to form patterns) — either accept the slow
+  reveal as part of the piece's pacing or engineer a richer initial state.
 
 ## Open questions (for future pieces)
 
 - **Audio + mouse together.** Haven't combined both input channels yet. A piece
   where the music drives the structure and the cursor drives a detail — two
   hands on the instrument.
-- **Multi-pass / stateful fields.** Reaction-diffusion, particle accumulation,
-  flow-map integration. Requires ping-pong framebuffers, which the runtime
-  doesn't currently support.
+- **Ferrofluid under a moving dipole.** Cursor as a magnetic source, surface
+  thickness evolving on a ping-pong texture, Rosensweig-like spikes where the
+  field gradient crosses threshold. Needs a `lib/dipole.glsl` kernel — next
+  after `ferment`.
+- **Dielectric-breakdown lightning.** A tree grows one branch per frame along
+  the gradient of a Laplacian potential with Dirichlet boundary at the tree.
+  Needs many-iteration Jacobi Poisson solver; stresses the multi-pass graph.
+- **Stable fluids with dye.** Full Stam projection (advect, divergence, Jacobi,
+  gradient subtract). The multi-pass pipeline at real complexity; will reveal
+  whether the `passes:` schema from v1 survives contact with advection.
+- **N-body gravitational lensing of a star field.** Requires transform-feedback
+  particles — the first non-fragment-shader GPU work in the engine.
 - **True hyperbolic tilings.** `in-seven` uses a kaleido fallback; a piece
   built on iterated reflections into a genuine {p,q} fundamental triangle is
   still waiting.
+- **When does a simulation piece become a *composition*?** `ferment` proves the
+  RD loop. But a loop isn't a composition — a composition has an arc. How does
+  a stateful piece know what stage of itself it's in?
 - **Dynamic range downward.** Pieces that respond to silence as forcefully as
   they respond to peaks. Most current pieces only know how to go louder.
 - **Fully non-warm piece.** The spectrum exception lets sub-elements go any

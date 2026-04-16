@@ -134,7 +134,11 @@ Read, in this order:
 2. /home/ezalos/42/V-Jaygent/VISION.md            (aesthetic context)
 3. /home/ezalos/42/V-Jaygent/pieces/<slug>/meta.yaml
 4. /home/ezalos/42/V-Jaygent/pieces/<slug>/shader.frag
-5. Each of the 4 frames at
+5. /home/ezalos/42/V-Jaygent/lib/ (list contents so you know what
+   shared GLSL utilities already exist — fbm, hash21, vnoise,
+   reinhard, rot2d, sdCircle, laplacian4 and friends. When suggesting
+   a fix, prefer "use lib/noise.glsl's fbm" over "re-implement fbm".)
+6. Each of the 4 frames at
    /home/ezalos/42/V-Jaygent/pieces/<slug>/inspect/frame-*.png
 
 Also read any previous critique at
