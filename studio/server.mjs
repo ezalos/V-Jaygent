@@ -1,6 +1,7 @@
 // ABOUTME: Studio HTTP server — serves the live page and exposes catalog/current/
 // ABOUTME: shader/meta/mtime endpoints read from a plain directory of pieces.
 import { createServer } from 'node:http';
+import { createReadStream } from 'node:fs';
 import { readFile, stat, readdir } from 'node:fs/promises';
 import { join, extname, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +16,22 @@ const STATIC_MIME = {
   '.js':   'text/javascript; charset=utf-8',
   '.css':  'text/css; charset=utf-8',
 };
+
+const FILE_MIME = {
+  '.mp3':  'audio/mpeg',
+  '.m4a':  'audio/mp4',
+  '.ogg':  'audio/ogg',
+  '.opus': 'audio/ogg',
+  '.wav':  'audio/wav',
+  '.webm': 'audio/webm',
+  '.flac': 'audio/flac',
+  '.png':  'image/png',
+  '.jpg':  'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+};
+
+const FILENAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 export function createStudioServer({ piecesDir, studioDir = STUDIO_DIR } = {}) {
   if (!piecesDir) throw new Error('piecesDir is required');
@@ -49,6 +66,16 @@ async function handle(req, res, { piecesRoot, studioDir }) {
     const part = pieceMatch[2];
     if (!SLUG_RE.test(slug)) return send(res, 404, 'text/plain', 'not found');
     return apiPiecePart(res, piecesRoot, slug, part);
+  }
+
+  const fileMatch = path.match(/^\/api\/pieces\/([^/]+)\/file\/([^/]+)$/);
+  if (fileMatch) {
+    const slug = decodeURIComponent(fileMatch[1]);
+    const name = decodeURIComponent(fileMatch[2]);
+    if (!SLUG_RE.test(slug) || !FILENAME_RE.test(name)) {
+      return send(res, 404, 'text/plain', 'not found');
+    }
+    return apiPieceFile(req, res, piecesRoot, slug, name);
   }
 
   send(res, 404, 'text/plain', 'not found');
@@ -106,6 +133,55 @@ async function apiPiecePart(res, piecesRoot, slug, part) {
     if (mtime === null) return send(res, 404, 'text/plain', 'not found');
     return sendJson(res, 200, { mtime });
   }
+}
+
+async function apiPieceFile(req, res, piecesRoot, slug, name) {
+  const pieceDir = join(piecesRoot, slug);
+  const dirStat = await stat(pieceDir).catch(() => null);
+  if (!dirStat || !dirStat.isDirectory()) return send(res, 404, 'text/plain', 'not found');
+
+  const filePath = join(pieceDir, name);
+  const fileStat = await stat(filePath).catch(() => null);
+  if (!fileStat || !fileStat.isFile()) return send(res, 404, 'text/plain', 'not found');
+
+  const mime = FILE_MIME[extname(name).toLowerCase()] ?? 'application/octet-stream';
+  const range = parseRange(req.headers.range, fileStat.size);
+
+  const baseHeaders = {
+    'content-type': mime,
+    'accept-ranges': 'bytes',
+    'cache-control': 'public, max-age=3600',
+  };
+
+  if (range) {
+    res.statusCode = 206;
+    for (const [k, v] of Object.entries(baseHeaders)) res.setHeader(k, v);
+    res.setHeader('content-length', range.end - range.start + 1);
+    res.setHeader('content-range', `bytes ${range.start}-${range.end}/${fileStat.size}`);
+    const stream = createReadStream(filePath, { start: range.start, end: range.end });
+    stream.on('error', () => { try { res.end(); } catch {} });
+    stream.pipe(res);
+    return;
+  }
+
+  res.statusCode = 200;
+  for (const [k, v] of Object.entries(baseHeaders)) res.setHeader(k, v);
+  res.setHeader('content-length', fileStat.size);
+  const stream = createReadStream(filePath);
+  stream.on('error', () => { try { res.end(); } catch {} });
+  stream.pipe(res);
+}
+
+function parseRange(header, total) {
+  if (!header) return null;
+  const m = header.match(/^bytes=(\d*)-(\d*)$/);
+  if (!m) return null;
+  const start = m[1] === '' ? 0 : parseInt(m[1], 10);
+  let   end   = m[2] === '' ? total - 1 : parseInt(m[2], 10);
+  if (Number.isNaN(start) || Number.isNaN(end)) return null;
+  if (start > end || start >= total) return null;
+  if (end >= total) end = total - 1;
+  return { start, end };
 }
 
 async function readCurrentSlug(piecesRoot) {

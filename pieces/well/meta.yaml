@@ -1,0 +1,22 @@
+title: Well
+slug: well
+created: 2026-04-16T08:29:06.613Z
+notes: |
+  Your cursor is a mass; space curves around it. The background is a warm
+  nebula built from domain-warped FBM noise — each pixel's color comes
+  from fbm(p + warp(p)) where the warp is itself fbm, so clouds fold on
+  themselves and detail survives at every zoom. Stars appear as sparse
+  density peaks.
+
+  The lens effect is the classic gravitational-light deflection
+  (θ ∝ 1/b, b = impact parameter): for each pixel, we look up the
+  nebula not at its own location but at a point offset toward the mass
+  by G/|r|². Near the mass the offset blows up — that's the Einstein
+  ring, where two thin glows stack. An event horizon darkens the core.
+
+  Curves everywhere: space is not Euclidean here.
+duration: 18
+uniforms: []
+render_scale: 0.7
+published_at: null
+rendered_at: '2026-04-16T08:30:21.307Z'

@@ -1,0 +1,22 @@
+title: Lodestone
+slug: lodestone
+created: 2026-04-16T08:09:20.733Z
+notes: |
+  A complex-plane phase field. The function being plotted is
+
+      f(z) = z³ + a(t)·z + s · 1/(z - mouse)
+
+  A slowly-rotating linear term keeps the piece alive on its own, and the
+  movable pole at your cursor introduces a singularity whose phase lines
+  radiate outward. Color comes from arg(f) mapped through a warm cyclic
+  palette (gold → orange → red → wine → mauve); dark contour lines mark
+  where log|f| doubles, making the field readable.
+
+  The idea is a lens you drag around — your motion reshapes the whole
+  field, and you never see the same arrangement twice. If the cursor
+  hasn't moved yet, the pole drifts on its own so the piece breathes.
+duration: 15
+uniforms: []
+render_scale: 1
+published_at: null
+rendered_at: '2026-04-16T08:20:04.446Z'

@@ -22,8 +22,20 @@
   </div>
 
   <div id="hint" class="overlay hint">
-    ← →  next/prev     r  reset time     h  toggle hud
+    ← →  next/prev     c  catalog     space  play/pause     r  reset time     h  toggle hud
   </div>
+
+  <div id="audio-ui" class="audio-ui hidden">
+    <div id="audio-play-indicator" class="play">▶</div>
+    <div id="audio-time-text" class="time">0:00 / 0:00</div>
+    <div id="audio-progress" class="progress"><div id="audio-progress-fill" class="progress-fill"></div></div>
+  </div>
+
+  <div id="catalog" class="catalog hidden">
+    <div class="catalog-inner"></div>
+  </div>
+
+  <div id="fps" class="fps">—</div>
 
   <script type="module" src="/runtime.mjs"></script>
 </body>

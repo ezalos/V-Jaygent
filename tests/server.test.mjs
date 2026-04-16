@@ -112,3 +112,36 @@ test('unknown route returns 404', async () => {
   const res = await fetch(baseUrl + '/api/bogus');
   assert.equal(res.status, 404);
 });
+
+test('GET /api/pieces/:slug/file/:name serves piece files', async () => {
+  const res = await fetch(baseUrl + '/api/pieces/test-piece/file/shader.frag');
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('accept-ranges'), 'bytes');
+  const body = await res.text();
+  assert.match(body, /#version 300 es/);
+});
+
+test('file route rejects invalid filenames', async () => {
+  for (const bad of ['.hidden', '..', '../etc', 'with/slash', 'space file']) {
+    const res = await fetch(baseUrl + '/api/pieces/test-piece/file/' + encodeURIComponent(bad));
+    assert.equal(res.status, 404, `expected 404 for ${bad}`);
+  }
+});
+
+test('file route returns 404 for missing file', async () => {
+  const res = await fetch(baseUrl + '/api/pieces/test-piece/file/nope.mp3');
+  assert.equal(res.status, 404);
+});
+
+test('file route honors Range requests', async () => {
+  const full = await fetch(baseUrl + '/api/pieces/test-piece/file/shader.frag').then((r) => r.text());
+  const total = Buffer.byteLength(full, 'utf8');
+  const res = await fetch(baseUrl + '/api/pieces/test-piece/file/shader.frag', {
+    headers: { Range: 'bytes=0-9' },
+  });
+  assert.equal(res.status, 206);
+  assert.equal(res.headers.get('content-range'), `bytes 0-9/${total}`);
+  const body = await res.text();
+  assert.equal(body.length, 10);
+  assert.equal(body, full.slice(0, 10));
+});

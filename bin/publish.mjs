@@ -83,6 +83,8 @@ await runFfmpeg([
   '-y',
   '-i', webmPath,
   '-r', '60',
+  // H.264 requires even dimensions — pad by 1px if needed.
+  '-vf', 'pad=ceil(iw/2)*2:ceil(ih/2)*2',
   '-c:v', 'libx264',
   '-pix_fmt', 'yuv420p',
   '-preset', 'slow',

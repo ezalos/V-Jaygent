@@ -1,0 +1,22 @@
+title: "Apollonian Foam"
+slug: apollonian-foam
+created: 2026-04-16T07:19:20.033Z
+notes: |
+  A classic Iñigo Quílez recipe: the apollonian gasket expressed as a signed
+  distance field. The inner loop iteratively folds space into a unit cube
+  (`p = -1 + 2·fract(p/2 + 1/2)`) and inverts it through the origin
+  (`p *= t / |p|²`), tracking the accumulated scale factor so the returned
+  distance stays honest. Slicing the resulting infinite foam by |p.y|
+  gives the visible geometry; a slow camera orbit reveals the recursion.
+
+  Color comes from orbit-trap banding — tracking the closest approach to
+  the origin across the inner iterations — fed into an Iñigo Quílez cosine
+  palette. Two independent bands at slightly different frequencies
+  interfere, and the tightest recursion cores get a palette-colored glow
+  on top. Two-light shading: warm key, cool rim, fresnel edge.
+
+  Goal: intricate and deep, "like reaching into something math was hiding."
+duration: 14
+uniforms: []
+render_scale: 0.50
+published_at: null

@@ -1,0 +1,22 @@
+title: "Aperture"
+slug: aperture
+created: 2026-04-16T08:23:06.132Z
+notes: |
+  A cubic Julia set — iterate z_{n+1} = z_n³ + c, colored by escape time
+  on the outside and by orbit trap on the inside. The parameter c tracks
+  your cursor: every pixel you hover is a different fractal universe,
+  and every frame as you move is a smooth morph between them. The mouse
+  is scaled into the interesting region of the cubic Mandelbrot so you're
+  always inside meaningful c-space.
+
+  Smooth escape-time (log₃ correction) gives continuous color bands;
+  fine contour lines at each iteration boundary keep the filaments crisp.
+  Warm cyclic palette all the way through — gold, orange, red, wine,
+  mauve. A soft halo follows your cursor so the lens feels present.
+
+  If your mouse hasn't moved yet, c drifts on a small orbit so the piece
+  still breathes on its own.
+duration: 15
+uniforms: []
+render_scale: 0.70
+published_at: null

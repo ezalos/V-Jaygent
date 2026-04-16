@@ -99,3 +99,104 @@ body.active .overlay:not(.hidden) { opacity: 1; }
 .hidden { display: none !important; }
 
 body.hud-off .overlay:not(#error) { display: none; }
+body.hud-off .fps { display: none; }
+
+.fps {
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  font-size: 10px;
+  color: var(--ink-faint);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.catalog {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 3, 5, 0.82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 10;
+  overflow-y: auto;
+  padding: 6vh 8vw;
+  pointer-events: auto;
+}
+
+.catalog-inner {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.card {
+  background: rgba(232, 230, 223, 0.04);
+  border: 1px solid rgba(232, 230, 223, 0.10);
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background 120ms ease-out, border-color 120ms ease-out;
+}
+
+.card:hover, .card.active {
+  background: rgba(232, 230, 223, 0.10);
+  border-color: rgba(232, 230, 223, 0.35);
+}
+
+.card .t { font-size: 13px; color: var(--ink); margin-bottom: 4px; }
+.card .s { font-size: 10px; color: var(--ink-dim); }
+.card .n { font-size: 11px; color: var(--ink-dim); margin-top: 8px; line-height: 1.4; }
+
+/* ---------- audio ui ---------- */
+
+.audio-ui {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px 8px 16px;
+  background: linear-gradient(to top, rgba(5,5,8,0.70), rgba(5,5,8,0.00));
+  font-size: 10px;
+  color: var(--ink-dim);
+  z-index: 5;
+  pointer-events: none;
+}
+
+body.hud-off .audio-ui { display: none; }
+
+.audio-ui .play {
+  font-size: 12px;
+  width: 16px;
+  text-align: center;
+  color: var(--ink);
+  pointer-events: none;
+}
+
+.audio-ui .time {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+}
+
+.audio-ui .progress {
+  position: relative;
+  height: 3px;
+  background: rgba(232, 230, 223, 0.12);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: height 120ms ease-out;
+}
+
+.audio-ui .progress:hover { height: 5px; }
+
+.audio-ui .progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0%;
+  background: linear-gradient(to right, rgba(255,180,90,0.85), rgba(255,130,90,0.95));
+}
+
