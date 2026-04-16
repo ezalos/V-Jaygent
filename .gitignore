@@ -1,5 +1,6 @@
 node_modules/
 .superpowers/
+.claude/
 pieces/*/clip.webm
 pieces/index.json
 .DS_Store

@@ -162,11 +162,23 @@ body.hud-off .audio-ui { display: none; }
 
 .audio-ui .progress {
   position: relative;
-  height: 2px;
-  background: rgba(232, 230, 223, 0.28);
+  height: 36px;              /* invisible hit zone */
   cursor: pointer;
   pointer-events: auto;
+  display: flex;
+  align-items: center;
 }
+
+.audio-ui .progress .track {
+  position: relative;
+  width: 100%;
+  height: 2px;
+  background: rgba(232, 230, 223, 0.28);
+  transition: height 120ms ease-out;
+}
+
+.audio-ui .progress:hover .track,
+.audio-ui .progress.dragging .track { height: 4px; }
 
 .audio-ui .progress-fill {
   position: absolute;
@@ -179,8 +191,8 @@ body.hud-off .audio-ui { display: none; }
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: rgba(255, 200, 130, 0.95);
   pointer-events: none;

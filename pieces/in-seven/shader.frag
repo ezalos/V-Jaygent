@@ -1,6 +1,6 @@
 // ABOUTME: In Seven — audio-reactive piece set to Pink Floyd's "Money" (7/4).
-// ABOUTME: A 7-fold lattice with hyperbolic-feeling radial depth, bass slams,
-// ABOUTME: chromatic aberration on peaks, section state machine driven by t.
+// ABOUTME: 7-fold lattice with drifting centre, breathing zoom, bar-level
+// ABOUTME: rotation variation, fbm void-fill, sparse glitches, gentle flashes.
 #version 300 es
 precision highp float;
 
@@ -20,9 +20,9 @@ const float PI       = 3.14159265359;
 const float TAU      = 6.28318530718;
 const float BPM      = 120.0;
 const float BEAT_DUR = 60.0 / BPM;
+const float BAR_DUR  = BEAT_DUR * 7.0;
 const float SECTOR   = TAU / 7.0;
 
-// Section boundaries (4:43 music-video edit).
 const float T_INTRO  =  30.0;
 const float T_SAX    = 110.0;
 const float T_GUITAR = 160.0;
@@ -46,7 +46,7 @@ vec3 warmCycle(float t) {
     return                mix(c4, c0, (t - 0.80) * 5.0);
 }
 
-vec3 saturate(vec3 c, float amt) {
+vec3 saturateCol(vec3 c, float amt) {
     float lum = dot(c, vec3(0.299, 0.587, 0.114));
     return mix(vec3(lum), c, amt);
 }
@@ -76,7 +76,6 @@ float between(float t, float a, float b, float fade) {
     return smoothstep(a - fade, a + fade, t) * (1.0 - smoothstep(b - fade, b + fade, t));
 }
 
-// 7/4 rotation — beats snap LATE and HARD, like gear teeth locking.
 float beatRotation(float t, float snapStart) {
     float beat = t / BEAT_DUR;
     float idx  = floor(beat);
@@ -85,25 +84,46 @@ float beatRotation(float t, float snapStart) {
     return (idx + snap) * SECTOR;
 }
 
-// One intense scale/flash pulse per beat, driven by bass.
 float beatPulse(float t, float bass) {
     float beat = t / BEAT_DUR;
     float frac = fract(beat);
-    // Sharp attack at beat start, exponential decay over the beat.
     float env  = exp(-9.0 * frac);
     return env * (0.35 + 2.2 * bass);
 }
 
-// Sample the core shader field at position p — returns pre-audio-mixed colour.
+// Slow, compound drift for the kaleido centre. Two octaves so it never lands
+// on a fixed Lissajous — motion feels organic, not mechanical.
+vec2 driftCentre(float t, float amplitude) {
+    vec2 a = vec2(sin(t * 0.071), cos(t * 0.113));
+    vec2 b = vec2(sin(t * 0.043 + 1.7), sin(t * 0.037 + 4.2));
+    return amplitude * (0.6 * a + 0.4 * b);
+}
+
+// ---------- void-fill nebula ----------
+
+vec3 voidNebula(vec2 p, float t, float level, float wVerse, float wSax, float wGuitar) {
+    vec2 w = vec2(fbm(p * 1.4 + vec2(0.0, t * 0.04)),
+                  fbm(p * 1.4 + vec2(5.2, 1.3) - t * 0.02));
+    float n = fbm(p * 1.6 + 2.6 * w);
+    float density = smoothstep(0.30, 0.95, n);
+    float amp = 0.25 * level + 0.10 * wVerse + 0.55 * wSax + 0.25 * wGuitar;
+    vec3  c = warmCycle(n * 0.55 + t * 0.025);
+    return c * density * amp;
+}
+
+// ---------- main field ----------
+
 vec3 field(vec2 p, float t, float bass, float mid, float high, float level,
            float wIntro, float wVerse, float wSax, float wGuitar, float wOutro,
-           float rot, float logScale)
+           float rot, float logScale, vec2 centre)
 {
-    // Rotate.
+    // Move the symmetry centre.
+    p = p - centre;
+
     float cr = cos(rot), sr = sin(rot);
     vec2  q  = vec2(cr * p.x - sr * p.y, sr * p.x + cr * p.y);
 
-    // During sax/guitar the lattice flexes via domain-warped noise.
+    // Sax / guitar: the lattice flexes via domain-warped noise.
     float flex = wSax * 0.12 + wGuitar * 0.28;
     if (flex > 0.0) {
         vec2 w = vec2(fbm(q * 2.4 + t * 0.35), fbm(q * 2.4 - t * 0.30 + 7.0));
@@ -125,20 +145,22 @@ vec3 field(vec2 p, float t, float bass, float mid, float high, float level,
     float hueSeed = 0.09 * tc.x + 0.045 * tc.y
                   + 0.18 * (mid + 0.5 * high)
                   + t * 0.018
-                  + wGuitar * t * 0.22;   // guitar: fast palette phase
+                  + wGuitar * t * 0.22;
     vec3  base = warmCycle(hueSeed + grain);
 
-    // Tile edges darkened.
     float edge = smoothstep(0.00, 0.035, abs(th7) - (SECTOR * 0.5 - 0.03))
                + smoothstep(0.00, 0.035, 0.04 - abs(ringF - 0.5) * 2.0);
     edge       = clamp(edge, 0.0, 1.0);
     vec3  col  = base * (1.0 - 0.50 * edge);
 
-    // Core glow — throbs with bass.
     float coreGlow = exp(-pow(r * (3.4 - 1.6 * bass), 2.0));
     col           += warmCycle(hueSeed + 0.18) * coreGlow * (0.35 + 1.1 * bass);
 
-    // Intro: seven glyph points + impact shockwaves.
+    // Void-fill: add nebula where the lattice is dim.
+    vec3 neb = voidNebula(p * 1.25, t, level, wVerse, wSax, wGuitar);
+    col      = max(col, neb);
+
+    // Intro: glyph points + impact shockwaves.
     if (wIntro > 0.01) {
         float glyph = 0.0;
         float wave  = 0.0;
@@ -147,7 +169,6 @@ vec3 field(vec2 p, float t, float bass, float mid, float high, float level,
             vec2  pt  = 0.42 * vec2(cos(ang), sin(ang));
             float d2  = dot(p - pt, p - pt);
             glyph    += exp(-42.0 * d2);
-            // Shockwaves: ring expanding from each point, pulse on bass kicks.
             float rd  = length(p - pt);
             float tri = fract(t * 0.6 + float(k) * 0.13);
             float sw  = exp(-36.0 * pow(rd - tri * 0.9, 2.0)) * (1.0 - tri);
@@ -157,7 +178,7 @@ vec3 field(vec2 p, float t, float bass, float mid, float high, float level,
         col = mix(col * (0.05 + 0.08 * level), introCol * 1.6, wIntro);
     }
 
-    // Sax: a radial band + a second slow one, both modulated by mid.
+    // Sax: two radial bands, both mid-modulated.
     if (wSax > 0.01) {
         float bandR1 = 0.55 + 0.08 * sin(t * 0.35);
         float bandR2 = 0.30 + 0.05 * sin(t * 0.18 + 1.3);
@@ -166,10 +187,10 @@ vec3 field(vec2 p, float t, float bass, float mid, float high, float level,
         vec3  sax = vec3(1.00, 0.62, 0.22) * (b1 + 0.55 * b2)
                   * (0.55 + 1.4 * mid);
         col += sax * wSax;
-        col  = mix(col, saturate(col, 1.35), wSax * 0.6);
+        col  = mix(col, saturateCol(col, 1.35), wSax * 0.6);
     }
 
-    // Guitar: tile-fragment sparkles from boundary inward; fast palette sweep.
+    // Guitar: boundary sparkles keyed to highs.
     if (wGuitar > 0.01) {
         float rim   = smoothstep(0.35, 0.95, r);
         float spark = step(0.82, vnoise(tc * 5.7 + t * 0.7))
@@ -202,57 +223,98 @@ void main() {
     float wReturn = between(t, T_RETURN, T_OUTRO,  2.0);
     float wOutro  = rampIn(t, T_OUTRO, 2.0);
 
-    // Rotation — hard snaps in rigid sections, continuous during guitar.
+    // --- sparse glitch: displace horizontal bands on rare hi peaks ---
+    float glitchGate = step(0.82, high)
+                     * step(0.90, hash(vec2(floor(t * 12.0), 7.0)))
+                     * (1.0 - wIntro) * (1.0 - wOutro);
+    if (glitchGate > 0.0) {
+        float rowId    = floor(gl_FragCoord.y * 0.03);
+        float rowRand  = hash(vec2(rowId, floor(t * 28.0)));
+        float rowShift = (rowRand - 0.5) * 0.35 * glitchGate;
+        // Apply to p in the same world-space units.
+        p.x += rowShift;
+    }
+
+    // --- rotation: discrete snap when rigid, continuous during guitar ---
     float rotRigid  = beatRotation(t, 0.82);
     float rotSmooth = t * (SECTOR / BEAT_DUR);
     float rigidness = 1.0 - wGuitar;
-    float rot       = mix(rotSmooth, rotRigid, rigidness);
+    // Bar-level wobble so the rotation doesn't tick at a perfectly constant
+    // rate across the verse/return. Period = 2 bars.
+    float rotWobble = 0.12 * sin(t * TAU / (BAR_DUR * 2.0))
+                    * (wVerse + wReturn);
+    float rot       = mix(rotSmooth, rotRigid, rigidness) + rotWobble;
 
-    // Packing — opens up during guitar, contracts in outro.
+    // --- packing + breathing zoom across sections ---
     float logScale = mix(4.2, 2.0, wGuitar);
     logScale       = mix(logScale, 5.5, wOutro);
 
-    // Beat pulse — each beat yanks the whole disk outward slightly.
+    // Verse: slow zoom-in (1.00 → 1.15). Sax: pulls back. Guitar: big wide
+    // first, closer-in on the solo's second half. Outro: contract.
+    float verseZoom  = 1.0 + 0.15 * clamp((t - T_INTRO) / (T_SAX - T_INTRO), 0.0, 1.0);
+    float saxZoom    = 0.90 + 0.06 * sin(t * 0.20);
+    float gpos       = clamp((t - T_GUITAR) / (T_RETURN - T_GUITAR), 0.0, 1.0);
+    float guitarZoom = mix(0.80, 1.35, smoothstep(0.30, 0.85, gpos));
+    float returnZoom = 1.10 - 0.08 * cos(t * 0.11);
+
+    float zoom = 1.0;
+    zoom = mix(zoom, verseZoom,  wVerse);
+    zoom = mix(zoom, saxZoom,    wSax);
+    zoom = mix(zoom, guitarZoom, wGuitar);
+    zoom = mix(zoom, returnZoom, wReturn);
+    zoom = mix(zoom, 0.70,       wOutro);
+
+    // Beat squeeze — slight outward yank on each kick.
     float bp    = beatPulse(t, bass) * (1.0 - wGuitar * 0.6);
-    float scale = 1.0 - 0.07 * bp;                       // squeeze-in on beat
+    float scale = zoom * (1.0 - 0.07 * bp);
     vec2  pS    = p / scale;
 
-    // Outro: pull everything toward the centre, accelerating.
+    // Outro: accelerating pull-in.
     float outroPull = smoothstep(T_OUTRO, T_END, t);
     pS /= (1.0 + outroPull * 3.5);
 
-    // Chromatic aberration on peaks. Split into three samples.
-    float ca = (0.006 + 0.018 * bass + 0.012 * pow(level, 2.0)) * (1.0 - wIntro * 0.6);
+    // --- drifting kaleido centre ---
+    float driftAmp = 0.05 * wIntro
+                   + 0.14 * wVerse
+                   + 0.22 * wSax
+                   + 0.26 * wGuitar
+                   + 0.10 * wReturn
+                   + 0.04 * wOutro;
+    vec2  centre = driftCentre(t, driftAmp);
+
+    // Chromatic aberration proportional to bass (softened overall).
+    float ca = (0.005 + 0.014 * bass + 0.008 * pow(level, 2.0)) * (1.0 - wIntro * 0.6);
     vec2  cn = normalize(pS + 1e-5) * ca;
-    vec3 cR = field(pS + cn,       t, bass, mid, high, level,
-                    wIntro, wVerse, wSax, wGuitar, wOutro, rot, logScale);
-    vec3 cG = field(pS,            t, bass, mid, high, level,
-                    wIntro, wVerse, wSax, wGuitar, wOutro, rot, logScale);
-    vec3 cB = field(pS - cn,       t, bass, mid, high, level,
-                    wIntro, wVerse, wSax, wGuitar, wOutro, rot, logScale);
+    vec3 cR = field(pS + cn, t, bass, mid, high, level,
+                    wIntro, wVerse, wSax, wGuitar, wOutro, rot, logScale, centre);
+    vec3 cG = field(pS,      t, bass, mid, high, level,
+                    wIntro, wVerse, wSax, wGuitar, wOutro, rot, logScale, centre);
+    vec3 cB = field(pS - cn, t, bass, mid, high, level,
+                    wIntro, wVerse, wSax, wGuitar, wOutro, rot, logScale, centre);
     vec3 col = vec3(cR.r, cG.g, cB.b);
 
-    // Global beat slam — bright flare on the hardest kicks.
-    col *= 0.85 + 1.25 * bp;
+    // Global beat slam — gentler than before.
+    col *= 0.90 + 0.90 * bp;
 
-    // Saturation punch on peaks — warm arc, not cold.
-    col = saturate(col, 1.0 + 0.45 * bass + 0.20 * wSax);
+    // Saturation punch that stays in the warm arc.
+    col = saturateCol(col, 1.0 + 0.35 * bass + 0.15 * wSax);
 
-    // Screen flash when bass crosses into the very loudest territory.
-    float flash = smoothstep(0.65, 0.95, bass) * 0.55;
-    col += vec3(1.00, 0.75, 0.45) * flash;
+    // Soft screen flash: multiplicative, warm-cream, short decay.
+    float flashEnv = exp(-15.0 * fract(t / BEAT_DUR));
+    float flash    = smoothstep(0.72, 0.95, bass) * 0.28 * flashEnv;
+    col *= 1.0 + flash * vec3(0.95, 0.85, 0.70);
 
-    // Guitar-solo extra: full field gets a rotating hue wash.
-    col = mix(col, col * warmCycle(0.3 + t * 0.12), wGuitar * 0.35);
+    // Guitar hue wash (unchanged).
+    col = mix(col, col * warmCycle(0.3 + t * 0.12), wGuitar * 0.30);
 
-    // Outro fade to black.
+    // Outro fade + final flash then black.
     float outroFade = 1.0 - smoothstep(T_OUTRO + 4.0, T_END, t);
     col *= outroFade;
-    // Final frame flash then black.
-    col += vec3(1.0, 0.9, 0.7) * exp(-3.0 * (t - (T_END - 1.2)) * (t - (T_END - 1.2)))
-         * smoothstep(T_OUTRO + 10.0, T_END - 0.5, t) * 1.2;
+    float finalFlash = exp(-3.0 * (t - (T_END - 1.2)) * (t - (T_END - 1.2)))
+                     * smoothstep(T_OUTRO + 10.0, T_END - 0.5, t) * 1.0;
+    col += vec3(1.0, 0.9, 0.7) * finalFlash;
 
-    // Vignette + rim fade + gentle gamma.
+    // Vignette + rim fade + gamma.
     float r = length(p);
     col *= 1.0 - smoothstep(1.05, 1.35, r);
     col *= 1.0 - 0.18 * dot(p, p);
