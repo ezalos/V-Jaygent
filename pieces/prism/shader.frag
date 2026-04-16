@@ -185,13 +185,14 @@ vec3 bouncingKaleido(vec2 p, vec2 centre, float phaseA, float phaseB,
     const float r = 0.26;
     vec2 q = p - centre;
     float dq = length(q);
-    if (dq > r + 0.01) return vec3(0.0);
+    // Hard cut at r — nothing the disk contributes exists outside this.
+    if (dq >= r) return vec3(0.0);
 
-    // Mask is pure antialiasing (~1.5% of radius) so the visible extent
-    // IS r — the 50% point sits right at r, matching the physics. Rim is
-    // a tight band centred at r, not a soft halo.
+    // Antialiased mask; rim lives entirely inside the disk so the OUTER
+    // silhouette is exactly r, matching the physics radius.
     float mask = smoothstep(r, r - 0.015, dq);
-    float rim  = smoothstep(r - 0.008, r, dq) * (1.0 - smoothstep(r, r + 0.008, dq));
+    float rim  = smoothstep(r - 0.020, r - 0.010, dq)
+               * (1.0 - smoothstep(r - 0.010, r - 0.002, dq));
 
     // Fold counts drift around nHome so the interior is never static.
     float nOuter = nHome + 3.0 * sin(t * 0.053 + phaseB * 1.3);
@@ -225,11 +226,16 @@ vec3 bouncingKaleido(vec2 p, vec2 centre, float phaseA, float phaseB,
     inside = mix(inside, inside * tint * 1.35, 0.55);
     inside *= 1.0 + 0.35 * wallE + 0.65 * hitPulse;
 
-    // Collision ring: thin bright band pulsed from the rim on impact.
-    float collisionRing = exp(-pow(dq - r * 0.9, 2.0) * 180.0) * hitPulse * 1.1;
+    // Collision ring: a bright band pulsed on impact. Lives INSIDE the
+    // disk (tighter Gaussian than before, centred further in at 0.82 r)
+    // so it can't reach past the silhouette and create an apparent
+    // pre-contact glow.
+    float collisionRing = exp(-pow(dq - r * 0.82, 2.0) * 380.0) * hitPulse * 1.2;
 
     vec3 rimCol = tint * (0.70 + 0.60 * wallE + 0.90 * hitPulse) * (0.5 + 0.55 * level);
-    return inside * mask + rimCol * rim + tint * collisionRing;
+    // mask clips every interior contribution at dq = r. Nothing extends
+    // past the silhouette — no ghost halo before collision.
+    return (inside + tint * collisionRing) * mask + rimCol * rim;
 }
 
 // ---------- main ----------
