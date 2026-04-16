@@ -64,27 +64,19 @@ float fbm3(vec2 p) {
 //   2. a finer-scale potential is added on top so eddies live at two
 //      distinct scales — big slow whorls with small fast ones inside.
 float phi(vec2 p, float t, float turbScale) {
-    // Fractal cascade: sum of three octaves, each domain-warped by a
-    // shared 2-octave warp field. Frequency × 2.7 per level with 0.55
-    // amplitude falloff (Kolmogorov-ish). Time flows at different rates
-    // per octave so scales desynchronise — always mixing at every scale.
-    vec2 w1 = vec2(fbm3(p * 0.65 + vec2(0.0, t * 0.11)),
-                   fbm3(p * 0.65 + vec2(5.2, 1.3) - t * 0.085));
-    vec2 w2 = vec2(fbm3(p * 1.45 + 1.25 * w1 + vec2(1.7, 9.2)),
-                   fbm3(p * 1.45 + 1.25 * w1 + vec2(8.3, 2.8) + t * 0.14));
-    vec2 warp = 1.40 * w1 + 0.90 * w2;
-    float sum  = 0.0;
-    float freq = turbScale;
-    float amp  = 1.00;
-    float tOct = 0.24;
-    for (int i = 0; i < 3; i++) {
-        sum  += amp * fbm3(p * freq + warp + vec2(0.0, t * tOct));
-        freq *= 2.70;
-        amp  *= 0.55;
-        tOct -= 0.04;                   // deeper octaves drift slower
-        warp *= 0.55;                   // but are warped less
-    }
-    return sum;
+    // Calm coarse base — a single warped fbm carrying the big-shape flow.
+    // This is close to what the background was before the fractal cascade,
+    // but with faster time so the base keeps moving.
+    vec2 w = vec2(fbm3(p * 0.60 + vec2(0.0, t * 0.22)),
+                  fbm3(p * 0.60 + vec2(5.2, 1.3) - t * 0.17));
+    float coarse = fbm3(p * turbScale + 1.30 * w + vec2(0.0, t * 0.38));
+
+    // Fine-scale kaleidoscope — two fast small-scale layers. Self-similar
+    // eddies live inside the calm base. Fast time coefficients so these
+    // are always churning visibly.
+    float fine  = fbm3(p * turbScale * 3.60 + 0.70 * w + t * 0.55) * 0.45;
+          fine += fbm3(p * turbScale * 7.80 - 0.40 * w - t * 0.80) * 0.22;
+    return coarse + fine;
 }
 
 vec2 curlVel(vec2 p, float t, float turbScale) {
