@@ -2,7 +2,7 @@ title: Glass Figure
 slug: glass-figure
 created: 2026-04-16T20:03:39.591Z
 duration: 420
-render_scale: 0.7
+render_scale: 0.9
 uniforms: []
 notes: |
   A response to Philip Glass's "Metamorphosis Two" (Solo Piano, 1988) — seven
@@ -37,9 +37,20 @@ notes: |
   amplitude pattern repeating at Glass's tempo) so the piece pulses at
   the piano's rate even without the piano playing.
 
-  Mouse: u_mouse shifts the wave-sum origin — dragging the cursor slides
-  the quasiperiodic pattern around. Off-screen when idle so the piece
-  plays itself.
+  Mouse (two-axis instrument, off-screen idle = piece plays itself):
+    - horizontal → pans the pattern
+    - vertical   → exponential zoom (up = zoom in, down = zoom out)
+    - cursor proximity injects a rotating turbulence that swirls the
+      interference locally — the cursor stirs the field wherever it
+      touches, falling off over ~0.6 world units.
+
+  Chaos layer: an fbm-driven domain warp (from lib/noise.glsl) bends the
+  straight-line wavefronts into curled, liquid shapes. Kept modest so
+  the fivefold character still reads, but the piece no longer feels
+  crystalline-static; the warp itself visibly churns frame-to-frame.
+  Drift speeds across every axis (uniform drift, per-voice phase, phase
+  wander, wavenumber drift) are ~3× what v1 shipped with, so the piece
+  reads as alive at a glance rather than meditatively slow.
 
   Palette: per-piece warm ramp (near-black → burgundy → ember → amber
   → warm cream). Luminance only; Reinhard tone-map keeps peaks warm.
@@ -49,4 +60,4 @@ notes: |
   (reinhard). No sdf, no diffusion, no billiards — the math is in the
   interference sum itself.
 published_at: null
-rendered_at: '2026-04-16T20:10:37.739Z'
+rendered_at: '2026-04-16T20:22:54.659Z'
