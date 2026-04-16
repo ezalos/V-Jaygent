@@ -83,6 +83,7 @@ let userOverride = false;
 // Lifted to module-scope so top-level await → attachAudio() can safely
 // reference it during boot without hitting TDZ.
 let autoplayArmed = false;
+let autoplayKickFn = null;
 
 // Billiard-ball sim: 4 elastic disks passed to shaders via
 // `uniform vec2 u_ball_pos[4]` and `uniform float u_ball_hit[4]`. Physics +
@@ -97,6 +98,14 @@ let audioSource    = null;
 let audioAnalyser  = null;
 let audioFreqData  = null;
 let audioBands     = { level: 0, bass: 0, mid: 0, high: 0 };
+// Per-band transient state — short-running "now" envelope vs. slow-running
+// baseline. When now >> baseline, fire a kick/snare/cymbal pulse that decays
+// quickly. Gives pieces sharp, beat-locked events instead of smoothed RMS.
+let audioOnsets = {
+  bass:   { short: 0, long: 0, pulse: 0 },
+  mid:    { short: 0, long: 0, pulse: 0 },
+  high:   { short: 0, long: 0, pulse: 0 },
+};
 let audioPlaying   = false;
 let audioKey       = null;   // `${slug}:${filename}` to detect piece changes
 
@@ -594,6 +603,12 @@ function setStandardUniforms(vw, vh, now) {
   setUniform1f('u_audio_bass',    audioBands.bass);
   setUniform1f('u_audio_mid',     audioBands.mid);
   setUniform1f('u_audio_high',    audioBands.high);
+  setUniform1f('u_audio_kick',    audioOnsets.bass.pulse);
+  setUniform1f('u_audio_snare',   audioOnsets.mid.pulse);
+  setUniform1f('u_audio_cymbal',  audioOnsets.high.pulse);
+  setUniform1f('u_audio_flash',   Math.max(audioOnsets.bass.pulse,
+                                           audioOnsets.mid.pulse,
+                                           audioOnsets.high.pulse));
   setUniform1f('u_audio_playing', audioPlaying ? 1.0 : 0.0);
   setUniform1f('u_audio_time',    audioEl ? audioEl.currentTime : 0.0);
   setUniform2fv('u_ball_pos',     billiards.posArray);
@@ -773,7 +788,13 @@ function attachAudio(slug, meta) {
   audioEl.loop        = !!meta.audio_loop;
   audioEl.preload     = 'auto';
   audioEl.src = `/api/pieces/${encodeURIComponent(slug)}/file/${encodeURIComponent(filename)}`;
-  audioEl.addEventListener('play',   () => { audioPlaying = true;  updateAudioUi(); });
+  audioEl.addEventListener('play',   () => {
+    audioPlaying = true;
+    updateAudioUi();
+    // First successful play — remove the gesture-listener so pressing space
+    // to pause later doesn't immediately re-start the audio.
+    disarmAutoplay();
+  });
   audioEl.addEventListener('pause',  () => { audioPlaying = false; updateAudioUi(); });
   audioEl.addEventListener('ended',  () => { audioPlaying = false; updateAudioUi(); });
   audioKey = key;
@@ -794,17 +815,25 @@ async function tryAutoplay() {
   try { await audioEl.play(); } catch {}
 }
 
-// Install a global first-gesture listener that attempts to start audio. Once
-// audio is actually playing, subsequent triggers become no-ops (audioEl.paused
-// is false), so this is safe to leave armed for the session.
+// Install a global first-gesture listener that attempts to start audio.
+// MUST disarm after the first successful play event — otherwise the listener
+// fires on every keydown and clobbers intentional pauses (spacebar would
+// pause then immediately re-start).
 function armFirstGestureAutoplay() {
   if (autoplayArmed) return;
   autoplayArmed = true;
-  const kick = () => { tryAutoplay(); };
-  // Gestures that browsers treat as "user activation" for the autoplay policy.
-  window.addEventListener('pointerdown', kick);
-  window.addEventListener('keydown',     kick);
-  window.addEventListener('touchstart',  kick, { passive: true });
+  autoplayKickFn = () => { tryAutoplay(); };
+  window.addEventListener('pointerdown', autoplayKickFn);
+  window.addEventListener('keydown',     autoplayKickFn);
+  window.addEventListener('touchstart',  autoplayKickFn, { passive: true });
+}
+
+function disarmAutoplay() {
+  if (!autoplayKickFn) return;
+  window.removeEventListener('pointerdown', autoplayKickFn);
+  window.removeEventListener('keydown',     autoplayKickFn);
+  window.removeEventListener('touchstart',  autoplayKickFn);
+  autoplayKickFn = null;
 }
 
 function detachAudio() {
@@ -820,6 +849,11 @@ function detachAudio() {
   audioKey     = null;
   audioPlaying = false;
   audioBands   = { level: 0, bass: 0, mid: 0, high: 0 };
+  audioOnsets  = {
+    bass:  { short: 0, long: 0, pulse: 0 },
+    mid:   { short: 0, long: 0, pulse: 0 },
+    high:  { short: 0, long: 0, pulse: 0 },
+  };
   audioUiEl?.classList.add('hidden');
   updateAudioUi();
 }
@@ -872,6 +906,35 @@ function sampleAudio() {
   audioBands.mid   = meanRange(audioFreqData, midLo,  midHi)  / 255;
   audioBands.high  = meanRange(audioFreqData, highLo, highHi) / 255;
   audioBands.level = meanRange(audioFreqData, 0,      bins)   / 255;
+
+  // Delta-based transient detection. Spectral-flux style: compare the fast
+  // "short" envelope (last ~50ms peak) against a slow "long" baseline
+  // (~1-2s moving average) and fire when short leads long by a fixed delta.
+  // Earlier multiplicative threshold would lock out on tracks with sustained
+  // energy once long caught up — on a bass-heavy track, detection just died
+  // after a minute. Delta-based is adaptive and self-normalising.
+  //   args: minLevel  — band must have at least this much energy to fire
+  //         delta     — short must lead long by this amount
+  //         pulseDecay — per-frame decay factor when not firing
+  updateOnset(audioOnsets.bass,   audioBands.bass,   0.18, 0.10, 0.80);
+  updateOnset(audioOnsets.mid,    audioBands.mid,    0.14, 0.08, 0.83);
+  updateOnset(audioOnsets.high,   audioBands.high,   0.12, 0.06, 0.85);
+}
+
+function updateOnset(state, level, minLevel, delta, pulseDecay) {
+  // Fast envelope: follows peaks, falls slowly so sustained energy reads.
+  state.short = Math.max(state.short * 0.70, level);
+  // Slow baseline: tracks average loudness. Capped so a permanently-loud
+  // section doesn't hide all subsequent transients.
+  state.long  = Math.min(state.long * 0.990 + level * 0.010, 0.45);
+  // Fire when short peak is enough above the baseline AND band has real
+  // energy. Delta is absolute, so it stays valid whether the section is
+  // quiet (long ≈ 0.05) or loud (long ≈ 0.30).
+  if (state.short > minLevel && state.short - state.long > delta) {
+    state.pulse = 1.0;
+  } else {
+    state.pulse *= pulseDecay;
+  }
 }
 
 function meanRange(arr, lo, hi) {
