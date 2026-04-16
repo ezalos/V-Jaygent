@@ -57,14 +57,22 @@ float fbm3(vec2 p) {
 
 // ---------- curl-noise velocity ----------
 
-// Scalar potential that evolves slowly through time. The whole fog curls
-// around this latent topography.
+// Scalar potential that evolves through time. The whole fog curls around
+// this latent topography. Two moves for chaotic flux:
+//   1. the lookup itself is domain-warped by another fbm so the potential
+//      is a warped surface, not a stationary one;
+//   2. a finer-scale potential is added on top so eddies live at two
+//      distinct scales — big slow whorls with small fast ones inside.
 float phi(vec2 p, float t, float turbScale) {
-    return fbm3(p * turbScale + vec2(0.0, t * 0.11));
+    vec2 w = vec2(fbm3(p * 0.70 + vec2(0.0, t * 0.06)),
+                  fbm3(p * 0.70 + vec2(5.2, 1.3) - t * 0.045));
+    float coarse = fbm3(p * turbScale        + 1.45 * w + vec2(0.0, t * 0.11));
+    float fine   = fbm3(p * turbScale * 3.20 + 0.60 * w - t * 0.085) * 0.35;
+    return coarse + fine;
 }
 
 vec2 curlVel(vec2 p, float t, float turbScale) {
-    const float e = 0.020;
+    const float e = 0.018;
     float a = phi(p + vec2(e, 0.0), t, turbScale);
     float b = phi(p - vec2(e, 0.0), t, turbScale);
     float c = phi(p + vec2(0.0, e), t, turbScale);
@@ -152,33 +160,41 @@ void main() {
         fade *= 0.72;
     }
 
-    // Vortex glints: where the curl is intensely rotational, let highs
-    // paint tiny bright specks. Hash-gated so it's sparse, not soupy.
-    float glintGate = step(1.8, vortexGlint)
-                    * step(0.55, high)
-                    * step(0.90, hash(floor(p * 80.0) + floor(t * 5.0)));
-    col += vec3(1.00, 0.85, 0.55) * glintGate * (0.6 + 1.4 * high);
+    // Vortex glints: slow-bucketed and soft-enveloped so they fade in/out
+    // instead of blinking on and off frame by frame. Bucket = 180 ms.
+    float gbucket = floor(t * 5.5);
+    float gfrac   = fract(t * 5.5);
+    float genv    = 4.0 * gfrac * (1.0 - gfrac);              // smooth bump
+    float glintGate = smoothstep(1.6, 2.3, vortexGlint)
+                    * smoothstep(0.55, 0.85, high)
+                    * step(0.90, hash(floor(p * 40.0) + vec2(gbucket)));
+    col += vec3(0.95, 0.80, 0.52) * glintGate * genv * 0.55;
 
-    // Global exposure — silence reads as deep smoke, peaks as warm plume.
-    float exposure = 0.75 + 0.95 * level + 0.55 * bass;
+    // Global exposure — keep peaks in range. Less boost on bass so kicks
+    // add motion rather than brightness.
+    float exposure = 0.55 + 0.65 * level + 0.25 * bass;
     col *= exposure;
 
-    // Slight chromatic warm-shift on kicks (not full CA; cheaper and less
-    // glitchy than channel offset).
-    col.r *= 1.0 + 0.12 * bass;
-    col.b *= 1.0 - 0.05 * bass;
+    // Very subtle warm-channel nudge on kicks. Earlier version was heavy
+    // enough to read as chromatic oversaturation; 0.04 is almost invisible
+    // but still ties colour to pulse.
+    col.r *= 1.0 + 0.04 * bass;
 
     // Dark vignette — the plume lives inside a smoky room, not open sky.
     float r = length(p);
     col *= 1.0 - 0.45 * smoothstep(0.85, 1.35, r);
     col *= 1.0 - 0.10 * dot(p, p);
 
+    // Reinhard tone-map so peaks compress instead of clipping. Kills the
+    // "everything is white on the kick" failure mode.
+    col = col / (1.0 + col);
+
     // Final-second fade + warm flash.
     float endFade  = 1.0 - smoothstep(DURATION - 1.2, DURATION, t);
     col *= endFade;
     float endFlash = smoothstep(DURATION - 1.4, DURATION - 1.1, t)
                    * (1.0 - smoothstep(DURATION - 1.1, DURATION - 0.7, t));
-    col += vec3(1.0, 0.72, 0.38) * endFlash * 1.2;
+    col += vec3(1.0, 0.72, 0.38) * endFlash * 0.8;
 
-    fragColor = vec4(pow(max(col, 0.0), vec3(0.92)), 1.0);
+    fragColor = vec4(pow(max(col, 0.0), vec3(0.95)), 1.0);
 }
