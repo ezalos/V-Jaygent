@@ -10,6 +10,7 @@ uniform vec2  u_mouse;
 #include "math.glsl"
 #include "noise.glsl"
 #include "tonemap.glsl"
+#include "interaction.glsl"
 
 out vec4 fragColor;
 
@@ -61,21 +62,24 @@ void main() {
 
     float t = u_time;
 
-    // ---------- mouse as two-axis instrument ----------
-    // horizontal → pan; vertical → exponential zoom (up = zoom in).
-    // Off-screen idle: no interaction, piece plays itself.
-    bool mouseIdle = (u_mouse.x == 0.0 && u_mouse.y == 0.0);
-    vec2 mRaw = (u_mouse - 0.5 * u_resolution.xy)
-              / min(u_resolution.x, u_resolution.y) * 2.0;
-    if (mouseIdle) mRaw = vec2(0.0);
+    // ---------- mouse as two-axis instrument + radial zoom ----------
+    // Per brainstorming/techniques/interactivity.md: mouse-Y → zoom fights
+    // viewer priors and sacrifices a pan axis. Radial zoom preserves both
+    // pan axes, has a natural centred resting state, and is readable
+    // within 3 seconds (Rozendaal bar).
+    //
+    // XY → pan (both axes restored)
+    // radial distance from centre → zoom (centre = neutral, edges = zoomed in)
+    // Plus a very slow autonomous zoom breath so the idle piece self-plays.
+    bool mouseIdle = vjMouseIdle(u_mouse);
+    vec2 mRaw      = vjMouseWorldOrZero(u_mouse, u_resolution);
 
-    // Zoom factor: exp(mRaw.y * 0.7) gives zoom ∈ [~0.5, ~2.0] across the frame.
-    // Divide p by zoom so a larger factor reveals more detail (zooms in).
-    float zoom = exp(mRaw.y * 0.7);
-    vec2  p    = pBase / zoom;
+    float autoBreath = 0.12 * sin(t * 0.067);            // ~94 s period, ±12%
+    float cursorZoom = vjRadialZoom(mRaw, 0.55);         // 1.0 centre → ~1.55 edge
+    float zoom       = cursorZoom * (1.0 + autoBreath);
 
-    // Horizontal pan — vertical is already claimed by zoom.
-    p -= vec2(0.55 * mRaw.x, 0.0);
+    vec2 p = pBase / zoom;
+    p -= 0.45 * mRaw;                                    // full XY pan
 
     // ---------- uniform drift (sped up ~3× from v1) ----------
     // The quasicrystal pattern is already quasiperiodic, but without this
@@ -93,18 +97,16 @@ void main() {
                      fbm(p * 0.9 + vec2(4.7, -t * 0.18 + 2.1)) - 0.5);
     p += 0.28 * warp;
 
-    // ---------- cursor as turbulence source ----------
-    // Near the cursor, add a rotating displacement that swirls the field.
-    // Falls off quickly (gaussian, half-width ~0.6 world units) so it acts
-    // as a local instrument, not a global mood change. When the mouse is
-    // idle we push it to infinity so the shipped clip shows the pure
-    // quasicrystal without an always-centred swirl artifact.
-    vec2 mWorld = mouseIdle ? vec2(1e4) : vec2(0.55 * mRaw.x, mRaw.y);
-    vec2 rm     = pBase - mWorld;
-    float d2    = dot(rm, rm);
-    float heat  = exp(-2.6 * d2);
-    float swirl = t * 1.8 + length(rm) * 7.0;
-    p += heat * 0.38 * vec2(cos(swirl), sin(swirl));
+    // ---------- cursor as local turbulence source ----------
+    // Gaussian heat (lib/interaction.glsl) falls off so the cursor is a
+    // local instrument, not a global mood. Amplitude is 0.24 — under the
+    // 0.30 dominance-probe ceiling — so the swirl supports the field
+    // rather than eating it. When idle, vjMouseWorld returns vec2(1e4)
+    // which makes heat ≈ 0 — the shipped clip shows the pure quasicrystal.
+    vec2  mWorldSwirl = vjMouseWorld(u_mouse, u_resolution);
+    float heat        = vjCursorHeat(pBase, mWorldSwirl, 0.62);
+    float swirlPhase  = t * 1.8 + length(pBase - mWorldSwirl) * 7.0;
+    p += heat * 0.24 * vec2(cos(swirlPhase), sin(swirlPhase));
 
     // ---------- five voice envelopes ----------
     // Each voice has its own slow amplitude drift (incommensurate periods).

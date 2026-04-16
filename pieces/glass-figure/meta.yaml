@@ -38,11 +38,18 @@ notes: |
   the piano's rate even without the piano playing.
 
   Mouse (two-axis instrument, off-screen idle = piece plays itself):
-    - horizontal → pans the pattern
-    - vertical   → exponential zoom (up = zoom in, down = zoom out)
+    - XY position → pans the pattern in both axes
+    - radial distance from centre → zoom (centre = neutral, edges
+      ≈ 1.55×). Preserves both pan axes; natural centred resting
+      state; doesn't fight viewer priors the way mouse-Y → zoom
+      does. See brainstorming/techniques/interactivity.md.
     - cursor proximity injects a rotating turbulence that swirls the
-      interference locally — the cursor stirs the field wherever it
-      touches, falling off over ~0.6 world units.
+      interference locally (gaussian, σ ≈ 0.6 world units; amplitude
+      0.24 — under the 0.30 dominance-probe ceiling from taste.md's
+      Interaction agency lens, so the cursor supports the field
+      rather than dominating it).
+    - under the cursor-zoom: a slow autonomous zoom breathing
+      (~94 s period, ±12%) so the piece explores scales when idle.
 
   Chaos layer: an fbm-driven domain warp (from lib/noise.glsl) bends the
   straight-line wavefronts into curled, liquid shapes. Kept modest so
@@ -56,8 +63,10 @@ notes: |
   → warm cream). Luminance only; Reinhard tone-map keeps peaks warm.
   No hue excursion. The arrival flash is warm amber, not white.
 
-  Lib: math.glsl (TAU), noise.glsl (hash21 for dither), tonemap.glsl
-  (reinhard). No sdf, no diffusion, no billiards — the math is in the
-  interference sum itself.
+  Lib: math.glsl (TAU), noise.glsl (hash21 for dither, fbm for the
+  domain warp), tonemap.glsl (reinhard), interaction.glsl
+  (vjMouseIdle, vjMouseWorld, vjMouseWorldOrZero, vjRadialZoom,
+  vjCursorHeat). No sdf, no diffusion, no billiards — the math is
+  in the interference sum itself.
 published_at: null
-rendered_at: '2026-04-16T20:22:54.659Z'
+rendered_at: '2026-04-16T20:57:14.275Z'
