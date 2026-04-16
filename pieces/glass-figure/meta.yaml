@@ -1,0 +1,52 @@
+title: Glass Figure
+slug: glass-figure
+created: 2026-04-16T20:03:39.591Z
+duration: 420
+render_scale: 0.7
+uniforms: []
+notes: |
+  A response to Philip Glass's "Metamorphosis Two" (Solo Piano, 1988) — seven
+  minutes of a five-chord descending arpeggio, looped with imperceptible
+  harmonic drift, ending on a resolved chord. The piece is about slow,
+  inevitable drift inside an apparent repeat.
+
+  Form: fivefold quasicrystalline interference. Five plane waves at 72°
+  angles — the directions of a regular pentagon — summed at every pixel.
+  Each wave has its own slow amplitude envelope (incommensurate periods:
+  41s / 59s / 73s / 89s / 107s) and its own per-wave phase and wavenumber
+  drift. The sum is a 2D quasiperiodic diffraction pattern — the
+  mathematical signature of Penrose tilings and icosahedral quasicrystals.
+  Fivefold symmetry forbids a true periodic lattice; the pattern is dense
+  with non-repeating structure at every scale.
+
+  A second five-wave bank at higher wavenumber (k=28 vs k=12) rides on
+  top, producing detail-within-detail. The fractal feel without fbm —
+  it comes from the interference itself.
+
+  Arc (gated by u_time, 420s total):
+    - 0-60s    five voices balanced, full interference field
+    - 60-280s  voice amplitudes drift at their incommensurate periods
+    - 280-410s arc kicks in: voice 0 grows, voices 1-4 decay exponentially
+    - 410-418s one voice dominates — field becomes a near-standing wave
+               from a single direction, visual analogue of Glass's
+               arrival on a resolved chord
+    - 418-420s warm flash, fade to black
+
+  No audio binding — theme-only, gated entirely by u_time. A subtle
+  72 BPM "chord breath" lives in the exposure multiplier (five-beat
+  amplitude pattern repeating at Glass's tempo) so the piece pulses at
+  the piano's rate even without the piano playing.
+
+  Mouse: u_mouse shifts the wave-sum origin — dragging the cursor slides
+  the quasiperiodic pattern around. Off-screen when idle so the piece
+  plays itself.
+
+  Palette: per-piece warm ramp (near-black → burgundy → ember → amber
+  → warm cream). Luminance only; Reinhard tone-map keeps peaks warm.
+  No hue excursion. The arrival flash is warm amber, not white.
+
+  Lib: math.glsl (TAU), noise.glsl (hash21 for dither), tonemap.glsl
+  (reinhard). No sdf, no diffusion, no billiards — the math is in the
+  interference sum itself.
+published_at: null
+rendered_at: '2026-04-16T20:10:37.739Z'
