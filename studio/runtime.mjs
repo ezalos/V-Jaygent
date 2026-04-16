@@ -61,7 +61,13 @@ let userOverride = false;
 // via `uniform vec2 u_ball_pos[4]` and `uniform float u_ball_hit[4]`. Stateful
 // — the shader is still stateless per-pixel, but the positions are integrated
 // on the CPU and pushed up each frame.
-const BALL_RADIUS = 0.26;
+//
+// Collision radius is tuned to the disk's *visible* extent, not its outer
+// mask edge: the shader draws a soft rim that fades from opaque at
+// `dq = 0.20` to transparent at `dq = 0.26`, so the eye reads the edge near
+// the 50% point ~0.23. Physics uses 0.23 so balls bounce exactly when their
+// visible edges meet.
+const BALL_RADIUS = 0.23;
 const balls = [
   { pos: [-0.85, -0.42], vel: [ 0.43,  0.31], lastHit: -10 },
   { pos: [ 0.60,  0.55], vel: [-0.38,  0.27], lastHit: -10 },
@@ -253,8 +259,10 @@ function stepBalls(nowSec) {
   const dt = Math.min(Math.max(dtRaw, 0), 0.05);
 
   const aspect = (canvas.clientWidth  || 1) / Math.max(canvas.clientHeight, 1);
-  const boundsX = aspect * 0.92 - BALL_RADIUS;
-  const boundsY = 1.0    * 0.92 - BALL_RADIUS;
+  // 0.96 of the half-frame leaves just enough margin that the soft outer
+  // rim doesn't clip the canvas edge on wall bounces.
+  const boundsX = aspect * 0.96 - BALL_RADIUS;
+  const boundsY = 1.0    * 0.96 - BALL_RADIUS;
 
   // 1. integrate + wall collisions
   for (const b of balls) {

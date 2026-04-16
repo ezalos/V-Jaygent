@@ -271,7 +271,7 @@ void main() {
     float phaseB[4];    phaseB[0]=0.40;   phaseB[1]=1.11;   phaseB[2]=0.28;   phaseB[3]=1.89;
 
     float aspect = u_resolution.x / max(u_resolution.y, 1.0);
-    vec2  bounds = vec2(aspect, 1.0) * 0.92;
+    vec2  bounds = vec2(aspect, 1.0) * 0.96;
 
     float wallEnergy = 0.0;
     for (int i = 0; i < 4; i++) {
