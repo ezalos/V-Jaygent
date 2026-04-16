@@ -3,4 +3,6 @@ node_modules/
 .claude/
 pieces/*/clip.webm
 pieces/index.json
+studio/.stats.json
+studio/.stats.json.tmp
 .DS_Store

@@ -60,6 +60,25 @@ to the top, so `// ABOUTME:` comments above it are fine.
 - `r`     — reset `u_time` to zero
 - `h`     — toggle HUD overlays
 
+## Visitor stats
+
+The studio counts page views (`/` and `/<slug>`) into a JSON file. Bots
+and link-preview fetchers are filtered by user-agent; uniques are
+counted per day via SHA-256 of `daily-salt | ip | ua` (no raw IPs
+persist). Read the IP from `CF-Connecting-IP` / `X-Real-IP` /
+`X-Forwarded-For` so it works behind Cloudflare and nginx.
+
+```bash
+# protect /api/stats with a token (recommended in prod)
+STATS_TOKEN=some-long-secret npm run studio
+
+# read the stats
+curl 'https://vjaygent.develle.fr/api/stats?token=some-long-secret'
+```
+
+Override the storage path with `STATS_FILE=/var/lib/vjaygent/stats.json`.
+Default is `studio/.stats.json` (gitignored).
+
 ## Tests
 
 ```bash

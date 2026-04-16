@@ -6,6 +6,7 @@ import { readFile, stat, readdir } from 'node:fs/promises';
 import { join, extname, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import yaml from 'js-yaml';
+import { createStats } from './stats.mjs';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 const STUDIO_DIR = fileURLToPath(new URL('.', import.meta.url));
@@ -33,13 +34,13 @@ const FILE_MIME = {
 
 const FILENAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
-export function createStudioServer({ piecesDir, studioDir = STUDIO_DIR } = {}) {
+export function createStudioServer({ piecesDir, studioDir = STUDIO_DIR, stats = null, statsToken = null } = {}) {
   if (!piecesDir) throw new Error('piecesDir is required');
   const piecesRoot = resolvePath(piecesDir);
 
   return createServer(async (req, res) => {
     try {
-      await handle(req, res, { piecesRoot, studioDir });
+      await handle(req, res, { piecesRoot, studioDir, stats, statsToken });
     } catch (err) {
       console.error('[studio]', err);
       send(res, 500, 'text/plain', 'internal error');
@@ -47,13 +48,16 @@ export function createStudioServer({ piecesDir, studioDir = STUDIO_DIR } = {}) {
   });
 }
 
-async function handle(req, res, { piecesRoot, studioDir }) {
+async function handle(req, res, { piecesRoot, studioDir, stats, statsToken }) {
   if (req.method !== 'GET') return send(res, 405, 'text/plain', 'method not allowed');
 
   const url = new URL(req.url, 'http://localhost');
   const path = url.pathname;
 
-  if (path === '/')                  return serveStatic(res, studioDir, 'index.html');
+  if (path === '/') {
+    if (stats) stats.record(req, null);
+    return serveStatic(res, studioDir, 'index.html');
+  }
   if (path === '/runtime.mjs')       return serveStatic(res, studioDir, 'runtime.mjs');
   if (path === '/styles.css')        return serveStatic(res, studioDir, 'styles.css');
 
@@ -63,9 +67,13 @@ async function handle(req, res, { piecesRoot, studioDir }) {
   if (slugOnly) {
     const candidate = slugOnly[1];
     const st = await stat(join(piecesRoot, candidate)).catch(() => null);
-    if (st && st.isDirectory()) return serveStatic(res, studioDir, 'index.html');
+    if (st && st.isDirectory()) {
+      if (stats) stats.record(req, candidate);
+      return serveStatic(res, studioDir, 'index.html');
+    }
   }
 
+  if (path === '/api/stats')         return apiStats(req, res, url, stats, statsToken);
   if (path === '/api/catalog')       return apiCatalog(res, piecesRoot);
   if (path === '/api/current')       return apiCurrent(res, piecesRoot);
 
@@ -110,6 +118,16 @@ async function apiCatalog(res, piecesRoot) {
   }
   pieces.sort((a, b) => String(b.created ?? '').localeCompare(String(a.created ?? '')));
   sendJson(res, 200, pieces);
+}
+
+function apiStats(req, res, url, stats, requiredToken) {
+  if (!stats) return send(res, 404, 'text/plain', 'not found');
+  if (requiredToken) {
+    const provided = url.searchParams.get('token')
+      ?? (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
+    if (provided !== requiredToken) return send(res, 401, 'text/plain', 'unauthorized');
+  }
+  return sendJson(res, 200, stats.summary());
 }
 
 async function apiCurrent(res, piecesRoot) {
@@ -244,8 +262,24 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const host = process.env.STUDIO_HOST ?? '127.0.0.1';
   const piecesDir = process.env.PIECES_DIR
     ?? fileURLToPath(new URL('../pieces', import.meta.url));
-  const server = createStudioServer({ piecesDir });
+  const statsFile = process.env.STATS_FILE
+    ?? fileURLToPath(new URL('./.stats.json', import.meta.url));
+  const statsToken = process.env.STATS_TOKEN ?? null;
+
+  const stats = createStats({ file: statsFile });
+  await stats.load();
+
+  const server = createStudioServer({ piecesDir, stats, statsToken });
   server.listen(port, host, () => {
+    const guard = statsToken ? 'token-guarded' : 'OPEN — set STATS_TOKEN to require a token';
     console.log(`[studio] listening on http://${host}:${port}  pieces=${piecesDir}`);
+    console.log(`[studio] stats file=${statsFile}  /api/stats ${guard}`);
   });
+
+  const shutdown = async () => {
+    try { await stats.flush(); } catch {}
+    process.exit(0);
+  };
+  process.on('SIGINT',  shutdown);
+  process.on('SIGTERM', shutdown);
 }
