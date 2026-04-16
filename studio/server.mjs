@@ -9,7 +9,9 @@ import yaml from 'js-yaml';
 import { createStats } from './stats.mjs';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
+const LIB_FILE_RE = /^[a-zA-Z0-9_-]+\.glsl$/;
 const STUDIO_DIR = fileURLToPath(new URL('.', import.meta.url));
+const LIB_DIR    = fileURLToPath(new URL('../lib/', import.meta.url));
 
 const STATIC_MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -34,13 +36,14 @@ const FILE_MIME = {
 
 const FILENAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
-export function createStudioServer({ piecesDir, studioDir = STUDIO_DIR, stats = null, statsToken = null } = {}) {
+export function createStudioServer({ piecesDir, studioDir = STUDIO_DIR, libDir = LIB_DIR, stats = null, statsToken = null } = {}) {
   if (!piecesDir) throw new Error('piecesDir is required');
   const piecesRoot = resolvePath(piecesDir);
+  const libRoot    = resolvePath(libDir);
 
   return createServer(async (req, res) => {
     try {
-      await handle(req, res, { piecesRoot, studioDir, stats, statsToken });
+      await handle(req, res, { piecesRoot, libRoot, studioDir, stats, statsToken });
     } catch (err) {
       console.error('[studio]', err);
       send(res, 500, 'text/plain', 'internal error');
@@ -48,7 +51,7 @@ export function createStudioServer({ piecesDir, studioDir = STUDIO_DIR, stats = 
   });
 }
 
-async function handle(req, res, { piecesRoot, studioDir, stats, statsToken }) {
+async function handle(req, res, { piecesRoot, libRoot, studioDir, stats, statsToken }) {
   if (req.method !== 'GET') return send(res, 405, 'text/plain', 'method not allowed');
 
   const url = new URL(req.url, 'http://localhost');
@@ -60,6 +63,9 @@ async function handle(req, res, { piecesRoot, studioDir, stats, statsToken }) {
   }
   if (path === '/runtime.mjs')       return serveStatic(res, studioDir, 'runtime.mjs');
   if (path === '/styles.css')        return serveStatic(res, studioDir, 'styles.css');
+  // Runtime-side modules imported by runtime.mjs. Allow-listed so the server
+  // only serves expected files (no directory enumeration via `/<foo>.mjs`).
+  if (path === '/billiards.mjs')     return serveStatic(res, studioDir, 'billiards.mjs');
 
   // `/<slug>` → serve the studio page if <slug> is a valid piece directory.
   // Runtime reads location.pathname to pin the displayed piece.
@@ -82,7 +88,29 @@ async function handle(req, res, { piecesRoot, studioDir, stats, statsToken }) {
     const slug = decodeURIComponent(pieceMatch[1]);
     const part = pieceMatch[2];
     if (!SLUG_RE.test(slug)) return send(res, 404, 'text/plain', 'not found');
-    return apiPiecePart(res, piecesRoot, slug, part);
+    return apiPiecePart(res, piecesRoot, libRoot, slug, part);
+  }
+
+  // A pass shader lives next to shader.frag in the piece directory, named via
+  // meta.yaml's passes[].shader field. Serve it through a dedicated endpoint
+  // so the client can reach it without guessing filenames up-front.
+  const passMatch = path.match(/^\/api\/pieces\/([^/]+)\/pass\/([A-Za-z0-9_.-]+)$/);
+  if (passMatch) {
+    const slug = decodeURIComponent(passMatch[1]);
+    const name = decodeURIComponent(passMatch[2]);
+    if (!SLUG_RE.test(slug) || !FILENAME_RE.test(name) || !name.endsWith('.frag')) {
+      return send(res, 404, 'text/plain', 'not found');
+    }
+    return apiPassShader(res, piecesRoot, slug, name);
+  }
+
+  // lib/*.glsl — shared GLSL modules, #include'd from piece shaders. Flat layout,
+  // strict filename regex so no traversal or exotic paths.
+  const libMatch = path.match(/^\/api\/lib\/([^/]+)$/);
+  if (libMatch) {
+    const name = decodeURIComponent(libMatch[1]);
+    if (!LIB_FILE_RE.test(name)) return send(res, 404, 'text/plain', 'not found');
+    return apiLibFile(res, libRoot, name);
   }
 
   const fileMatch = path.match(/^\/api\/pieces\/([^/]+)\/file\/([^/]+)$/);
@@ -138,7 +166,7 @@ async function apiCurrent(res, piecesRoot) {
   sendJson(res, 200, { slug, meta });
 }
 
-async function apiPiecePart(res, piecesRoot, slug, part) {
+async function apiPiecePart(res, piecesRoot, libRoot, slug, part) {
   const pieceDir = join(piecesRoot, slug);
   const st = await stat(pieceDir).catch(() => null);
   if (!st || !st.isDirectory()) return send(res, 404, 'text/plain', 'not found');
@@ -156,10 +184,28 @@ async function apiPiecePart(res, piecesRoot, slug, part) {
   }
 
   if (part === 'mtime') {
-    const mtime = await pieceMtime(pieceDir);
+    const mtime = await pieceMtime(pieceDir, libRoot);
     if (mtime === null) return send(res, 404, 'text/plain', 'not found');
     return sendJson(res, 200, { mtime });
   }
+}
+
+async function apiPassShader(res, piecesRoot, slug, name) {
+  const filePath = join(piecesRoot, slug, name);
+  const st = await stat(filePath).catch(() => null);
+  if (!st || !st.isFile()) return send(res, 404, 'text/plain', 'not found');
+  const body = await readFile(filePath).catch(() => null);
+  if (body === null) return send(res, 404, 'text/plain', 'not found');
+  send(res, 200, 'text/plain; charset=utf-8', body);
+}
+
+async function apiLibFile(res, libRoot, name) {
+  const filePath = join(libRoot, name);
+  const st = await stat(filePath).catch(() => null);
+  if (!st || !st.isFile()) return send(res, 404, 'text/plain', 'not found');
+  const body = await readFile(filePath).catch(() => null);
+  if (body === null) return send(res, 404, 'text/plain', 'not found');
+  send(res, 200, 'text/plain; charset=utf-8', body);
 }
 
 async function apiPieceFile(req, res, piecesRoot, slug, name) {
@@ -231,8 +277,25 @@ async function loadMeta(piecesRoot, slug) {
   }
 }
 
-async function pieceMtime(pieceDir) {
+async function pieceMtime(pieceDir, libRoot) {
   const candidates = ['shader.frag', 'meta.yaml'];
+
+  // If this piece declares passes, add each pass's shader file.
+  const metaRaw = await readFile(join(pieceDir, 'meta.yaml'), 'utf8').catch(() => null);
+  if (metaRaw) {
+    try {
+      const meta = yaml.load(metaRaw) ?? {};
+      if (Array.isArray(meta.passes)) {
+        for (const p of meta.passes) {
+          if (p && typeof p.shader === 'string' && FILENAME_RE.test(p.shader)
+              && p.shader.endsWith('.frag')) {
+            if (!candidates.includes(p.shader)) candidates.push(p.shader);
+          }
+        }
+      }
+    } catch {}
+  }
+
   let newest = 0;
   let found = false;
   for (const f of candidates) {
@@ -242,6 +305,19 @@ async function pieceMtime(pieceDir) {
       newest = Math.max(newest, st.mtimeMs);
     }
   }
+
+  // Library files are a coarse dependency for every piece — when any lib/*.glsl
+  // changes, the currently-viewed piece reloads. Strictly more reloads than
+  // necessary, but cheap and impossible to get wrong.
+  if (libRoot) {
+    const entries = await readdir(libRoot).catch(() => []);
+    for (const f of entries) {
+      if (!LIB_FILE_RE.test(f)) continue;
+      const st = await stat(join(libRoot, f)).catch(() => null);
+      if (st) newest = Math.max(newest, st.mtimeMs);
+    }
+  }
+
   return found ? newest : null;
 }
 

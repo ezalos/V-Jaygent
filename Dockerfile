@@ -14,6 +14,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json package-lock.json ./
 COPY studio ./studio
+COPY lib    ./lib
 
 # pieces/ and data/ are bind-mounted at runtime (compose.yaml).
 RUN mkdir -p /app/pieces /app/data && chown -R node:node /app

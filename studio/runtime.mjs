@@ -1,6 +1,8 @@
 // ABOUTME: Studio browser runtime — WebGL2 full-screen quad, fragment shader
 // ABOUTME: hot-reload via mtime polling, keyboard navigation, optional record mode.
 
+import { createBilliards } from './billiards.mjs';
+
 const VERT = `#version 300 es
 in vec2 a_pos;
 void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }`;
@@ -42,8 +44,30 @@ if (!gl) {
   throw new Error('no webgl2');
 }
 
+// Enable float-texture rendering so simulation passes can use rgba16f / rgba32f
+// targets. Without this extension, ping-pong state textures would be limited
+// to 8-bit precision which is insufficient for RD/fluid/gravity sims.
+const extColorFloat = gl.getExtension('EXT_color_buffer_float');
+
+// State referenced by functions called during the top-level boot
+// (`await loadCurrent(...)` below) must be initialised before it is reached,
+// otherwise module-level `let` / `const` lands in the temporal dead zone. Keep
+// these up here even though their definitions conceptually belong elsewhere.
+const INCLUDE_RE = /^[ \t]*#include[ \t]+"([^"]+)"[ \t]*$/gm;
+let libCache = new Map();
+
+// Off-screen target formats — resolved lazily per-allocation so `gl.RGBA8` etc.
+// aren't dereferenced before the WebGL2 context exists. Must exist before
+// buildPipeline runs on the first piece load.
+const FORMAT_MAP = {
+  rgba8:   () => ({ iFormat: gl.RGBA8,   format: gl.RGBA, type: gl.UNSIGNED_BYTE }),
+  rgba16f: () => ({ iFormat: gl.RGBA16F, format: gl.RGBA, type: gl.HALF_FLOAT }),
+  rgba32f: () => ({ iFormat: gl.RGBA32F, format: gl.RGBA, type: gl.FLOAT }),
+};
+
 let currentProgram = null;
 let currentUniforms = {};
+let currentPipeline = null;
 let currentSlug = null;
 let currentMeta = null;
 let currentMtime = 0;
@@ -57,25 +81,11 @@ let fpsSamples = [];
 let lastFrameT = performance.now();
 let userOverride = false;
 
-// Billiard-ball sim: 4 elastic disks in a box, passed to shaders that opt in
-// via `uniform vec2 u_ball_pos[4]` and `uniform float u_ball_hit[4]`. Stateful
-// — the shader is still stateless per-pixel, but the positions are integrated
-// on the CPU and pushed up each frame.
-//
-// Collision radius MUST equal the shader-side disk radius exactly. The
-// prism shader draws disks with a hard edge at r = 0.26 (narrow AA only,
-// no soft rim), so 0.26 is the visible extent, and physics bouncing at
-// the same value means balls hit precisely when their edges meet.
-const BALL_RADIUS = 0.26;
-const balls = [
-  { pos: [-0.85, -0.42], vel: [ 0.43,  0.31], lastHit: -10 },
-  { pos: [ 0.60,  0.55], vel: [-0.38,  0.27], lastHit: -10 },
-  { pos: [-0.30,  0.70], vel: [ 0.52, -0.40], lastHit: -10 },
-  { pos: [ 0.90, -0.60], vel: [-0.27, -0.47], lastHit: -10 },
-];
-const ballPosFlat = new Float32Array(balls.length * 2);
-const ballHitFlat = new Float32Array(balls.length);
-let ballLastStep = performance.now();
+// Billiard-ball sim: 4 elastic disks passed to shaders via
+// `uniform vec2 u_ball_pos[4]` and `uniform float u_ball_hit[4]`. Physics +
+// packing live in studio/billiards.mjs; shader primitives in lib/billiards.glsl.
+// Collision radius MUST equal the shader-side disk radius.
+const billiards = createBilliards({ radius: 0.26, boundsMargin: 0.96 });
 
 // Audio plumbing — created lazily on first user gesture.
 let audioEl        = null;
@@ -185,42 +195,37 @@ function render() {
 
   sampleAudio();
   updateAudioUi();
+  const ballAspect = (canvas.clientWidth || 1) / Math.max(canvas.clientHeight, 1);
+  billiards.step(now, ballAspect);
 
-  gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-  gl.clearColor(0, 0, 0, 1);
-  gl.clear(gl.COLOR_BUFFER_BIT);
-
-  if (currentProgram) {
-    gl.useProgram(currentProgram);
-    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-    const loc = gl.getAttribLocation(currentProgram, 'a_pos');
-    gl.enableVertexAttribArray(loc);
-    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-
-    setUniform2f('u_resolution', gl.drawingBufferWidth, gl.drawingBufferHeight);
-    setUniform1f('u_time', now);
-    // Scale mouse from CSS pixels into framebuffer pixels so it shares
-    // the coordinate system with gl_FragCoord / u_resolution.
-    const mx = gl.drawingBufferWidth  / Math.max(1, canvas.clientWidth);
-    const my = gl.drawingBufferHeight / Math.max(1, canvas.clientHeight);
-    setUniform2f('u_mouse', mouse[0] * mx, mouse[1] * my);
-    setUniform1i('u_frame', frameCount);
-
-    setUniform1f('u_audio_level',   audioBands.level);
-    setUniform1f('u_audio_bass',    audioBands.bass);
-    setUniform1f('u_audio_mid',     audioBands.mid);
-    setUniform1f('u_audio_high',    audioBands.high);
-    setUniform1f('u_audio_playing', audioPlaying ? 1.0 : 0.0);
-    setUniform1f('u_audio_time',    audioEl ? audioEl.currentTime : 0.0);
-
-    stepBalls(now);
-    setUniform2fv('u_ball_pos', ballPosFlat);
-    setUniform1fv('u_ball_hit', ballHitFlat);
-
-    for (const u of currentMeta?.uniforms ?? []) {
-      applyCustomUniform(u);
+  if (currentPipeline) {
+    // Multi-pass: each pass owns its own target; the last pass is typically
+    // target: screen. We only clear the screen once per frame (before the
+    // final on-screen pass renders). Off-screen FBOs are not cleared — sim
+    // passes blend state forward, so clearing would erase them.
+    let screenCleared = false;
+    for (const pass of currentPipeline.passes) {
+      if (pass.target.type === 'screen' && !screenCleared) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+        gl.clearColor(0, 0, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        screenCleared = true;
+      }
+      for (let i = 0; i < pass.iterations; i++) {
+        runPass(pass, currentPipeline, now);
+      }
     }
-
+  } else if (currentProgram) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    currentUniforms ??= {};
+    gl.useProgram(currentProgram);
+    bindQuadAttrib(currentProgram);
+    setStandardUniforms(gl.drawingBufferWidth, gl.drawingBufferHeight, now);
+    for (const u of currentMeta?.uniforms ?? []) applyCustomUniform(u);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
@@ -247,68 +252,6 @@ function setUniform1fv(name, arr) {
 function setUniform2fv(name, arr) {
   const loc = currentUniforms[name] ??= gl.getUniformLocation(currentProgram, name);
   if (loc !== null) gl.uniform2fv(loc, arr);
-}
-
-// Advance the billiard sim and pack the flat uniform arrays.
-function stepBalls(nowSec) {
-  const nowMs = performance.now();
-  const dtRaw = (nowMs - ballLastStep) / 1000;
-  ballLastStep = nowMs;
-  // Cap dt so a paused tab coming back to life doesn't teleport everything.
-  const dt = Math.min(Math.max(dtRaw, 0), 0.05);
-
-  const aspect = (canvas.clientWidth  || 1) / Math.max(canvas.clientHeight, 1);
-  // 0.96 of the half-frame leaves just enough margin that the soft outer
-  // rim doesn't clip the canvas edge on wall bounces.
-  const boundsX = aspect * 0.96 - BALL_RADIUS;
-  const boundsY = 1.0    * 0.96 - BALL_RADIUS;
-
-  // 1. integrate + wall collisions
-  for (const b of balls) {
-    b.pos[0] += b.vel[0] * dt;
-    b.pos[1] += b.vel[1] * dt;
-    if (b.pos[0] >  boundsX) { b.pos[0] =  boundsX; b.vel[0] = -Math.abs(b.vel[0]); b.lastHit = nowSec; }
-    if (b.pos[0] < -boundsX) { b.pos[0] = -boundsX; b.vel[0] =  Math.abs(b.vel[0]); b.lastHit = nowSec; }
-    if (b.pos[1] >  boundsY) { b.pos[1] =  boundsY; b.vel[1] = -Math.abs(b.vel[1]); b.lastHit = nowSec; }
-    if (b.pos[1] < -boundsY) { b.pos[1] = -boundsY; b.vel[1] =  Math.abs(b.vel[1]); b.lastHit = nowSec; }
-  }
-
-  // 2. ball-ball elastic collisions (equal mass, naive O(n^2) — n=4)
-  const r2 = (BALL_RADIUS * 2) * (BALL_RADIUS * 2);
-  for (let i = 0; i < balls.length; i++) {
-    for (let j = i + 1; j < balls.length; j++) {
-      const a = balls[i], bb = balls[j];
-      const dx = bb.pos[0] - a.pos[0];
-      const dy = bb.pos[1] - a.pos[1];
-      const d2 = dx*dx + dy*dy;
-      if (d2 < r2 && d2 > 1e-8) {
-        const d  = Math.sqrt(d2);
-        const nx = dx / d, ny = dy / d;
-        const overlap = (BALL_RADIUS * 2) - d;
-        // separate
-        a.pos[0] -= nx * overlap * 0.5;
-        a.pos[1] -= ny * overlap * 0.5;
-        bb.pos[0] += nx * overlap * 0.5;
-        bb.pos[1] += ny * overlap * 0.5;
-        // swap normal-component velocity (elastic, equal mass)
-        const va = a.vel[0] * nx + a.vel[1] * ny;
-        const vb = bb.vel[0] * nx + bb.vel[1] * ny;
-        const dv = vb - va;
-        a.vel[0]  += dv * nx;  a.vel[1]  += dv * ny;
-        bb.vel[0] -= dv * nx;  bb.vel[1] -= dv * ny;
-        a.lastHit = nowSec;
-        bb.lastHit = nowSec;
-      }
-    }
-  }
-
-  // 3. pack flat uniform arrays; hit pulse decays with half-life ~0.25s
-  for (let i = 0; i < balls.length; i++) {
-    ballPosFlat[i*2]   = balls[i].pos[0];
-    ballPosFlat[i*2+1] = balls[i].pos[1];
-    const age = Math.max(0, nowSec - balls[i].lastHit);
-    ballHitFlat[i] = Math.exp(-age * 4.0);
-  }
 }
 
 function applyCustomUniform(u) {
@@ -348,9 +291,63 @@ function hoistVersion(src) {
   return m[0] + src.replace(m[0], '');
 }
 
+// Client-side #include resolver. Pieces can `#include "noise.glsl"` to pull in
+// a module from lib/, served by the studio at /api/lib/<name>. Each file is
+// inlined at most once per compile (second hits become marker comments); nested
+// includes are followed up to depth 4. libCache persists across compiles; it's
+// cleared on each piece load so edits to lib/*.glsl are picked up.
+// (INCLUDE_RE and libCache are declared near the top of the file so that
+// clearLibCache can be called before this block runs during initial load.)
+
+function clearLibCache() { libCache = new Map(); }
+
+async function fetchLibFile(name) {
+  if (libCache.has(name)) return libCache.get(name);
+  const res = await fetch(`/api/lib/${encodeURIComponent(name)}`);
+  if (!res.ok) throw new Error(`#include "${name}": HTTP ${res.status}`);
+  const text = await res.text();
+  libCache.set(name, text);
+  return text;
+}
+
+async function resolveIncludes(src, depth = 0, alreadyIncluded = new Set()) {
+  if (depth > 4) throw new Error('#include nesting depth exceeded (max 4)');
+  INCLUDE_RE.lastIndex = 0;
+  const matches = [...src.matchAll(INCLUDE_RE)];
+  if (matches.length === 0) return src;
+
+  let out = '';
+  let lastEnd = 0;
+  for (const m of matches) {
+    const name = m[1];
+    out += src.slice(lastEnd, m.index);
+    if (alreadyIncluded.has(name)) {
+      out += `// #include "${name}" already resolved above\n`;
+    } else {
+      alreadyIncluded.add(name);
+      const body = await fetchLibFile(name);
+      const resolved = await resolveIncludes(body, depth + 1, alreadyIncluded);
+      out += `// ---- begin #include "${name}" ----\n`;
+      out += resolved;
+      if (!resolved.endsWith('\n')) out += '\n';
+      out += `// ---- end #include "${name}" ----\n`;
+    }
+    lastEnd = m.index + m[0].length;
+  }
+  out += src.slice(lastEnd);
+  return out;
+}
+
+// hoistVersion first so a #version directive below ABOUTME comments lands at
+// line 1, then resolve includes — their bodies are appended after #version
+// where they're legal. Callers await this before buildProgram.
+async function preprocessShader(src) {
+  return resolveIncludes(hoistVersion(src));
+}
+
 function buildProgram(fragSource) {
   const vs = compileShader(gl.VERTEX_SHADER, VERT);
-  const fs = compileShader(gl.FRAGMENT_SHADER, hoistVersion(fragSource));
+  const fs = compileShader(gl.FRAGMENT_SHADER, fragSource);
   const p = gl.createProgram();
   gl.attachShader(p, vs);
   gl.attachShader(p, fs);
@@ -367,10 +364,237 @@ function buildProgram(fragSource) {
 }
 
 function swapProgram(prog) {
+  freePipeline(currentPipeline);
+  currentPipeline = null;
   if (currentProgram) gl.deleteProgram(currentProgram);
   currentProgram = prog;
   currentUniforms = {};
   startTime = performance.now();
+}
+
+function swapPipeline(pipeline) {
+  freePipeline(currentPipeline);
+  if (currentProgram) gl.deleteProgram(currentProgram);
+  currentProgram = null;
+  currentUniforms = {};
+  currentPipeline = pipeline;
+  startTime = performance.now();
+}
+
+// ---------- multi-pass pipeline ----------
+//
+// A pipeline is the runtime form of meta.yaml's `passes:` array: for each
+// pass, we hold its compiled program, its render target (screen OR a pair of
+// ping-pong FBOs, OR a single off-screen FBO), and its input bindings. The
+// pipeline runs once per frame; each ping-pong pass swaps read/write after
+// drawing so the next iteration/frame reads what was just written.
+
+function parseTargetSpec(spec) {
+  // Accepts: undefined (defaults to screen), 'screen', or an object with
+  // { format, ping_pong, scale }.
+  if (!spec || spec === 'screen') return { type: 'screen' };
+  const formatName = spec.format ?? 'rgba8';
+  if (!FORMAT_MAP[formatName]) throw new Error(`unsupported target format: ${formatName}`);
+  const scale = Number.isFinite(spec.scale) ? spec.scale : 1.0;
+  if (scale <= 0 || scale > 2) throw new Error(`target scale out of range: ${scale}`);
+  return {
+    type:     spec.ping_pong ? 'ping_pong' : 'single',
+    format:   formatName,
+    scale,
+    width:  0, height: 0,   // filled in by allocTarget
+    textures: [], fbos: [], readIdx: 0,
+  };
+}
+
+function targetPixelSize(spec) {
+  const w = Math.max(1, Math.floor(gl.drawingBufferWidth  * spec.scale));
+  const h = Math.max(1, Math.floor(gl.drawingBufferHeight * spec.scale));
+  return [w, h];
+}
+
+function allocTexAndFbo(w, h, formatName) {
+  if (formatName !== 'rgba8' && !extColorFloat) {
+    throw new Error(`target format ${formatName} requires EXT_color_buffer_float`);
+  }
+  const { iFormat, format, type } = FORMAT_MAP[formatName]();
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, iFormat, w, h, 0, format, type, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const fbo = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  if (status !== gl.FRAMEBUFFER_COMPLETE) {
+    gl.deleteTexture(tex);
+    gl.deleteFramebuffer(fbo);
+    throw new Error(`framebuffer incomplete (status ${status}) for format ${formatName}`);
+  }
+  return { tex, fbo };
+}
+
+function allocTarget(spec) {
+  if (spec.type === 'screen') return spec;
+  const [w, h] = targetPixelSize(spec);
+  spec.width  = w;
+  spec.height = h;
+  const count = spec.type === 'ping_pong' ? 2 : 1;
+  spec.textures = [];
+  spec.fbos = [];
+  for (let i = 0; i < count; i++) {
+    const { tex, fbo } = allocTexAndFbo(w, h, spec.format);
+    spec.textures.push(tex);
+    spec.fbos.push(fbo);
+  }
+  spec.readIdx = 0;
+  return spec;
+}
+
+function freeTarget(spec) {
+  if (!spec || spec.type === 'screen') return;
+  for (const t of spec.textures) gl.deleteTexture(t);
+  for (const f of spec.fbos)     gl.deleteFramebuffer(f);
+  spec.textures = [];
+  spec.fbos = [];
+}
+
+function freePipeline(pipeline) {
+  if (!pipeline) return;
+  for (const pass of pipeline.passes) {
+    if (pass.program) gl.deleteProgram(pass.program);
+    freeTarget(pass.target);
+  }
+}
+
+async function buildPipeline(slug, passSpecs) {
+  const passes = [];
+  try {
+    for (const p of passSpecs) {
+      if (typeof p.name !== 'string' || !p.name) throw new Error('pass.name required');
+      if (typeof p.shader !== 'string' || !p.shader.endsWith('.frag')) {
+        throw new Error(`pass "${p.name}": shader must be a .frag filename`);
+      }
+      const fragUrl = `/api/pieces/${encodeURIComponent(slug)}/pass/${encodeURIComponent(p.shader)}`;
+      const res = await fetch(fragUrl);
+      if (!res.ok) throw new Error(`pass "${p.name}": cannot fetch ${p.shader} (HTTP ${res.status})`);
+      const fragText = await preprocessShader(await res.text());
+      const program = buildProgram(fragText);
+      const target = allocTarget(parseTargetSpec(p.target));
+      passes.push({
+        name: p.name,
+        program,
+        uniforms: {},
+        target,
+        inputs: (p.inputs && typeof p.inputs === 'object') ? p.inputs : {},
+        iterations: Math.max(1, Math.floor(Number(p.iterations ?? 1))),
+      });
+    }
+  } catch (err) {
+    // Free whatever was allocated before the failure so a bad pass spec doesn't
+    // leak GL resources. Re-throw for the caller's error UI.
+    freePipeline({ passes });
+    throw err;
+  }
+  const passByName = {};
+  for (const pass of passes) passByName[pass.name] = pass;
+  return { passes, passByName };
+}
+
+function reallocPipelineTargets(pipeline) {
+  // Canvas size changed; blow away and re-alloc all off-screen targets. State
+  // is lost, which for v1 is acceptable (simulations re-initialize on the next
+  // u_frame == 0 frame — pieces that want state preserved across resize can
+  // detect resize and restart, or we add blit-preserving alloc later).
+  if (!pipeline) return;
+  for (const pass of pipeline.passes) {
+    if (pass.target.type === 'screen') continue;
+    freeTarget(pass.target);
+    allocTarget(pass.target);
+  }
+  // Reset frame counter so initialization paths re-run with fresh state.
+  startTime = performance.now();
+}
+
+function bindPassTarget(pass) {
+  if (pass.target.type === 'screen') {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+  } else {
+    // Write to whichever texture is NOT currently being read.
+    const writeIdx = pass.target.type === 'ping_pong' ? (1 - pass.target.readIdx) : 0;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, pass.target.fbos[writeIdx]);
+    gl.viewport(0, 0, pass.target.width, pass.target.height);
+  }
+}
+
+function bindPassInputs(pass, pipeline) {
+  let unit = 0;
+  for (const [samplerName, sourcePassName] of Object.entries(pass.inputs)) {
+    const src = pipeline.passByName[sourcePassName];
+    if (!src || src.target.type === 'screen') continue;
+    // Bind the currently-read texture — for a ping-pong pass reading itself,
+    // that's the previous iteration's output; for a cross-pass read, it's the
+    // last thing the source pass wrote this frame.
+    const tex = src.target.textures[src.target.readIdx];
+    gl.activeTexture(gl.TEXTURE0 + unit);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    const loc = pass.uniforms[samplerName] ??= gl.getUniformLocation(pass.program, samplerName);
+    if (loc !== null) gl.uniform1i(loc, unit);
+    unit++;
+  }
+}
+
+function passViewport(pass) {
+  if (pass.target.type === 'screen') {
+    return [gl.drawingBufferWidth, gl.drawingBufferHeight];
+  }
+  return [pass.target.width, pass.target.height];
+}
+
+function runPass(pass, pipeline, now) {
+  bindPassTarget(pass);
+  currentProgram = pass.program;
+  currentUniforms = pass.uniforms;
+  gl.useProgram(pass.program);
+  bindQuadAttrib(pass.program);
+  const [vw, vh] = passViewport(pass);
+  setStandardUniforms(vw, vh, now);
+  bindPassInputs(pass, pipeline);
+  for (const u of currentMeta?.uniforms ?? []) applyCustomUniform(u);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  if (pass.target.type === 'ping_pong') {
+    pass.target.readIdx = 1 - pass.target.readIdx;
+  }
+}
+
+function bindQuadAttrib(program) {
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  const loc = gl.getAttribLocation(program, 'a_pos');
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+}
+
+function setStandardUniforms(vw, vh, now) {
+  setUniform2f('u_resolution', vw, vh);
+  setUniform1f('u_time', now);
+  // Mouse is always scaled into the target's pixel space so gl_FragCoord
+  // comparisons work the same whether the pass is full-res or a scaled FBO.
+  const mx = vw / Math.max(1, canvas.clientWidth);
+  const my = vh / Math.max(1, canvas.clientHeight);
+  setUniform2f('u_mouse', mouse[0] * mx, mouse[1] * my);
+  setUniform1i('u_frame', frameCount);
+  setUniform1f('u_audio_level',   audioBands.level);
+  setUniform1f('u_audio_bass',    audioBands.bass);
+  setUniform1f('u_audio_mid',     audioBands.mid);
+  setUniform1f('u_audio_high',    audioBands.high);
+  setUniform1f('u_audio_playing', audioPlaying ? 1.0 : 0.0);
+  setUniform1f('u_audio_time',    audioEl ? audioEl.currentTime : 0.0);
+  setUniform2fv('u_ball_pos', billiards.posArray);
+  setUniform1fv('u_ball_hit', billiards.hitArray);
 }
 
 // ---------- piece loading ----------
@@ -384,7 +608,7 @@ async function refreshCatalog() {
 async function loadCurrent({ initial } = {}) {
   const slug = FORCED_SLUG ?? await fetchCurrentSlug();
   if (!slug) {
-    if (initial) swapProgram(buildProgram(FALLBACK_FRAG));
+    if (initial) swapProgram(buildProgram(await preprocessShader(FALLBACK_FRAG)));
     setMetaOverlay(null);
     detachAudio();
     currentSlug = null;
@@ -414,14 +638,27 @@ async function loadPiece(slug) {
     const meta = await metaRes.json();
     const { mtime } = await mtimeRes.json();
 
-    const prog = buildProgram(frag);
-    swapProgram(prog);
-    currentMeta = meta;
-    currentSlug = slug;
-    currentMtime = mtime;
+    // Drop any cached lib sources so edits to lib/*.glsl propagate. The cache
+    // persists within a single compile (dedupes repeated #include of the same
+    // module) but not across compiles.
+    clearLibCache();
+
+    // render_scale must be applied before building the pipeline so FBO
+    // allocations use the correct canvas pixel dims.
     const rs = Number(meta?.render_scale);
     renderScale = (Number.isFinite(rs) && rs > 0 && rs <= 2) ? rs : 1.0;
     resize();
+
+    if (Array.isArray(meta?.passes) && meta.passes.length > 0) {
+      const pipeline = await buildPipeline(slug, meta.passes);
+      swapPipeline(pipeline);
+    } else {
+      const prog = buildProgram(await preprocessShader(frag));
+      swapProgram(prog);
+    }
+    currentMeta = meta;
+    currentSlug = slug;
+    currentMtime = mtime;
     attachAudio(slug, meta);
     pushSlugToUrl(slug);
     setMetaOverlay(meta);
@@ -679,8 +916,12 @@ function toggleHud() {
 function resize() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const s = renderScale;
-  canvas.width  = Math.max(1, Math.floor(canvas.clientWidth  * dpr * s));
-  canvas.height = Math.max(1, Math.floor(canvas.clientHeight * dpr * s));
+  const newW = Math.max(1, Math.floor(canvas.clientWidth  * dpr * s));
+  const newH = Math.max(1, Math.floor(canvas.clientHeight * dpr * s));
+  const changed = canvas.width !== newW || canvas.height !== newH;
+  canvas.width  = newW;
+  canvas.height = newH;
+  if (changed && currentPipeline) reallocPipelineTargets(currentPipeline);
 }
 
 // ---------- record mode (used by bin/publish.mjs via Playwright) ----------

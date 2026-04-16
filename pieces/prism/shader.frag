@@ -1,7 +1,9 @@
 // ABOUTME: Prism — a dihedral kaleidoscope folding a living warm source,
-// ABOUTME: with small bouncing sub-kaleidos (DVD-logo style) riding on top.
+// ABOUTME: with CPU-simulated billiard-ball sub-kaleidos riding on top.
 #version 300 es
 precision highp float;
+
+#include "billiards.glsl"
 
 uniform vec2  u_resolution;
 uniform float u_time;
@@ -13,8 +15,9 @@ uniform float u_audio_high;
 uniform float u_audio_playing;
 uniform float u_audio_time;
 
-// Billiard balls integrated on the CPU; positions in world-space (same frame
-// as `p` below), collision-flash energy decays in u_ball_hit[i].
+// Billiard balls integrated on the CPU (see studio/billiards.mjs); positions
+// in world-space (same frame as `p` below). u_ball_hit[i] is the post-collision
+// energy, exponentially decaying.
 uniform vec2  u_ball_pos[4];
 uniform float u_ball_hit[4];
 
@@ -40,15 +43,24 @@ vec3 warmCycle(float t) {
     return                mix(c4, c0, (t - 0.80) * 5.0);
 }
 
-// Iñigo Quílez cosine palette — full spectrum, saturation pulled back so
-// nothing clips to cyan/lime. Used inside the bouncing disks so each
-// kaleidoscope can own its own hue while the background stays warm.
+// Warm-biased spectrum — gold → orange → ember → magenta → violet → rose
+// → gold. Every anchor keeps red >= 0.55, so the cycle never passes through
+// cyan / green / deep blue. Used inside the bouncing disks so each
+// kaleidoscope owns its own hue while still feeling lit-not-printed.
 vec3 spectrum(float t) {
-    vec3 a = vec3(0.52, 0.46, 0.50);
-    vec3 b = vec3(0.45, 0.45, 0.45);
-    vec3 c = vec3(1.00, 1.00, 1.00);
-    vec3 d = vec3(0.00, 0.33, 0.67);
-    return a + b * cos(6.28318 * (c * t + d));
+    t = fract(t);
+    vec3 c0 = vec3(1.00, 0.80, 0.45);   // gold
+    vec3 c1 = vec3(1.00, 0.45, 0.25);   // warm orange
+    vec3 c2 = vec3(0.95, 0.20, 0.30);   // ember red
+    vec3 c3 = vec3(0.80, 0.22, 0.55);   // magenta
+    vec3 c4 = vec3(0.58, 0.28, 0.70);   // violet (never fully blue — R still dominant)
+    vec3 c5 = vec3(0.72, 0.40, 0.65);   // dusty rose, back toward warm
+    if (t < 0.1666) return mix(c0, c1,  t           * 6.0);
+    if (t < 0.3333) return mix(c1, c2, (t - 0.1666) * 6.0);
+    if (t < 0.5000) return mix(c2, c3, (t - 0.3333) * 6.0);
+    if (t < 0.6666) return mix(c3, c4, (t - 0.5000) * 6.0);
+    if (t < 0.8333) return mix(c4, c5, (t - 0.6666) * 6.0);
+    return                 mix(c5, c0, (t - 0.8333) * 6.0);
 }
 
 // Reinhard tonemap — rolls peaks off instead of clipping to pure white.
@@ -188,11 +200,8 @@ vec3 bouncingKaleido(vec2 p, vec2 centre, float phaseA, float phaseB,
     // Hard cut at r — nothing the disk contributes exists outside this.
     if (dq >= r) return vec3(0.0);
 
-    // Antialiased mask; rim lives entirely inside the disk so the OUTER
-    // silhouette is exactly r, matching the physics radius.
-    float mask = smoothstep(r, r - 0.015, dq);
-    float rim  = smoothstep(r - 0.020, r - 0.010, dq)
-               * (1.0 - smoothstep(r - 0.010, r - 0.002, dq));
+    float mask = ballMask(dq, r);      // antialiased alpha, 0 at r
+    float rim  = ballRim (dq, r);      // tight outline inside r
 
     // Fold counts drift around nHome so the interior is never static.
     float nOuter = nHome + 3.0 * sin(t * 0.053 + phaseB * 1.3);
@@ -216,21 +225,14 @@ vec3 bouncingKaleido(vec2 p, vec2 centre, float phaseA, float phaseB,
     float coreD = length(src2);
     inside += spectrum(hueBase + 0.04) * exp(-pow(coreD * 5.0, 2.0)) * 0.35;
 
-    // Wall energy: proximity of the ball's *actual* position to the box.
-    float wallX = smoothstep(bounds.x * 0.70, bounds.x * 0.95, abs(centre.x));
-    float wallY = smoothstep(bounds.y * 0.70, bounds.y * 0.95, abs(centre.y));
-    float wallE = max(wallX, wallY);
+    float wallE = ballWallEnergy(centre, bounds);
 
     // Tint shifts with wall proximity + collision pulse.
     vec3  tint = spectrum(hueBase + 0.05 * wallE + 0.20 * hitPulse);
     inside = mix(inside, inside * tint * 1.35, 0.55);
     inside *= 1.0 + 0.35 * wallE + 0.65 * hitPulse;
 
-    // Collision ring: a bright band pulsed on impact. Lives INSIDE the
-    // disk (tighter Gaussian than before, centred further in at 0.82 r)
-    // so it can't reach past the silhouette and create an apparent
-    // pre-contact glow.
-    float collisionRing = exp(-pow(dq - r * 0.82, 2.0) * 380.0) * hitPulse * 1.2;
+    float collisionRing = ballHitRing(dq, r, hitPulse);
 
     vec3 rimCol = tint * (0.70 + 0.60 * wallE + 0.90 * hitPulse) * (0.5 + 0.55 * level);
     // mask clips every interior contribution at dq = r. Nothing extends
