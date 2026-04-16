@@ -44,12 +44,25 @@ export function createBilliards({
   const balls = src.map((b) => ({
     pos: [b.pos[0], b.pos[1]],
     vel: [b.vel[0], b.vel[1]],
-    lastHit: -10,
+    lastHit:    -10,
+    // Position at the moment of the most-recent wall or ball-ball contact.
+    // Snapshotted separately from pos so pieces that draw shockwaves can
+    // anchor them where the collision happened, not follow the ball afterwards.
+    lastHitPos: [b.pos[0], b.pos[1]],
   }));
-  const n        = balls.length;
-  const posFlat  = new Float32Array(n * 2);
-  const hitFlat  = new Float32Array(n);
-  let lastStepMs = performance.now();
+  const n           = balls.length;
+  const posFlat     = new Float32Array(n * 2);
+  const hitFlat     = new Float32Array(n);
+  const hitPosFlat  = new Float32Array(n * 2);
+  let lastStepMs    = performance.now();
+
+  // Record the collision point for ball i (called from inside step on each
+  // wall hit and ball-ball impact).
+  function recordHit(i, nowSec) {
+    balls[i].lastHit       = nowSec;
+    balls[i].lastHitPos[0] = balls[i].pos[0];
+    balls[i].lastHitPos[1] = balls[i].pos[1];
+  }
 
   function step(nowSec, aspect) {
     const nowMs = performance.now();
@@ -61,13 +74,14 @@ export function createBilliards({
     const boundsY = 1.0    * boundsMargin - radius;
 
     // 1. Integrate + wall collisions.
-    for (const b of balls) {
+    for (let i = 0; i < n; i++) {
+      const b = balls[i];
       b.pos[0] += b.vel[0] * dt;
       b.pos[1] += b.vel[1] * dt;
-      if (b.pos[0] >  boundsX) { b.pos[0] =  boundsX; b.vel[0] = -Math.abs(b.vel[0]); b.lastHit = nowSec; }
-      if (b.pos[0] < -boundsX) { b.pos[0] = -boundsX; b.vel[0] =  Math.abs(b.vel[0]); b.lastHit = nowSec; }
-      if (b.pos[1] >  boundsY) { b.pos[1] =  boundsY; b.vel[1] = -Math.abs(b.vel[1]); b.lastHit = nowSec; }
-      if (b.pos[1] < -boundsY) { b.pos[1] = -boundsY; b.vel[1] =  Math.abs(b.vel[1]); b.lastHit = nowSec; }
+      if (b.pos[0] >  boundsX) { b.pos[0] =  boundsX; b.vel[0] = -Math.abs(b.vel[0]); recordHit(i, nowSec); }
+      if (b.pos[0] < -boundsX) { b.pos[0] = -boundsX; b.vel[0] =  Math.abs(b.vel[0]); recordHit(i, nowSec); }
+      if (b.pos[1] >  boundsY) { b.pos[1] =  boundsY; b.vel[1] = -Math.abs(b.vel[1]); recordHit(i, nowSec); }
+      if (b.pos[1] < -boundsY) { b.pos[1] = -boundsY; b.vel[1] =  Math.abs(b.vel[1]); recordHit(i, nowSec); }
     }
 
     // 2. Ball-ball elastic collisions, equal mass, naive O(n²) — n is small.
@@ -93,8 +107,8 @@ export function createBilliards({
           const dv = vb - va;
           a.vel[0]  += dv * nx;  a.vel[1]  += dv * ny;
           bb.vel[0] -= dv * nx;  bb.vel[1] -= dv * ny;
-          a.lastHit  = nowSec;
-          bb.lastHit = nowSec;
+          recordHit(i, nowSec);
+          recordHit(j, nowSec);
         }
       }
     }
@@ -103,6 +117,8 @@ export function createBilliards({
     for (let i = 0; i < n; i++) {
       posFlat[i * 2]     = balls[i].pos[0];
       posFlat[i * 2 + 1] = balls[i].pos[1];
+      hitPosFlat[i * 2]     = balls[i].lastHitPos[0];
+      hitPosFlat[i * 2 + 1] = balls[i].lastHitPos[1];
       const age = Math.max(0, nowSec - balls[i].lastHit);
       hitFlat[i] = Math.exp(-age * hitDecay);
     }
@@ -110,10 +126,11 @@ export function createBilliards({
 
   return {
     step,
-    get posArray() { return posFlat; },
-    get hitArray() { return hitFlat; },
-    get count()    { return n; },
-    get radius()   { return radius; },
-    get balls()    { return balls; },
+    get posArray()    { return posFlat; },
+    get hitArray()    { return hitFlat; },
+    get hitPosArray() { return hitPosFlat; },
+    get count()       { return n; },
+    get radius()      { return radius; },
+    get balls()       { return balls; },
   };
 }

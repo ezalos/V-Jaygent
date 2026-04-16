@@ -593,8 +593,9 @@ function setStandardUniforms(vw, vh, now) {
   setUniform1f('u_audio_high',    audioBands.high);
   setUniform1f('u_audio_playing', audioPlaying ? 1.0 : 0.0);
   setUniform1f('u_audio_time',    audioEl ? audioEl.currentTime : 0.0);
-  setUniform2fv('u_ball_pos', billiards.posArray);
-  setUniform1fv('u_ball_hit', billiards.hitArray);
+  setUniform2fv('u_ball_pos',     billiards.posArray);
+  setUniform1fv('u_ball_hit',     billiards.hitArray);
+  setUniform2fv('u_ball_hit_pos', billiards.hitPosArray);
 }
 
 // ---------- piece loading ----------

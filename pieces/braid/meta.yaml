@@ -1,0 +1,38 @@
+title: Braid
+slug: braid
+created: 2026-04-16T19:57:05.477Z
+duration: 45
+render_scale: 0.7
+uniforms: []
+notes: |
+  Four billiard balls used as gravitational lenses, bending a warm
+  kaleidoscopic field. Instead of drawing the balls as prominent
+  objects, the visual story is the DEFORMATION THEY CAUSE: each mass
+  shifts the sample-position for every pixel near it toward the mass
+  itself, with a 1/|p-m| falloff. The eye reads four weights rippling
+  across a sheet of warm light.
+
+  Substrate: a domain-warped fbm viewed through a D_5 dihedral fold
+  (slow rotation). Already symmetric before the lensing — the weights
+  then warp which part of the symmetric pane you see at each pixel.
+
+  Collisions: each ball's collision point is snapshotted in
+  u_ball_hit_pos[]. When a ball collides, a ring-shaped shockwave
+  expands from the exact location of impact at 1.2 world-units/s with
+  ~0.04 thickness, fading over ~1.2s. Unlike prism's collision ring
+  (which stayed inside the ball), these propagate across the whole
+  field — you see the bounce as a ripple in space.
+
+  The balls themselves appear only as tiny bright cores. Each with a
+  slightly different hue offset so the four weights read as distinct
+  points of light. Everything else is the bent substrate.
+
+  Audio (optional): bass strengthens the lens bend and core brightness,
+  mid/high feed the substrate's motion, level gates overall exposure.
+
+  Uses the lib: billiards.glsl (ballLens, ballShockwave, ballWallEnergy),
+  noise.glsl (fbm, vnoise), tonemap.glsl (reinhard). The JS side
+  (studio/billiards.mjs) was extended with lastHitPos tracking to
+  support the propagating shockwaves.
+published_at: null
+rendered_at: '2026-04-16T19:59:26.181Z'
