@@ -2,21 +2,35 @@ title: Lodestone
 slug: lodestone
 created: 2026-04-16T08:09:20.733Z
 notes: |
-  A complex-plane phase field. The function being plotted is
+  Two opposite-polarity lodestones orbit each other through a cubic
+  complex field. The function plotted is
 
-      f(z) = z³ + a(t)·z + s · 1/(z - mouse)
+      f(z) = z³ + a(t)·z + q/(z−p₁) − q/(z−p₂) + q₃/(z−p₃)
 
-  A slowly-rotating linear term keeps the piece alive on its own, and the
-  movable pole at your cursor introduces a singularity whose phase lines
-  radiate outward. Color comes from arg(f) mapped through a warm cyclic
-  palette (gold → orange → red → wine → mauve); dark contour lines mark
-  where log|f| doubles, making the field readable.
+  where p₁ and p₂ carry opposite charges and trace a Keplerian-flavoured
+  two-body path: separation 1.00 → 0.14 at perihelion (s=0.65) → 0.55 at
+  end. Orbital angle accelerates through perihelion so the pair sweeps
+  fastest when closest. A weaker third pole p₃ wanders through to break
+  symmetry.
 
-  The idea is a lens you drag around — your motion reshapes the whole
-  field, and you never see the same arrangement twice. If the cursor
-  hasn't moved yet, the pole drifts on its own so the piece breathes.
+  Colour comes from arg(f) through a warm cyclic palette (gold → orange
+  → ember → wine → mauve). Two scales of log-magnitude contour add depth:
+  coarse bands for macro structure, fine rings crowding the poles and
+  the stagnation point between them. The + pole wears a gold halo, the
+  − pole an ember one, so the dipole reads as a dipole.
+
+  Arc: far → approach → flash (residues nearly cancel at closest
+  approach, |f| collapses between the poles) → slingshot, with a warm
+  shockwave ring radiating out through the recoil → settle wider than
+  they started.
+
+  Cursor is an instrument. Mouse.x drags p₃ horizontally through the
+  field; mouse.y exponentially zooms the view (top = pull out, bottom =
+  dive into the contour detail near the poles). Idle → zoom 1 and p₃
+  wanders on its own. Fine-contour frequency scales with zoom so fresh
+  detail appears as you push in.
 duration: 15
 uniforms: []
 render_scale: 1
 published_at: null
-rendered_at: '2026-04-16T08:20:04.446Z'
+rendered_at: '2026-04-16T20:42:58.226Z'
