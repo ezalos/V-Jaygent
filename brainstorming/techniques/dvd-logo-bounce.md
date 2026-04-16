@@ -102,6 +102,31 @@ a deterministic trajectory as if it were a random event. That's a rare
 cultural object: mathematically trivial, experientially hypnotic. Worth
 reaching for deliberately.
 
+## Evolution: billiard balls (added while building prism v5)
+
+Triangle-wave bouncing is **time-reversal-symmetric** — a replayed-backward
+video looks the same as the forward one. For N independent objects this is
+fine. But the moment you want them to **interact** (hit each other), the
+fragment shader can't maintain state, so the objects' trajectories have to
+be simulated on the CPU and the positions passed up as uniforms.
+
+Prism v5 does exactly this: 4 elastic disks in a box, O(n²) pairwise
+collision check each frame, equal-mass normal-component velocity swap on
+contact. A per-ball `lastHit` timestamp produces an exponentially-decaying
+`hitPulse` uniform that the shader uses to briefly tint and flash the
+relevant disk on collision. The difference from pure DVD bounce is
+obvious: after a collision, trajectories visibly diverge in a way that's
+time-asymmetric. You can tell which direction time is flowing.
+
+Runtime code lives in `studio/runtime.mjs` under the `stepBalls()` function
+— simple enough to be a reference for any future "I need stateful moving
+objects in a fragment shader" piece. Cost: negligible (4 balls, 16 pair
+checks per frame).
+
+The triangle-wave technique in the section above is still the right tool
+when objects move independently. Go to billiards when they need to
+interact.
+
 ## References
 
 - Wikipedia, "DVD Video" screensaver: the visual itself came from DVD

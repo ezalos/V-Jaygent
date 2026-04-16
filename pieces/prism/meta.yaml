@@ -25,13 +25,21 @@ notes: |
   5..9, a second through 3..6 for depth. Max-blended. Audio drives zoom
   (bass), flow rate, and a softened per-fold wedge glow.
 
-  On top: four bouncing sub-kaleidoscopes, DVD-logo style. Slow
-  triangle-wave velocities (~0.02-0.08 per second) so they drift rather
-  than race. Each disk runs a nested dihedral fold (outer at nHome
-  drifting ±3, inner at nHome/2 drifting ±2 on top of the already-folded
-  coords — three temporal scales of motion). Two counter-rotating axes.
-  Breathing radius. Slow interior zoom. The pattern is always evolving;
-  no orbit ever closes exactly.
+  On top: four bouncing sub-kaleidoscopes — now actual billiard balls.
+  Positions and velocities integrated on the CPU (see stepBalls() in
+  studio/runtime.mjs), O(n²) elastic-collision check each frame,
+  equal-mass velocity swap along the contact normal. Positions pass to
+  the shader via `u_ball_pos[4]`; a per-ball collision pulse passes
+  via `u_ball_hit[4]` (exponential decay from impact). The disks can
+  now smack into each other — trajectories visibly diverge after a
+  hit, so the motion is no longer time-symmetric the way a DVD-logo
+  triangle-wave bounce is.
+
+  Each disk runs a nested dihedral fold (outer at nHome drifting ±3,
+  inner at nHome/2 drifting ±2 on top of the already-folded coords).
+  Two counter-rotating axes. Breathing radius. Slow interior zoom.
+  On collision a thin ring pulses out and the disk's hue nudges
+  forward — the impact is visible at multiple scales.
 
   Colour: each disk owns its own hue signature (amber, green, teal,
   violet) from a restrained full-spectrum palette, cycling slowly over
@@ -59,3 +67,4 @@ notes: |
   See brainstorming/techniques/kaleidoscopes.md and
       brainstorming/techniques/dvd-logo-bounce.md.
 published_at: null
+rendered_at: '2026-04-16T19:12:24.185Z'

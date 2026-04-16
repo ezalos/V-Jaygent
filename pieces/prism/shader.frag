@@ -13,6 +13,11 @@ uniform float u_audio_high;
 uniform float u_audio_playing;
 uniform float u_audio_time;
 
+// Billiard balls integrated on the CPU; positions in world-space (same frame
+// as `p` below), collision-flash energy decays in u_ball_hit[i].
+uniform vec2  u_ball_pos[4];
+uniform float u_ball_hit[4];
+
 out vec4 fragColor;
 
 const float PI  = 3.14159265359;
@@ -167,61 +172,57 @@ vec3 interior(vec2 q, float t, float hueBase, float mid, float high, float level
 }
 
 // ---------- a small bouncing sub-kaleidoscope ----------
-// Nested dihedral fold with fold counts that drift slowly so each disk
-// evolves over time — 7 → 11 → 13 → 17 and back, but smoothly. Each disk
-// carries its own hue signature that cycles around the spectrum.
-vec3 bouncingKaleido(vec2 p, vec2 centre, vec2 vel, vec2 phase,
-                     float t, float nHome, float hueSeed, float bass,
-                     float mid, float high, float level) {
-    float r = 0.26 + 0.012 * sin(t * 0.19 + phase.x);   // breathing radius
+// Position comes from the CPU-side billiard sim (u_ball_pos). hitPulse is a
+// post-collision energy that decays exponentially — drives the tint flash.
+vec3 bouncingKaleido(vec2 p, vec2 centre, float phaseA, float phaseB,
+                     vec2 bounds, float t, float nHome, float hueSeed,
+                     float hitPulse, float bass, float mid, float high,
+                     float level) {
+    float r = 0.26 + 0.012 * sin(t * 0.19 + phaseA);   // breathing radius
     vec2 q = p - centre;
     float dq = length(q);
     if (dq > r * 1.15) return vec3(0.0);
 
-    // Soft circular mask with a thin bright rim.
     float mask = smoothstep(r, r - 0.06, dq);
     float rim  = smoothstep(r - 0.01, r, dq) * (1.0 - smoothstep(r, r + 0.015, dq));
 
-    // Fold count drifts within a small window around nHome. The fold lives
-    // in floating-point — a slight "seam" appears one way across the disk,
-    // reads as an organic crack rather than a bug, adds visible evolution.
-    float nOuter = nHome + 3.0 * sin(t * 0.053 + phase.y * 1.3);
-    float nInner = max(3.0, nHome * 0.5 + 2.0 * sin(t * 0.031 + phase.x * 2.1));
+    // Fold counts drift around nHome so the interior is never static.
+    float nOuter = nHome + 3.0 * sin(t * 0.053 + phaseB * 1.3);
+    float nInner = max(3.0, nHome * 0.5 + 2.0 * sin(t * 0.031 + phaseA * 2.1));
 
-    // Outer axis rotates, inner axis counter-rotates at a different rate —
-    // three temporal scales interacting, never closes.
-    float axis1 = t * 0.38 + phase.x * 1.7 + bass * 0.25
+    float axis1 = t * 0.38 + phaseA * 1.7 + bass * 0.25
                 + 0.15 * sin(t * 0.07);
-    float axis2 = -axis1 * 0.61 + phase.y * 2.3
+    float axis2 = -axis1 * 0.61 + phaseB * 2.3
                 + 0.35 * sin(t * 0.11 + 1.3);
-
-    // Slow interior zoom so the pattern "breathes".
-    float innerZoom = 1.15 + 0.25 * sin(t * 0.047 + phase.x);
+    float innerZoom = 1.15 + 0.25 * sin(t * 0.047 + phaseA);
 
     vec2 src1 = kaleidoFold(q / r, nOuter, axis1);
     vec2 src2 = kaleidoFold(src1 * innerZoom - 0.08, nInner, axis2);
 
-    // Hue signature cycles slowly — each disk owns its current colour.
-    float hueBase = hueSeed + t * 0.018 + 0.08 * bass;
+    // Hue signature cycles slowly + nudges forward on collisions (hitPulse
+    // briefly shoves the hue, making ball-on-ball impacts visibly recolour).
+    float hueBase = hueSeed + t * 0.018 + 0.08 * bass + 0.25 * hitPulse;
 
     vec3 inside = interior(src2 * 0.8, t, hueBase, mid, high, level);
 
-    // Symmetric soft core — warm glow at the disk's folded centre, scaled
-    // way back from the previous "punch through" version.
     float coreD = length(src2);
     inside += spectrum(hueBase + 0.04) * exp(-pow(coreD * 5.0, 2.0)) * 0.35;
 
-    // DVD "colour change on bounce": hue shift near wall hits.
-    float wallE = wallBump(tri(t * vel.x + phase.x))
-                + wallBump(tri(t * vel.y + phase.y));
-    float nBounces = bounces(t, vel.x, phase.x) + bounces(t, vel.y, phase.y);
-    float hueShift = 0.10 * nBounces + 0.05 * wallE;
-    vec3  tint     = spectrum(hueBase + hueShift);
-    inside = mix(inside, inside * tint * 1.35, 0.55);
-    inside *= 1.0 + 0.45 * wallE;
+    // Wall energy: proximity of the ball's *actual* position to the box.
+    float wallX = smoothstep(bounds.x * 0.70, bounds.x * 0.95, abs(centre.x));
+    float wallY = smoothstep(bounds.y * 0.70, bounds.y * 0.95, abs(centre.y));
+    float wallE = max(wallX, wallY);
 
-    vec3 rimCol = tint * (0.70 + 0.65 * wallE) * (0.5 + 0.55 * level);
-    return inside * mask + rimCol * rim;
+    // Tint shifts with wall proximity + collision pulse.
+    vec3  tint = spectrum(hueBase + 0.05 * wallE + 0.20 * hitPulse);
+    inside = mix(inside, inside * tint * 1.35, 0.55);
+    inside *= 1.0 + 0.35 * wallE + 0.65 * hitPulse;
+
+    // Collision ring: thin bright band pulsed from the rim on impact.
+    float collisionRing = exp(-pow(dq - r * 0.9, 2.0) * 180.0) * hitPulse * 1.1;
+
+    vec3 rimCol = tint * (0.70 + 0.60 * wallE + 0.90 * hitPulse) * (0.5 + 0.55 * level);
+    return inside * mask + rimCol * rim + tint * collisionRing;
 }
 
 // ---------- main ----------
@@ -261,45 +262,33 @@ void main() {
                     * (0.12 + 0.6 * bass);
     col += warmCycle(0.08 + t * 0.04) * wedgeFlash * 0.18;
 
-    // --- bouncing sub-kaleidoscopes (DVD-logo style) ---
-    // Four disks, coprime velocities so they never realign. Slow, drifting —
-    // the kaleidoscopes themselves do the moving; the disks only creep.
-    // Fold counts are primes (7, 11, 13, 17) for alien density.
-    const int N_TILES = 4;
-    float vels_x[N_TILES];  vels_x[0]=0.043; vels_x[1]=0.061; vels_x[2]=0.031; vels_x[3]=0.079;
-    float vels_y[N_TILES];  vels_y[0]=0.029; vels_y[1]=0.053; vels_y[2]=0.083; vels_y[3]=0.019;
-    float phas_x[N_TILES];  phas_x[0]=0.00;  phas_x[1]=0.73;  phas_x[2]=1.41;  phas_x[3]=2.07;
-    float phas_y[N_TILES];  phas_y[0]=0.40;  phas_y[1]=1.11;  phas_y[2]=0.28;  phas_y[3]=1.89;
-    float folds [N_TILES];  folds [0]=7.0;   folds [1]=11.0;  folds [2]=13.0;  folds [3]=17.0;
+    // --- bouncing sub-kaleidoscopes (billiard balls) ---
+    // Positions come from the CPU-side sim; each ball gets its own fold
+    // count (primes 7, 11, 13, 17) and a starting hue across the spectrum.
+    float folds[4];     folds[0]=7.0;   folds[1]=11.0;  folds[2]=13.0;  folds[3]=17.0;
+    float hueSeeds[4];  hueSeeds[0]=0.02; hueSeeds[1]=0.28; hueSeeds[2]=0.55; hueSeeds[3]=0.78;
+    float phaseA[4];    phaseA[0]=0.00;   phaseA[1]=0.73;   phaseA[2]=1.41;   phaseA[3]=2.07;
+    float phaseB[4];    phaseB[0]=0.40;   phaseB[1]=1.11;   phaseB[2]=0.28;   phaseB[3]=1.89;
 
-    // Bounds so the disk (radius 0.26 in world space) never clips the frame.
     float aspect = u_resolution.x / max(u_resolution.y, 1.0);
     vec2  bounds = vec2(aspect, 1.0) * 0.92;
 
-    // Hue seeds — each disk sits in a different quadrant of the spectrum.
-    // Slow global drift so a disk that was amber will be teal later, then
-    // magenta, then amber again. Always evolving.
-    float hueSeeds[N_TILES];
-    hueSeeds[0] = 0.02;   // warm amber start
-    hueSeeds[1] = 0.28;   // shifts through green over time
-    hueSeeds[2] = 0.55;   // cool-teal/blue territory
-    hueSeeds[3] = 0.78;   // magenta/violet
-
-    float cornerProximity = 0.0;
-    for (int i = 0; i < N_TILES; i++) {
-        vec2 vel   = vec2(vels_x[i], vels_y[i]) * (1.0 + 0.06 * bass);
-        vec2 phase = vec2(phas_x[i], phas_y[i]);
-        vec2 bpx   = vec2(tri(t * vel.x + phase.x), tri(t * vel.y + phase.y));
-        vec2 centre = bpx * (bounds - 0.26);
-        col += bouncingKaleido(p, centre, vel, phase, t, folds[i], hueSeeds[i],
+    float wallEnergy = 0.0;
+    for (int i = 0; i < 4; i++) {
+        vec2  centre   = u_ball_pos[i];
+        float hitPulse = u_ball_hit[i];
+        col += bouncingKaleido(p, centre, phaseA[i], phaseB[i], bounds,
+                               t, folds[i], hueSeeds[i], hitPulse,
                                bass, mid, high, level);
 
-        cornerProximity = max(cornerProximity,
-                              min(wallBump(bpx.x), wallBump(bpx.y)));
+        // Track closeness to a wall (max across balls).
+        float wx = smoothstep(bounds.x * 0.80, bounds.x * 0.96, abs(centre.x));
+        float wy = smoothstep(bounds.y * 0.80, bounds.y * 0.96, abs(centre.y));
+        wallEnergy = max(wallEnergy, min(wx, wy));
     }
 
-    // The iconic "is it going to hit?!" moment — subtle warm tint.
-    col += warmCycle(0.02) * pow(cornerProximity, 3.0) * 0.18;
+    // Corner / wall feeling — subtle global warm tint when balls near a wall.
+    col += warmCycle(0.02) * pow(wallEnergy, 3.0) * 0.15;
 
     // Vignette + Reinhard tonemap so peaks roll off instead of clipping
     // to pure white, then gentle gamma.

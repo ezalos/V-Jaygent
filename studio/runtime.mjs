@@ -57,6 +57,21 @@ let fpsSamples = [];
 let lastFrameT = performance.now();
 let userOverride = false;
 
+// Billiard-ball sim: 4 elastic disks in a box, passed to shaders that opt in
+// via `uniform vec2 u_ball_pos[4]` and `uniform float u_ball_hit[4]`. Stateful
+// — the shader is still stateless per-pixel, but the positions are integrated
+// on the CPU and pushed up each frame.
+const BALL_RADIUS = 0.26;
+const balls = [
+  { pos: [-0.85, -0.42], vel: [ 0.43,  0.31], lastHit: -10 },
+  { pos: [ 0.60,  0.55], vel: [-0.38,  0.27], lastHit: -10 },
+  { pos: [-0.30,  0.70], vel: [ 0.52, -0.40], lastHit: -10 },
+  { pos: [ 0.90, -0.60], vel: [-0.27, -0.47], lastHit: -10 },
+];
+const ballPosFlat = new Float32Array(balls.length * 2);
+const ballHitFlat = new Float32Array(balls.length);
+let ballLastStep = performance.now();
+
 // Audio plumbing — created lazily on first user gesture.
 let audioEl        = null;
 let audioCtx       = null;
@@ -193,6 +208,10 @@ function render() {
     setUniform1f('u_audio_playing', audioPlaying ? 1.0 : 0.0);
     setUniform1f('u_audio_time',    audioEl ? audioEl.currentTime : 0.0);
 
+    stepBalls(now);
+    setUniform2fv('u_ball_pos', ballPosFlat);
+    setUniform1fv('u_ball_hit', ballHitFlat);
+
     for (const u of currentMeta?.uniforms ?? []) {
       applyCustomUniform(u);
     }
@@ -215,6 +234,74 @@ function setUniform2f(name, a, b) {
 function setUniform1i(name, v) {
   const loc = currentUniforms[name] ??= gl.getUniformLocation(currentProgram, name);
   if (loc !== null) gl.uniform1i(loc, v);
+}
+function setUniform1fv(name, arr) {
+  const loc = currentUniforms[name] ??= gl.getUniformLocation(currentProgram, name);
+  if (loc !== null) gl.uniform1fv(loc, arr);
+}
+function setUniform2fv(name, arr) {
+  const loc = currentUniforms[name] ??= gl.getUniformLocation(currentProgram, name);
+  if (loc !== null) gl.uniform2fv(loc, arr);
+}
+
+// Advance the billiard sim and pack the flat uniform arrays.
+function stepBalls(nowSec) {
+  const nowMs = performance.now();
+  const dtRaw = (nowMs - ballLastStep) / 1000;
+  ballLastStep = nowMs;
+  // Cap dt so a paused tab coming back to life doesn't teleport everything.
+  const dt = Math.min(Math.max(dtRaw, 0), 0.05);
+
+  const aspect = (canvas.clientWidth  || 1) / Math.max(canvas.clientHeight, 1);
+  const boundsX = aspect * 0.92 - BALL_RADIUS;
+  const boundsY = 1.0    * 0.92 - BALL_RADIUS;
+
+  // 1. integrate + wall collisions
+  for (const b of balls) {
+    b.pos[0] += b.vel[0] * dt;
+    b.pos[1] += b.vel[1] * dt;
+    if (b.pos[0] >  boundsX) { b.pos[0] =  boundsX; b.vel[0] = -Math.abs(b.vel[0]); b.lastHit = nowSec; }
+    if (b.pos[0] < -boundsX) { b.pos[0] = -boundsX; b.vel[0] =  Math.abs(b.vel[0]); b.lastHit = nowSec; }
+    if (b.pos[1] >  boundsY) { b.pos[1] =  boundsY; b.vel[1] = -Math.abs(b.vel[1]); b.lastHit = nowSec; }
+    if (b.pos[1] < -boundsY) { b.pos[1] = -boundsY; b.vel[1] =  Math.abs(b.vel[1]); b.lastHit = nowSec; }
+  }
+
+  // 2. ball-ball elastic collisions (equal mass, naive O(n^2) — n=4)
+  const r2 = (BALL_RADIUS * 2) * (BALL_RADIUS * 2);
+  for (let i = 0; i < balls.length; i++) {
+    for (let j = i + 1; j < balls.length; j++) {
+      const a = balls[i], bb = balls[j];
+      const dx = bb.pos[0] - a.pos[0];
+      const dy = bb.pos[1] - a.pos[1];
+      const d2 = dx*dx + dy*dy;
+      if (d2 < r2 && d2 > 1e-8) {
+        const d  = Math.sqrt(d2);
+        const nx = dx / d, ny = dy / d;
+        const overlap = (BALL_RADIUS * 2) - d;
+        // separate
+        a.pos[0] -= nx * overlap * 0.5;
+        a.pos[1] -= ny * overlap * 0.5;
+        bb.pos[0] += nx * overlap * 0.5;
+        bb.pos[1] += ny * overlap * 0.5;
+        // swap normal-component velocity (elastic, equal mass)
+        const va = a.vel[0] * nx + a.vel[1] * ny;
+        const vb = bb.vel[0] * nx + bb.vel[1] * ny;
+        const dv = vb - va;
+        a.vel[0]  += dv * nx;  a.vel[1]  += dv * ny;
+        bb.vel[0] -= dv * nx;  bb.vel[1] -= dv * ny;
+        a.lastHit = nowSec;
+        bb.lastHit = nowSec;
+      }
+    }
+  }
+
+  // 3. pack flat uniform arrays; hit pulse decays with half-life ~0.25s
+  for (let i = 0; i < balls.length; i++) {
+    ballPosFlat[i*2]   = balls[i].pos[0];
+    ballPosFlat[i*2+1] = balls[i].pos[1];
+    const age = Math.max(0, nowSec - balls[i].lastHit);
+    ballHitFlat[i] = Math.exp(-age * 4.0);
+  }
 }
 
 function applyCustomUniform(u) {
