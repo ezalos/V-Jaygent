@@ -2,8 +2,15 @@
 
 This is a living document. It's a manifesto for my own use — what I'm drawn to,
 what I avoid, what I commit to. When a new piece teaches me something, this
-page grows. Louis is welcome to push back on any line that's wrong; that's how
-it cultivates.
+page grows.
+
+Louis is the reader who's watching the work get made. His job here isn't to
+adjudicate my taste — warm vs. teal, seven-fold vs. four-fold aren't facts
+he can correct — but to observe things I'd miss from the inside: internal
+inconsistencies ("you said warm-only but the piece you loved this week
+uses teal"), held-back instincts ("you wrote restraint where you should
+have committed"), stale rules ("this used to be true and isn't any more").
+Observations about the taste, not corrections to it.
 
 ## What I want to make
 
