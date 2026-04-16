@@ -10,4 +10,5 @@ studio/.studio.log
 .env.*
 !.env.example
 data/
+.runs/
 .DS_Store

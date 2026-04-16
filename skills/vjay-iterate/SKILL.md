@@ -78,6 +78,14 @@ fixes that would break a 5-rated dimension; one commit at end.
   `meta.yaml`.
 - `taste.md` exists at the repo root. Read it at the start of the run.
 
+## Observability
+
+Every invocation writes an event stream to `.runs/<run_id>.jsonl`
+(gitignored) and refreshes `brainstorming/runs/<slug>.md` (committed).
+Use `bin/runs.mjs` at step boundaries — the calls below are part of the
+workflow, not optional. At the end of the run, `rollup` regenerates the
+human-readable table so future sessions can see what changed.
+
 ## Workflow
 
 ### 1. Setup
@@ -91,6 +99,8 @@ fixes that would break a 5-rated dimension; one commit at end.
 - Determine the starting version number by reading
   `brainstorming/critiques/` — if the latest critique is `<slug>-vN.md`,
   the next will be `v(N+1)`.
+- **Open a run:** `RUN_ID=$(node bin/runs.mjs start --slug <slug> --skill vjay-iterate)`.
+  Keep `$RUN_ID` in context for logging throughout the loop.
 
 ### 2. Loop (for iteration in 1..4)
 
@@ -100,11 +110,12 @@ For each iteration:
 
 ```
 node bin/inspect.mjs <slug> 4 8
+node bin/runs.mjs log $RUN_ID --event inspect --iteration <N> --status ok --data '{"frames":4}'
 ```
 
-This writes `pieces/<slug>/inspect/frame-*.png`. Read each one yourself
-first — you want to know what the critic is seeing, and frames change
-each iteration as the shader changes.
+Writes `pieces/<slug>/inspect/frame-*.png`. Read each one yourself —
+you want to know what the critic is seeing, and frames change each
+iteration as the shader changes.
 
 #### 2b. Spawn the critic agent
 
@@ -173,6 +184,14 @@ Save the full critique as
 `brainstorming/critiques/<slug>-v<N+1>.md` with the YAML block plus
 a short summary paragraph you write yourself.
 
+**Log it:**
+```
+node bin/runs.mjs log $RUN_ID --event critique --iteration <N> \
+  --data '{"scores":{...}, "chef_doeuvre":<bool>, "top_fix":{"dimension":"...", "what":"..."}}'
+```
+The logged JSON should mirror the YAML exactly — the rollup depends on
+it.
+
 #### 2d. Exit conditions (check in order)
 
 1. **`chef_doeuvre: true`** — done. Tell the user, show scores, stop.
@@ -198,14 +217,22 @@ Guard rail: before applying, check `top_fix.caution`. If the fix would
 affect a dimension currently scoring 5, don't apply it — ask the
 critic for an alternative.
 
+**Log it:**
+```
+node bin/runs.mjs log $RUN_ID --event apply_fix --iteration <N> \
+  --dimension <dim> --summary '<one-line>'
+```
+
 #### 2f. Sanity render
 
 ```
 node bin/publish.mjs <slug> --duration 2
+node bin/runs.mjs log $RUN_ID --event sanity_render --iteration <N> --status ok
 ```
 
 If it errors with a compile failure, **revert the Edit** (via another
-Edit that restores the previous text) and mark this iteration as
+Edit that restores the previous text), log
+`sanity_render --status compile_error`, and mark this iteration as
 failed in the critique log. Then continue to the next iteration —
 spawn a fresh critic; the previous fix was bad.
 
@@ -216,14 +243,23 @@ unit. Commit happens in step 3.
 
 ### 3. After the loop
 
+- **Close the run:**
+  ```
+  node bin/runs.mjs end $RUN_ID --status <shipped|stuck|aborted>
+  node bin/runs.mjs rollup <slug>
+  ```
+  `rollup` regenerates `brainstorming/runs/<slug>.md` with this run's
+  rows appended. That file is committed; the JSONL stays local.
 - Summarise: how many iterations, final scores, whether chef d'oeuvre.
 - Show the user a before/after comparison by listing the score deltas
   from the first critique to the last.
 - Propose a single bundled commit with the shader changes, all the
-  per-iteration critiques, and the fresh inspect PNGs.
+  per-iteration critiques, fresh inspect PNGs, AND the refreshed
+  rollup markdown.
   ```
   git add pieces/<slug>/shader.frag pieces/<slug>/inspect \
-          brainstorming/critiques/<slug>-v*.md
+          brainstorming/critiques/<slug>-v*.md \
+          brainstorming/runs/<slug>.md
   git commit -m "<slug>: iterated refinement pass — <N> iterations
   
   Final scores: palette=X composition=Y motion=Z intensity=W depth=V
