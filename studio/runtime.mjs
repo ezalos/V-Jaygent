@@ -31,6 +31,8 @@ const fpsEl = document.getElementById('fps');
 const audioUiEl       = document.getElementById('audio-ui');
 const audioProgressEl = document.getElementById('audio-progress');
 const audioFillEl     = document.getElementById('audio-progress-fill');
+const audioHandleEl   = document.getElementById('audio-progress-handle');
+const audioTooltipEl  = document.getElementById('audio-progress-tooltip');
 const audioTimeEl     = document.getElementById('audio-time-text');
 const audioPlayEl     = document.getElementById('audio-play-indicator');
 
@@ -94,12 +96,40 @@ canvas.addEventListener('click', () => {
   if (audioEl && audioEl.paused) toggleAudio();
 });
 
+let scrubbing = false;
 if (audioProgressEl) {
-  audioProgressEl.addEventListener('click', (e) => {
+  const seekFromEvent = (e) => {
     if (!audioEl || !isFinite(audioEl.duration)) return;
     const rect = audioProgressEl.getBoundingClientRect();
-    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     audioEl.currentTime = pct * audioEl.duration;
+    updateAudioUi();
+  };
+  const updateTooltipFromEvent = (e) => {
+    if (!audioEl || !audioTooltipEl) return;
+    const rect = audioProgressEl.getBoundingClientRect();
+    const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const t    = pct * (audioEl.duration || 0);
+    audioTooltipEl.textContent = formatTime(t);
+    audioTooltipEl.style.left  = (pct * 100) + '%';
+  };
+  audioProgressEl.addEventListener('mousedown', (e) => {
+    scrubbing = true;
+    audioProgressEl.classList.add('dragging');
+    seekFromEvent(e);
+    updateTooltipFromEvent(e);
+    e.preventDefault();
+  });
+  audioProgressEl.addEventListener('mousemove', updateTooltipFromEvent);
+  window.addEventListener('mousemove', (e) => {
+    if (!scrubbing) return;
+    seekFromEvent(e);
+    updateTooltipFromEvent(e);
+  });
+  window.addEventListener('mouseup', () => {
+    if (!scrubbing) return;
+    scrubbing = false;
+    audioProgressEl.classList.remove('dragging');
   });
 }
 
@@ -483,9 +513,11 @@ function updateAudioUi() {
   audioUiEl.classList.remove('hidden');
   const dur = Number.isFinite(audioEl.duration) ? audioEl.duration : 0;
   const cur = Number.isFinite(audioEl.currentTime) ? audioEl.currentTime : 0;
-  if (audioFillEl) audioFillEl.style.width = (dur > 0 ? (cur / dur) * 100 : 0) + '%';
-  if (audioTimeEl) audioTimeEl.textContent = `${formatTime(cur)} / ${formatTime(dur)}`;
-  if (audioPlayEl) audioPlayEl.textContent = audioPlaying ? '⏸' : '▶';
+  const pct = dur > 0 ? (cur / dur) * 100 : 0;
+  if (audioFillEl)   audioFillEl.style.width  = pct + '%';
+  if (audioHandleEl) audioHandleEl.style.left = pct + '%';
+  if (audioTimeEl)   audioTimeEl.textContent  = `${formatTime(cur)} / ${formatTime(dur)}`;
+  if (audioPlayEl)   audioPlayEl.textContent  = audioPlaying ? '⏸' : '▶';
 }
 
 function formatTime(s) {
