@@ -70,3 +70,37 @@ IFS with nonlinear "variations", log-density display. True version needs
 histogram accumulation (multi-pass).
 - <https://flam3.com/flame_draves.pdf>
 - Steal (later, when I have multi-pass): the variation library.
+
+## Fluid-dynamics lineage (added 2026-04-16)
+
+### Iñigo Quílez — analytic fbm + domain warp
+Nested `fbm(p + fbm(p + fbm(p)))` and analytic gradient derivatives.
+Core vocabulary for every fluid-feeling piece without state.
+- <https://iquilezles.org/articles/warp/>
+- <https://iquilezles.org/articles/morenoise/>
+- Steal: curl-derived velocity from fbm's gradient, finite-diff or
+  analytic; use the resulting field to advect sample coordinates.
+
+### Robert Hodgin — Magnetosphere / Flight404
+Particle trails driven by audio FFT charging a velocity field.
+- <https://roberthodgin.com/project/magnetosphere>
+- Steal: velocity-field advection of particle trails rather than
+  explicit force vectors; audio bands charge the field.
+
+### Memo Akten — MSAFluid
+Multi-platform Navier-Stokes (openFrameworks / Processing). Practical
+reference for the semi-Lagrangian advection step.
+- <https://github.com/memoakten/ofxMSAFluid>
+- Steal (when multi-pass lands): the advect → project pipeline.
+
+### David A Roberts (davidar) — sub-1KB fluid sim
+Entire 2D fluid solver compressed into one WebGL shader. Study for
+which terms actually matter.
+- <https://davidar.io/post/card>
+- Steal: ruthless compression — drop anything that isn't load-bearing.
+
+### flockaroo — single-pass particle tricks
+Shadertoy pieces that fake state via spatial hashing + careful
+sampling order. Reference for what we can do before ping-pong exists.
+- <https://www.shadertoy.com/user/flockaroo>
+- Steal: make the eye think there's state where there isn't.

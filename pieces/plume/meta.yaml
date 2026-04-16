@@ -1,0 +1,46 @@
+title: Plume
+slug: plume
+created: 2026-04-16T20:50:00.000Z
+audio: audio.mp3
+time_source: audio
+duration: 500
+render_scale: 0.55
+uniforms: []
+notes: |
+  A fluid-dynamics piece set to "Utamah" by szoliver (on /CRUDE/, 2026).
+  The release notes describe the sister tracks as "fog rolling in, symbols
+  glowing faintly... movement through undergrowth" — almost literally a
+  brief for curl-noise smoke with sparse heptagonal sources. This piece
+  takes that brief.
+
+  Form: the whole frame is fluid. No geometry, no lattice. Each pixel
+  renders a backward-integrated pathline through a divergence-free
+  velocity field derived as the 2D curl of a time-evolving fbm scalar
+  potential — `v = (-∂φ/∂y, ∂φ/∂x)`. Six backward steps, exponential
+  fade, density accumulated from fbm + seven heptagonal sources that
+  pulse with the bass. Budget-friendly via render_scale 0.55 and
+  3-octave fbm.
+
+  How the track shapes it:
+    - bass    → density pulse at each of the seven sources + longer trails
+    - mid     → turbulence scale (loud mids tighten the eddies)
+    - high    → glints on vortex cores (step-gated so they stay sparse)
+    - level   → global exposure
+
+  Mouse: the cursor is a buoyant heat source. Upward velocity push + mild
+  radial component near it — drag the cursor and the smoke rises from
+  where your hand is. Off-screen when idle so the piece plays itself.
+
+  Palette: the dark-warm ember ramp (black → burgundy → rust → ember →
+  amber), same family as Chamber but one octave brighter because smoke
+  wants highlights. Single-family only, contrast by luminance.
+
+  Arc: fully response-driven. No section state machine. The track builds
+  and releases; the piece does too because its exposure tracks the level
+  and its trails lengthen with the bass. Last second crushes to black
+  with a warm flash.
+
+  Fluid-dynamics research notes in
+  brainstorming/techniques/fluid-dynamics.md.
+published_at: null
+rendered_at: '2026-04-16T18:46:48.683Z'
