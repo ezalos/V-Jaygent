@@ -64,11 +64,27 @@ float fbm3(vec2 p) {
 //   2. a finer-scale potential is added on top so eddies live at two
 //      distinct scales — big slow whorls with small fast ones inside.
 float phi(vec2 p, float t, float turbScale) {
-    vec2 w = vec2(fbm3(p * 0.70 + vec2(0.0, t * 0.06)),
-                  fbm3(p * 0.70 + vec2(5.2, 1.3) - t * 0.045));
-    float coarse = fbm3(p * turbScale        + 1.45 * w + vec2(0.0, t * 0.11));
-    float fine   = fbm3(p * turbScale * 3.20 + 0.60 * w - t * 0.085) * 0.35;
-    return coarse + fine;
+    // Fractal cascade: sum of three octaves, each domain-warped by a
+    // shared 2-octave warp field. Frequency × 2.7 per level with 0.55
+    // amplitude falloff (Kolmogorov-ish). Time flows at different rates
+    // per octave so scales desynchronise — always mixing at every scale.
+    vec2 w1 = vec2(fbm3(p * 0.65 + vec2(0.0, t * 0.11)),
+                   fbm3(p * 0.65 + vec2(5.2, 1.3) - t * 0.085));
+    vec2 w2 = vec2(fbm3(p * 1.45 + 1.25 * w1 + vec2(1.7, 9.2)),
+                   fbm3(p * 1.45 + 1.25 * w1 + vec2(8.3, 2.8) + t * 0.14));
+    vec2 warp = 1.40 * w1 + 0.90 * w2;
+    float sum  = 0.0;
+    float freq = turbScale;
+    float amp  = 1.00;
+    float tOct = 0.24;
+    for (int i = 0; i < 3; i++) {
+        sum  += amp * fbm3(p * freq + warp + vec2(0.0, t * tOct));
+        freq *= 2.70;
+        amp  *= 0.55;
+        tOct -= 0.04;                   // deeper octaves drift slower
+        warp *= 0.55;                   // but are warped less
+    }
+    return sum;
 }
 
 vec2 curlVel(vec2 p, float t, float turbScale) {

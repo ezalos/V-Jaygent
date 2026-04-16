@@ -4,7 +4,7 @@ created: 2026-04-16T20:50:00.000Z
 audio: audio.mp3
 time_source: audio
 duration: 500
-render_scale: 0.55
+render_scale: 0.48
 uniforms: []
 notes: |
   A fluid-dynamics piece set to "Utamah" by szoliver (on /CRUDE/, 2026).
@@ -43,4 +43,4 @@ notes: |
   Fluid-dynamics research notes in
   brainstorming/techniques/fluid-dynamics.md.
 published_at: null
-rendered_at: '2026-04-16T18:50:54.219Z'
+rendered_at: '2026-04-16T19:00:25.959Z'
