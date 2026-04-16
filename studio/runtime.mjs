@@ -80,6 +80,9 @@ let renderScale = 1.0;
 let fpsSamples = [];
 let lastFrameT = performance.now();
 let userOverride = false;
+// Lifted to module-scope so top-level await → attachAudio() can safely
+// reference it during boot without hitting TDZ.
+let autoplayArmed = false;
 
 // Billiard-ball sim: 4 elastic disks passed to shaders via
 // `uniform vec2 u_ball_pos[4]` and `uniform float u_ball_hit[4]`. Physics +
@@ -783,7 +786,6 @@ async function tryAutoplay() {
   try { await audioEl.play(); } catch {}
 }
 
-let autoplayArmed = false;
 // Install a global first-gesture listener that attempts to start audio. Once
 // audio is actually playing, subsequent triggers become no-ops (audioEl.paused
 // is false), so this is safe to leave armed for the session.
