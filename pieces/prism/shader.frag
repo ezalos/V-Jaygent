@@ -113,10 +113,44 @@ vec3 source(vec2 q, float t, float bass, float mid, float high, float level) {
     return col;
 }
 
+// ---------- interior content for a sub-kaleidoscope ----------
+// A more concentrated, higher-contrast source than the background `source()`.
+// This is what gets folded inside each bouncing disk — "what's between the
+// mirrors" needs to be busy for the kaleidoscope to show its work.
+vec3 interior(vec2 q, float t, float mid, float high, float level) {
+    // Warm fluid backbone.
+    vec2 w = vec2(fbm(q * 2.2 + vec2(0.0, t * 0.28)),
+                  fbm(q * 2.2 + vec2(4.1, 1.7) - t * 0.21));
+    float fluid = fbm(q * 3.0 + 2.0 * w);
+    vec3  col   = warmCycle(0.15 + 0.5 * fluid + t * 0.06)
+                * (0.25 + 1.1 * fluid);
+
+    // Bright beads on fast orbits — these give the interior crisp symmetric
+    // highlights through the fold.
+    for (int k = 0; k < 5; k++) {
+        float kf    = float(k);
+        float rate  = 2.0 + kf * 1.3;
+        float phase = kf * 1.7;
+        vec2  c     = 0.55 * vec2(cos(t * rate + phase),
+                                  sin(t * rate * 0.77 + phase * 1.4));
+        float d = length(q - c);
+        float bright = exp(-120.0 * d * d) * 1.6
+                     + exp(-22.0  * d * d) * 0.38;
+        col += warmCycle(0.03 + kf * 0.22 + t * 0.05) * bright * (0.8 + 1.4 * mid);
+    }
+
+    // Continuous soft shimmer.
+    float shimmer = smoothstep(0.55, 0.95, fbm(q * 9.0 + t * 0.6));
+    col += warmCycle(0.02 + t * 0.04) * shimmer * (0.35 + 0.9 * high);
+
+    // Boost the whole thing — interior should feel hot.
+    return col * (1.15 + 0.5 * level);
+}
+
 // ---------- a small bouncing sub-kaleidoscope ----------
-// Circular disk at `centre`, radius `r`. Inside it, apply a LOCAL dihedral
-// fold of the source at fold-count `nLocal`, with its own axis angle. When
-// the disk is near a wall, brighten briefly (the DVD colour-change feel).
+// Circular disk at `centre`, radius `r`. Inside: a NESTED dihedral fold of
+// the interior source — fold, transform, fold again at a different n. High
+// fold counts (primes 7/11/13/17) for alien density.
 vec3 bouncingKaleido(vec2 p, vec2 centre, vec2 vel, vec2 phase,
                      float t, float nLocal, float bass, float mid,
                      float high, float level) {
@@ -129,21 +163,31 @@ vec3 bouncingKaleido(vec2 p, vec2 centre, vec2 vel, vec2 phase,
     float mask = smoothstep(r, r - 0.06, dq);
     float rim  = smoothstep(r - 0.01, r, dq) * (1.0 - smoothstep(r, r + 0.015, dq));
 
-    // Local kaleido fold inside the disk — axis rotates on its own.
-    float localAxis = t * 0.22 + phase.x * 1.7 + bass * 0.35;
-    vec2  src       = kaleidoFold(q / r, nLocal, localAxis);
+    // Two-stage kaleido fold: outer fold at nLocal, then a smaller inner fold
+    // at ~nLocal/2 (rounded to integer) on the folded coordinates. Makes the
+    // interior obviously-kaleidoscopic — you see symmetry inside symmetry.
+    float axis1 = t * 0.55 + phase.x * 1.7 + bass * 0.40;   // faster inner spin
+    float axis2 = -axis1 * 0.6 + phase.y * 2.3;
+    float nInner = max(3.0, floor(nLocal * 0.5 + 0.5));
 
-    // Sample the SAME source function — fractal-of-symmetries.
-    vec3 inside = source(src * 0.6, t, bass, mid, high, level);
+    vec2 src1 = kaleidoFold(q / r, nLocal, axis1);
+    vec2 src2 = kaleidoFold(src1 * 1.35 - 0.1, nInner, axis2);
+
+    vec3 inside = interior(src2 * 0.8, t, mid, high, level);
+
+    // Extra symmetric bright core at the disk's centre, folded through the
+    // same transform — punches through the pattern like a lens focus point.
+    float coreD = length(src2);
+    inside += warmCycle(0.06 + phase.x * 0.13) * exp(-pow(coreD * 6.0, 2.0)) * 0.8;
 
     // DVD "colour change on bounce": intensity + hue shift near wall hits.
     float wallE = wallBump(tri(t * vel.x + phase.x))
                 + wallBump(tri(t * vel.y + phase.y));
     float nBounces = bounces(t, vel.x, phase.x) + bounces(t, vel.y, phase.y);
-    float hueShift = 0.12 * nBounces + 0.05 * wallE;
+    float hueShift = 0.14 * nBounces + 0.06 * wallE;
     vec3  tint     = warmCycle(0.10 + hueShift + phase.x * 0.07);
-    inside = mix(inside, inside * tint * 1.45, 0.55);
-    inside *= 1.0 + 0.6 * wallE;
+    inside = mix(inside, inside * tint * 1.5, 0.55);
+    inside *= 1.0 + 0.55 * wallE;
 
     // Rim in the tint colour so the disk edges clearly.
     vec3 rimCol = tint * (0.85 + 0.9 * wallE) * (0.6 + 0.7 * level);
@@ -189,14 +233,15 @@ void main() {
     col += warmCycle(0.08 + t * 0.04) * wedgeFlash * 0.18;
 
     // --- bouncing sub-kaleidoscopes (DVD-logo style) ---
-    // Four disks, coprime velocities so they never realign. Each has its
-    // own fold count, phase, and colour.
+    // Four disks, coprime velocities so they never realign. Slow, drifting —
+    // the kaleidoscopes themselves do the moving; the disks only creep.
+    // Fold counts are primes (7, 11, 13, 17) for alien density.
     const int N_TILES = 4;
-    float vels_x[N_TILES];  vels_x[0]=0.17; vels_x[1]=0.23; vels_x[2]=0.13; vels_x[3]=0.29;
-    float vels_y[N_TILES];  vels_y[0]=0.11; vels_y[1]=0.19; vels_y[2]=0.31; vels_y[3]=0.07;
-    float phas_x[N_TILES];  phas_x[0]=0.00; phas_x[1]=0.73; phas_x[2]=1.41; phas_x[3]=2.07;
-    float phas_y[N_TILES];  phas_y[0]=0.40; phas_y[1]=1.11; phas_y[2]=0.28; phas_y[3]=1.89;
-    float folds [N_TILES];  folds [0]=6.0;  folds [1]=5.0;  folds [2]=8.0;  folds [3]=7.0;
+    float vels_x[N_TILES];  vels_x[0]=0.043; vels_x[1]=0.061; vels_x[2]=0.031; vels_x[3]=0.079;
+    float vels_y[N_TILES];  vels_y[0]=0.029; vels_y[1]=0.053; vels_y[2]=0.083; vels_y[3]=0.019;
+    float phas_x[N_TILES];  phas_x[0]=0.00;  phas_x[1]=0.73;  phas_x[2]=1.41;  phas_x[3]=2.07;
+    float phas_y[N_TILES];  phas_y[0]=0.40;  phas_y[1]=1.11;  phas_y[2]=0.28;  phas_y[3]=1.89;
+    float folds [N_TILES];  folds [0]=7.0;   folds [1]=11.0;  folds [2]=13.0;  folds [3]=17.0;
 
     // Bounds so the disk (radius 0.26 in world space) never clips the frame.
     float aspect = u_resolution.x / max(u_resolution.y, 1.0);
@@ -204,7 +249,8 @@ void main() {
 
     float cornerProximity = 0.0;
     for (int i = 0; i < N_TILES; i++) {
-        vec2 vel   = vec2(vels_x[i], vels_y[i]) * (1.0 + 0.4 * bass);
+        // Very gentle bass nudge on speed so kicks don't turn them into racers.
+        vec2 vel   = vec2(vels_x[i], vels_y[i]) * (1.0 + 0.08 * bass);
         vec2 phase = vec2(phas_x[i], phas_y[i]);
         vec2 bpx   = vec2(tri(t * vel.x + phase.x), tri(t * vel.y + phase.y));
         vec2 centre = bpx * (bounds - 0.26);
