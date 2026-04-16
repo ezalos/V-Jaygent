@@ -1,0 +1,44 @@
+title: Strata
+slug: strata
+created: 2026-04-16T20:30:00.000Z
+duration: 45
+render_scale: 0.65
+uniforms: []
+notes: |
+  The first V-Jaygent piece that actually does the thing the project is named
+  for: VJ-layered composition. Five independent layers composited via
+  screen/max/add-sat blend modes, each at a coprime time-rate (3, 5, 7, 11),
+  each with its own SDF mask so no layer fills the frame.
+
+  Layers, bottom to top:
+    L0  Ground     fbm nebula drifting slowly; the only layer with no mask —
+                   it's the substrate.
+    L1  Rings      moiré rings inside a rounded-rect mask on a Lissajous
+                   path at rate 3. Screen-blended. Bass pitches the
+                   grating difference — kicks breathe the beat pattern.
+    L2  Truchet    quarter-arc tiles inside a triangle mask at rate 5.
+                   Max-blended. Mid drives its rotation rate.
+    L3  Attractor  a 24-step de Jong iterate inside a circle at rate 7.
+                   Screen-blended. Mid modulates a parameter; high brightens.
+    L4  Sparks     17 angular slots around the rim, time-bucketed by highs
+                   at rate 11. Add-saturated.
+
+  Cursor pulls layers apart with different weights — moving the mouse
+  drags L1, L2, L3 by different amounts in different directions, so the
+  composition decoheres visibly under your hand.
+
+  Palette stays warm-family throughout. Blend modes chosen so three+
+  layers don't grey out: screen (a + b - ab) preserves highlights, max
+  keeps the hardest element, add-saturated clamps peaks.
+
+  No audio file declared — the piece is standalone, with gentle
+  pseudo-audio driving the bands when nothing is playing. Drop in any
+  audio-reactive track and the layers bind automatically.
+
+  Thesis test: if this looks like VJ-art rather than a monolithic field,
+  the layered approach is validated. The next architectural step is to
+  promote layering from one-shader-with-layers-inside to
+  one-shader-per-layer composited by the runtime. See
+  brainstorming/pieces/future-multipass-deck.md.
+published_at: null
+rendered_at: '2026-04-16T18:35:18.349Z'
