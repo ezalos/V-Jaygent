@@ -1,7 +1,7 @@
 ---
 user-invocable: true
 allowed-tools: Read, Edit, Bash, Agent, TaskCreate, TaskUpdate, TaskList
-description: Refine an existing V-Jaygent piece via a critic-agent-in-loop. Spawns a critic against taste.md, applies the top fix, re-inspects, repeats until chef d'oeuvre or 8 iterations.
+description: Refine an existing V-Jaygent piece via a critic-agent-in-loop. Critic judges whether the piece is mesmerizing + delivers its claim, scores against taste.md, returns one of five verdicts. Loop applies needs-tweak fixes; stops on chef-d'oeuvre, ship-it, structural-rethink, or premise-wrong.
 ---
 
 # /vjay-iterate — critic-in-the-loop piece refinement
@@ -9,9 +9,12 @@ description: Refine an existing V-Jaygent piece via a critic-agent-in-loop. Spaw
 ## Trigger
 
 `/vjay-iterate <slug>` — refine the V-Jaygent piece at `pieces/<slug>/`
-by running a critic agent against `taste.md`, applying the top fix,
-and re-rendering. Loop until chef d'oeuvre (all testable dimensions
-≥ 4) or 8 iterations.
+by running a critic agent that judges whether the piece mesmerizes
+(5 probes) and delivers its claim, scores it against `taste.md`, and
+returns one of five verdicts. The loop applies `needs-tweak` fixes
+and stops when the critic says `chef-doeuvre` (perfect), `ship-it`
+(good enough), `structural-rethink` / `premise-wrong` (hand back),
+or iteration cap hits 8.
 
 If `<slug>` is omitted, read `pieces/current.txt` and use that.
 
@@ -33,32 +36,37 @@ If `<slug>` is omitted, read `pieces/current.txt` and use that.
                         │                         │
                         ▼                         │
       ┌──── CRITIC agent (Explore, read-only) ───┐│
-      │ reads taste.md, VISION.md, meta,         ││
-      │       shader, frame-*.png, prior crits   ││
-      │ outputs YAML: scores + one top_fix       ││
+      │ reads meta, taste, VISION, plume-v2,     ││
+      │       shader, lib/, frame-*.png, crits   ││
+      │ outputs Markdown + YAML tail:            ││
+      │   verdict, 5 mesmerizing probes,         ││
+      │   claim_check, scores, top_fix           ││
       └───────────────┬──────────────────────────┘│
                       ▼                           │
         save critique → brainstorming/critiques/  │
                         │                         │
                         ▼                         │
-          ┌──── exit conditions ───┐              │
-          │ chef_doeuvre?          │── YES → DONE │
-          │ score<3 + big fix?     │── YES → hand │
-          │ repeat of prior fix?   │── YES → hand │
-          │ iter == 8?             │── YES → hand │
-          └────────┬───────────────┘              │
-                   │ NO                           │
-                   ▼                              │
-      caution? (would break a 5?) → YES → ask for alt
-                   │ NO                           │
-                   ▼                              │
-       apply top_fix via Edit on shader.frag      │
-                   │                              │
-                   ▼                              │
-      sanity render (publish.mjs 2s)              │
-       compile error? → revert, continue          │
-                   │ OK                           │
-                   └──────── back to inspect ─────┘
+       ┌──── exit conditions (check order) ───┐   │
+       │ verdict: chef-doeuvre?      │── DONE │   │
+       │ verdict: ship-it?           │── DONE │   │
+       │ verdict: premise-wrong?     │── hand │   │
+       │ verdict: structural-rethink?│── hand │   │
+       │ same top_fix as prior?      │── hand │   │
+       │ iter == 8?                  │── hand │   │
+       └────────┬─────────────────────┘          │
+                │ verdict: needs-tweak           │
+                ▼                                │
+      caution? (would break a 5 or passing      │
+      probe?) → YES → ask for alt                │
+                │ NO                             │
+                ▼                                │
+       apply top_fix via Edit on shader.frag     │
+                │                                │
+                ▼                                │
+      sanity render (publish.mjs 2s)             │
+       compile error? → revert, continue         │
+                │ OK                             │
+                └───────── back to inspect ──────┘
                    │
                    ▼
           summarise deltas → one bundled commit
@@ -67,7 +75,8 @@ If `<slug>` is omitted, read `pieces/current.txt` and use that.
 Invariants: critic has no Edit tool (separation of eyes); one top_fix
 per iteration (no multi-change stacking); history cumulative (prior
 critiques read each loop, prevents oscillation); caution field blocks
-fixes that would break a 5-rated dimension; one commit at end.
+fixes that would break a 5-rated dimension or a passing mesmerizing
+probe; one commit at end.
 
 ## Prerequisites
 
@@ -125,7 +134,7 @@ input via Read**, which is the whole point.
 
 Critic agent prompt template (fill in placeholders):
 
-```
+````
 You are the V-Jaygent critic. Your single job is to judge whether
 piece `<slug>` is *mesmerizing* — does it hold the eye without
 exhausting it? — and whether it delivers on its own claim. Scoring
@@ -171,11 +180,20 @@ the eye, not the checklist.
    friends. Prefer "use lib/noise.glsl's fbm" over "re-implement
    fbm" in your top_fix.
 
-7. Each of the 4 frames at
+7. /home/ezalos/42/V-Jaygent/brainstorming/techniques/interactivity.md
+   READ THIS if the piece declares cursor reactivity (shader
+   references `u_mouse`, meta.yaml describes mouse behaviour, or a
+   prior critique called out interaction). It holds the seven
+   operational Interaction-agency probes the critic runs on such
+   pieces, plus the pattern taxonomy (field modulation, parameter
+   pilot, camera control, velocity-driven, dwell, hybrid). Skip it
+   for pieces with no cursor reactivity.
+
+8. Each of the 4 frames at
    /home/ezalos/42/V-Jaygent/pieces/<slug>/inspect/frame-*.png
    Actually look. Your observations must cite specific frame numbers.
 
-8. Any previous critique at
+9. Any previous critique at
    /home/ezalos/42/V-Jaygent/brainstorming/critiques/<slug>-v*.md
    So you know what has already been tried and don't re-propose it.
 
@@ -223,6 +241,42 @@ Count passes. Record `mesmerizing_passes: N/5` in the YAML tail.
 3/5 or fewer → the piece fundamentally doesn't mesmerize. Verdict
 must be `structural-rethink` or `premise-wrong`, not `needs-tweak`.
 
+## Interaction probes
+
+**Run this section only if the piece declares cursor reactivity**
+(shader references `u_mouse`, meta.yaml describes mouse behaviour,
+or a prior critique called out interaction). Otherwise, write
+"Not applicable — piece is not cursor-reactive" and skip to Claim
+check.
+
+The seven probes live in `taste.md` §"VJ lenses / Interaction
+agency" and `brainstorming/techniques/interactivity.md` — read
+those first so your verdicts reference the same criteria the author
+will.
+
+You cannot run all probes from stills alone — some (Composition,
+Idle, Reversibility, Latency) require multi-cursor-position samples
+you don't have. For those, reason from the shader: does the code
+structure imply a pass? If a probe is structurally-testable but not
+testable from the 4 frames, mark it `shader-pass` / `shader-fail` /
+`shader-unclear` and cite the shader line that decides it.
+
+| Probe          | Verdict                              | Why                                                  |
+|----------------|--------------------------------------|------------------------------------------------------|
+| Composition    | pass/fail/weak/shader-*              | does cursor change macro composition or just local  |
+| Idle           | pass/fail/weak/shader-*              | does piece play itself at `u_mouse == (0,0)`         |
+| Readability    | pass/fail/weak/shader-*              | could a cold viewer guess the mapping in 3 s         |
+| Reversibility  | pass/fail/weak/shader-*/n/a-stateful | does returning cursor to a return the frame          |
+| Dominance      | pass/fail/weak/shader-*              | is cursor contribution ≤ ~30% of structural energy   |
+| Convention     | pass/fail/weak/shader-*              | does the mapping fight viewer priors (Y→zoom etc.)   |
+| Latency        | pass/fail/weak/shader-*              | does feature-under-cursor lag more than ~3 frames    |
+
+Count passes (counting `shader-pass` as pass). Record
+`interaction_passes: N/7` in the YAML tail. 3/7 or fewer and the
+interaction is decorative — `top_fix` must address interaction,
+regardless of other probe results, unless the piece can simply drop
+cursor reactivity from its claim.
+
 ## Claim check
 
 Pass or fail. One paragraph. Does the piece deliver what it claimed
@@ -257,8 +311,10 @@ Number 1 is the most important fix. Priority order:
 1. Failed claim check → that's #1.
 2. Else, 3/5 or fewer mesmerizing probes → naming the missing
    probe(s) is #1.
-3. Else, dimension scores below 3 → #1 raises the lowest.
-4. Else, polish toward chef d'oeuvre.
+3. Else, 3/7 or fewer interaction probes (if piece claims cursor
+   reactivity) → interaction fix is #1.
+4. Else, dimension scores below 3 → #1 raises the lowest.
+5. Else, polish toward chef d'oeuvre.
 
 ## Verdict
 
@@ -297,6 +353,15 @@ mesmerizing_probes:
   squint: <pass|fail|weak>
   hue_drift: <pass|fail|weak>
   mystery: <pass|fail|weak>
+interaction_passes: <0-7 or "n/a">        # n/a if piece is not cursor-reactive
+interaction_probes:                       # omit entirely if n/a
+  composition:   <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+  idle:          <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+  readability:   <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+  reversibility: <pass|fail|weak|shader-pass|shader-fail|shader-unclear|n/a-stateful>
+  dominance:     <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+  convention:    <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+  latency:       <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
 scores:
   palette_cohesion: <1-5>
   composition: <1-5>
@@ -338,7 +403,7 @@ If verdict is anything other than `needs-tweak`, set `top_fix: null`.
   top_fix to fill the slot.
 - The iterate loop depends on your `top_fix.what` being concrete
   enough to apply via Edit. Name constants, not vibes.
-```
+````
 
 #### 2c. Parse the critique
 
@@ -403,8 +468,9 @@ to translate into a specific Edit (ambiguous, references "the shader
 area around…"), re-spawn the critic with a follow-up asking for the
 specific lines / constant / function name to change. Don't guess.
 
-Guard rail: before applying, check `top_fix.caution`. If the fix would
-affect a dimension currently scoring 5, don't apply it — ask the
+Guard rail: before applying, check `top_fix.caution`. If the fix
+would affect a dimension currently scoring 5, or would break a
+mesmerizing probe that currently passes, don't apply it — ask the
 critic for an alternative.
 
 **Log it:**
@@ -440,9 +506,11 @@ unit. Commit happens in step 3.
   ```
   `rollup` regenerates `brainstorming/runs/<slug>.md` with this run's
   rows appended. That file is committed; the JSONL stays local.
-- Summarise: how many iterations, final scores, whether chef d'oeuvre.
-- Show the user a before/after comparison by listing the score deltas
-  from the first critique to the last.
+- Summarise: how many iterations, final scores, final verdict,
+  mesmerizing probes at start vs end, whether the claim check now
+  passes.
+- Show the user a before/after comparison listing score deltas and
+  probe deltas from the first critique to the last.
 - Propose a single bundled commit with the shader changes, all the
   per-iteration critiques, fresh inspect PNGs, AND the refreshed
   rollup markdown.
@@ -451,12 +519,13 @@ unit. Commit happens in step 3.
           brainstorming/critiques/<slug>-v*.md \
           brainstorming/runs/<slug>.md
   git commit -m "<slug>: iterated refinement pass — <N> iterations
-  
-  Final scores: palette=X composition=Y motion=Z intensity=W depth=V
-  form=U. Chef d'oeuvre: <yes|no>.
-  
+
+  Final verdict: <chef-doeuvre|ship-it|…>. Mesmerizing: <N>/5 probes.
+  Claim check: <pass|fail>.
+  Scores: palette=X composition=Y motion=Z intensity=W depth=V form=U.
+
   Key fix landed: <summary of biggest improvement>.
-  
+
   Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
   ```
 

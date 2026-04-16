@@ -20,6 +20,11 @@ services:
       # Pieces are runtime data — adding a piece on the host shows up in
       # the studio without a rebuild (the runtime polls mtimes).
       - ./pieces:/app/pieces
+      # Shared GLSL lib — bind-mounted so adding a lib/*.glsl module on
+      # the host is immediately visible to running pieces, without
+      # needing an image rebuild. See brainstorming/techniques/using-lib.md
+      # and skills/vjay-study/SKILL.md §"lib extraction".
+      - ./lib:/app/lib
       # Stats persist across container restarts.
       - ./data:/app/data
 

@@ -32,6 +32,10 @@ brief).
     (for multi-pass RD pieces)
   - `lib/billiards.glsl` — `ballMask`, `ballRim`, `ballHitRing`,
     `ballWallEnergy` (for pieces using the CPU billiard sim)
+  - `lib/interaction.glsl` — `vjMouseIdle`, `vjMouseWorld`,
+    `vjMouseWorldOrZero`, `vjRadialZoom`, `vjCursorHeat` (canonical
+    cursor handling — prefer these over re-deriving the aspect-
+    corrected world-mouse calculation or a bespoke idle check)
 
   Include via `#include "<name>.glsl"` — the runtime resolves from `lib/`.
   `ls lib/` at the start of a run if this list looks stale.
