@@ -91,20 +91,27 @@ vec2 curlVel(vec2 p, float t, float turbScale) {
 
 // ---------- density sources ----------
 
-// Seven softly-pulsing heptagonal sources that the bass kicks. Position
-// drifts slowly so the plume composition isn't static.
+// Seven heptagonal sources the bass kicks. Tighter Gaussians and further
+// out so they read as seven distinct points rather than one blob. Baseline
+// amplitude pulled way down so silence = sparse; kicks = bright.
 float sourceDensity(vec2 q, float t, float bass) {
     float s = 0.0;
     for (int k = 0; k < 7; k++) {
         float ang = float(k) * (TAU / 7.0) + 0.4 + 0.08 * sin(t * 0.17 + float(k));
-        float rad = 0.55 + 0.08 * sin(t * 0.13 + float(k) * 1.6);
+        float rad = 0.78 + 0.08 * sin(t * 0.13 + float(k) * 1.6);
         vec2  pt  = rad * vec2(cos(ang), sin(ang));
         float d2  = dot(q - pt, q - pt);
-        // Narrow bright core + wider halo, amplified by bass.
-        s += 0.70 * exp(-28.0 * d2) * (0.35 + 1.9 * bass);
-        s += 0.30 * exp(-6.0  * d2) * (0.20 + 1.0 * bass);
+        s += 0.70 * exp(-52.0 * d2) * (0.08 + 1.9 * bass);
     }
     return s;
+}
+
+// Slow macro drift — wanders the composition across the frame so the
+// "interesting part" isn't pinned to the centre. Two coprime-period
+// cosines so the path doesn't return to itself.
+vec2 macroDrift(float t) {
+    return 0.25 * vec2(sin(t * 0.038) + 0.55 * sin(t * 0.083 + 1.3),
+                       cos(t * 0.031) + 0.55 * cos(t * 0.071 + 2.7));
 }
 
 // ---------- main ----------
@@ -132,7 +139,8 @@ void main() {
     // Backward pathline accumulation. Six steps keeps us within budget; the
     // exponential fade weights the head of the trail heavily.
     vec3  col      = vec3(0.0);
-    vec2  q        = p;
+    vec2  drift    = macroDrift(t);
+    vec2  q        = p - drift;              // whole composition wanders
     float fade     = 1.0;
     float stepSize = 0.028 + 0.020 * bass;   // stronger kick = longer trails
 
@@ -142,9 +150,13 @@ void main() {
         float tp = t - float(i) * 0.06;
         vec2  v  = curlVel(q, tp, turbScale);
 
+        // Global upward buoyancy — smoke rises. Always-on baseline plus
+        // a little extra when the track is loud. Gives felt direction.
+        v.y += 0.08 + 0.22 * level;
+
         // Cursor heat: upward buoyancy + mild radial push. Makes the cursor
         // feel like a flame whose plume rises above it.
-        vec2 rm = q - mWorld;
+        vec2 rm = q - (mWorld - drift);
         float d2 = dot(rm, rm);
         vec2 heatV = vec2(0.0, 1.1) * exp(-5.0 * d2)
                    + normalize(rm + 1e-4) * 0.35 * exp(-8.0 * d2);
@@ -188,10 +200,10 @@ void main() {
     // but still ties colour to pulse.
     col.r *= 1.0 + 0.04 * bass;
 
-    // Dark vignette — the plume lives inside a smoky room, not open sky.
-    float r = length(p);
-    col *= 1.0 - 0.45 * smoothstep(0.85, 1.35, r);
-    col *= 1.0 - 0.10 * dot(p, p);
+    // Gentle radial tint. The previous hard vignette was doing the work
+    // the fluid should do; edge-dark now has to come from actual density
+    // falloff, not a mask.
+    col *= 1.0 - 0.08 * dot(p, p);
 
     // Reinhard tone-map so peaks compress instead of clipping. Kills the
     // "everything is white on the kick" failure mode.
