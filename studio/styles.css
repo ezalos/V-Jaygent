@@ -147,96 +147,65 @@ body.hud-off .fps { display: none; }
 .card .s { font-size: 10px; color: var(--ink-dim); }
 .card .n { font-size: 11px; color: var(--ink-dim); margin-top: 8px; line-height: 1.4; }
 
-/* ---------- audio ui ---------- */
+/* ---------- audio ui — just a line ---------- */
 
 .audio-ui {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 16px 8px 16px;
-  background: linear-gradient(to top, rgba(5,5,8,0.70), rgba(5,5,8,0.00));
-  font-size: 10px;
-  color: var(--ink-dim);
+  left:  5%;
+  right: 5%;
+  bottom: 72px;
   z-index: 5;
   pointer-events: none;
 }
 
 body.hud-off .audio-ui { display: none; }
 
-.audio-ui .play {
-  font-size: 12px;
-  width: 16px;
-  text-align: center;
-  color: var(--ink);
-  pointer-events: none;
-}
-
-.audio-ui .time {
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.05em;
-  pointer-events: none;
-}
-
 .audio-ui .progress {
   position: relative;
-  height: 6px;
-  background: rgba(232, 230, 223, 0.10);
+  height: 2px;
+  background: rgba(232, 230, 223, 0.28);
   cursor: pointer;
   pointer-events: auto;
-  transition: height 120ms ease-out;
-  border-radius: 3px;
 }
-
-.audio-ui .progress:hover,
-.audio-ui .progress.dragging { height: 10px; }
 
 .audio-ui .progress-fill {
   position: absolute;
   inset: 0 auto 0 0;
   width: 0%;
-  background: linear-gradient(to right, rgba(255,180,90,0.85), rgba(255,130,90,0.95));
-  border-radius: 3px;
+  background: rgba(255, 170, 90, 0.95);
 }
 
 .audio-ui .handle {
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 14px;
-  height: 14px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: rgba(255, 200, 130, 0.95);
-  box-shadow: 0 0 10px rgba(255, 140, 80, 0.6);
   pointer-events: none;
-  transition: width 120ms ease-out, height 120ms ease-out;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
   left: 0%;
 }
 
 .audio-ui .progress:hover .handle,
-.audio-ui .progress.dragging .handle {
-  width: 18px;
-  height: 18px;
-}
+.audio-ui .progress.dragging .handle { opacity: 1; }
 
 .audio-ui .tooltip {
   position: absolute;
   bottom: 100%;
-  transform: translate(-50%, -10px);
-  padding: 3px 7px;
-  background: rgba(15, 12, 10, 0.92);
+  transform: translate(-50%, -8px);
+  padding: 2px 6px;
+  background: rgba(15, 12, 10, 0.85);
   color: var(--ink);
   font-size: 10px;
   font-variant-numeric: tabular-nums;
-  border-radius: 3px;
   pointer-events: none;
   opacity: 0;
   transition: opacity 120ms ease-out;
   white-space: nowrap;
+  left: 0%;
 }
 
 .audio-ui .progress:hover .tooltip,

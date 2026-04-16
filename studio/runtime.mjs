@@ -18,7 +18,9 @@ void main() {
 
 const qs = new URLSearchParams(location.search);
 const RECORD_MODE = qs.get('record') === '1';
-const FORCED_SLUG = qs.get('piece');
+// Slug can come from either a path segment (/in-seven) or ?piece=.
+const PATH_MATCH  = location.pathname.match(/^\/([a-z0-9][a-z0-9-]*)$/);
+const FORCED_SLUG = qs.get('piece') ?? (PATH_MATCH ? PATH_MATCH[1] : null);
 const POLL_MS = 500;
 
 const canvas = document.getElementById('stage');
@@ -33,8 +35,6 @@ const audioProgressEl = document.getElementById('audio-progress');
 const audioFillEl     = document.getElementById('audio-progress-fill');
 const audioHandleEl   = document.getElementById('audio-progress-handle');
 const audioTooltipEl  = document.getElementById('audio-progress-tooltip');
-const audioTimeEl     = document.getElementById('audio-time-text');
-const audioPlayEl     = document.getElementById('audio-play-indicator');
 
 const gl = canvas.getContext('webgl2', { preserveDrawingBuffer: true, antialias: true });
 if (!gl) {
@@ -329,6 +329,7 @@ async function loadPiece(slug) {
     renderScale = (Number.isFinite(rs) && rs > 0 && rs <= 2) ? rs : 1.0;
     resize();
     attachAudio(slug, meta);
+    pushSlugToUrl(slug);
     setMetaOverlay(meta);
     clearError();
   } catch (err) {
@@ -366,6 +367,13 @@ async function cycle(step) {
     userOverride = true;
     loadPiece(next.slug);
   }
+}
+
+function pushSlugToUrl(slug) {
+  if (!slug) return;
+  const want = `/${slug}`;
+  if (location.pathname === want) return;
+  try { history.replaceState({ slug }, '', want); } catch {}
 }
 
 // ---------- catalog overlay ----------
@@ -516,8 +524,6 @@ function updateAudioUi() {
   const pct = dur > 0 ? (cur / dur) * 100 : 0;
   if (audioFillEl)   audioFillEl.style.width  = pct + '%';
   if (audioHandleEl) audioHandleEl.style.left = pct + '%';
-  if (audioTimeEl)   audioTimeEl.textContent  = `${formatTime(cur)} / ${formatTime(dur)}`;
-  if (audioPlayEl)   audioPlayEl.textContent  = audioPlaying ? '⏸' : '▶';
 }
 
 function formatTime(s) {

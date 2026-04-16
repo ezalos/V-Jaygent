@@ -57,6 +57,15 @@ async function handle(req, res, { piecesRoot, studioDir }) {
   if (path === '/runtime.mjs')       return serveStatic(res, studioDir, 'runtime.mjs');
   if (path === '/styles.css')        return serveStatic(res, studioDir, 'styles.css');
 
+  // `/<slug>` → serve the studio page if <slug> is a valid piece directory.
+  // Runtime reads location.pathname to pin the displayed piece.
+  const slugOnly = path.match(/^\/([a-z0-9][a-z0-9-]*)$/);
+  if (slugOnly) {
+    const candidate = slugOnly[1];
+    const st = await stat(join(piecesRoot, candidate)).catch(() => null);
+    if (st && st.isDirectory()) return serveStatic(res, studioDir, 'index.html');
+  }
+
   if (path === '/api/catalog')       return apiCatalog(res, piecesRoot);
   if (path === '/api/current')       return apiCurrent(res, piecesRoot);
 
