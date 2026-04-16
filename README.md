@@ -60,6 +60,43 @@ to the top, so `// ABOUTME:` comments above it are fine.
 - `r`     — reset `u_time` to zero
 - `h`     — toggle HUD overlays
 
+## Run with Docker (recommended for deployment)
+
+The studio ships with a Dockerfile and a `compose.yaml` configured for
+resilience: `restart: unless-stopped`, an HTTP healthcheck on
+`/api/catalog`, and capped JSON-file logging. `tini` forwards
+`SIGTERM` so the in-flight stats buffer is flushed on shutdown.
+
+```bash
+# one-time setup
+cp .env.example .env
+sed -i "s/replace-me-with-a-long-random-string/$(openssl rand -hex 24)/" .env
+
+# start (builds the image on first run)
+docker compose up -d --build
+
+# tail logs
+docker compose logs -f studio
+
+# health
+docker compose ps
+curl -s http://127.0.0.1:7777/api/catalog | head -c 200
+
+# stop (clean shutdown — stats are flushed)
+docker compose down
+
+# rebuild after editing studio/* code
+docker compose up -d --build
+
+# read stats
+curl "http://127.0.0.1:7777/api/stats?token=$(grep ^STATS_TOKEN .env | cut -d= -f2)"
+```
+
+`./pieces` and `./data` are bind-mounted, so:
+- adding a piece on the host with `bin/new-piece.mjs` shows up in the
+  studio without restart (the runtime polls mtimes).
+- visitor-stat data persists across container restarts.
+
 ## Visitor stats
 
 The studio counts page views (`/` and `/<slug>`) into a JSON file. Bots

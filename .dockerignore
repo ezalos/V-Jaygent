@@ -1,0 +1,29 @@
+.git
+.gitignore
+.dockerignore
+.env
+.env.*
+!.env.example
+
+node_modules
+
+# Local runtime artifacts
+data/
+studio/.stats.json
+studio/.stats.json.tmp
+studio/.studio.log
+
+# Tooling state, not needed in image
+.superpowers/
+.claude/
+brainstorming/
+tests/
+VISION.md
+README.md
+
+# Heavy generated outputs — never copy into the image
+pieces/*/clip.webm
+pieces/*/clip.mp4
+pieces/index.json
+
+.DS_Store

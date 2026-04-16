@@ -5,4 +5,9 @@ pieces/*/clip.webm
 pieces/index.json
 studio/.stats.json
 studio/.stats.json.tmp
+studio/.studio.log
+.env
+.env.*
+!.env.example
+data/
 .DS_Store

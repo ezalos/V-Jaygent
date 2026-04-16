@@ -1,0 +1,39 @@
+# ABOUTME: docker compose for the V-Jaygent studio — one service, restart-on-crash,
+# ABOUTME: healthcheck via /api/catalog, capped JSON logs, bind-mounted pieces/ + data/.
+
+services:
+  studio:
+    build: .
+    image: vjaygent:latest
+    container_name: vjaygent-studio
+    restart: unless-stopped
+
+    # Cloudflare → Pi nginx proxies to host:7777, so we publish the port
+    # on the host. Bind to 127.0.0.1 if you only want LAN-via-nginx.
+    ports:
+      - "7777:7777"
+
+    env_file:
+      - .env
+
+    volumes:
+      # Pieces are runtime data — adding a piece on the host shows up in
+      # the studio without a rebuild (the runtime polls mtimes).
+      - ./pieces:/app/pieces
+      # Stats persist across container restarts.
+      - ./data:/app/data
+
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:7777/api/catalog"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+    stop_grace_period: 10s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
