@@ -1,0 +1,56 @@
+title: breath
+slug: breath
+created: 2026-04-16T20:00:00.000Z
+notes: |
+  Aphex Twin — "aisatsana [102]" (Syro, 2014). A piece that answers VISION's
+  open question on dynamic range downward: silence is part of the piece's
+  pulse, not the absence of it.
+
+  Physics: heat diffusion on a rgba16f ping-pong texture at half res. Audio
+  bands seed band-specific Gaussian sources; a global decay constant pulls
+  the field back to genuine black when seeding stops. No reaction — just
+  diffusion — because the piano attacks ARE the reaction.
+
+  Bindings:
+    - bass            → wide low source (left-hand chord region)
+    - mid             → medium source in the middle band
+    - high            → tight upper source (right-hand figures)
+    - u_audio_time    → slow stereo drift of source x-positions
+    - u_audio_playing → gates seeding. No audio, no new energy.
+
+  Palette: warm only — near-black substrate through burgundy, rust, ember,
+  cream-amber peaks. Contrast by luminance, never hue. Reinhard tonemap
+  prevents peak clipping. Schlieren-style gradient rim on the display
+  pass catches radiation fronts.
+
+  Arc: no section state machine. The track itself drives dynamics — quiet
+  passages produce quiet fields, densely-voiced passages hold more warmth.
+  Ending is earned by the audio: when the track finishes, u_audio_playing
+  drops to 0 and the field cools to black on its ~0.9s half-life.
+
+  Mouse: unused. The piano is the only instrument here.
+
+  Uses lib/diffusion.glsl (laplacian), lib/noise.glsl (vnoise),
+  lib/tonemap.glsl (reinhard).
+duration: 322
+render_scale: 1
+audio: audio.mp3
+time_source: audio
+uniforms: []
+published_at: null
+passes:
+  - name: simulate
+    shader: sim.frag
+    target:
+      format: rgba16f
+      ping_pong: true
+      scale: 0.5
+    inputs:
+      u_state: simulate
+    iterations: 8
+  - name: display
+    shader: shader.frag
+    target: screen
+    inputs:
+      u_state: simulate
+rendered_at: '2026-04-16T20:01:42.792Z'
