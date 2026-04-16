@@ -62,12 +62,11 @@ let userOverride = false;
 // — the shader is still stateless per-pixel, but the positions are integrated
 // on the CPU and pushed up each frame.
 //
-// Collision radius is tuned to the disk's *visible* extent, not its outer
-// mask edge: the shader draws a soft rim that fades from opaque at
-// `dq = 0.20` to transparent at `dq = 0.26`, so the eye reads the edge near
-// the 50% point ~0.23. Physics uses 0.23 so balls bounce exactly when their
-// visible edges meet.
-const BALL_RADIUS = 0.23;
+// Collision radius MUST equal the shader-side disk radius exactly. The
+// prism shader draws disks with a hard edge at r = 0.26 (narrow AA only,
+// no soft rim), so 0.26 is the visible extent, and physics bouncing at
+// the same value means balls hit precisely when their edges meet.
+const BALL_RADIUS = 0.26;
 const balls = [
   { pos: [-0.85, -0.42], vel: [ 0.43,  0.31], lastHit: -10 },
   { pos: [ 0.60,  0.55], vel: [-0.38,  0.27], lastHit: -10 },

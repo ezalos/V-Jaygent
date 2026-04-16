@@ -178,13 +178,20 @@ vec3 bouncingKaleido(vec2 p, vec2 centre, float phaseA, float phaseB,
                      vec2 bounds, float t, float nHome, float hueSeed,
                      float hitPulse, float bass, float mid, float high,
                      float level) {
-    float r = 0.26 + 0.012 * sin(t * 0.19 + phaseA);   // breathing radius
+    // Radius is fixed — physics uses the same value (BALL_RADIUS in
+    // runtime.mjs), so any variation here desyncs the visible edge from
+    // where the bounce fires. The *interior* kaleido pattern breathes
+    // plenty; the outline stays put.
+    const float r = 0.26;
     vec2 q = p - centre;
     float dq = length(q);
-    if (dq > r * 1.15) return vec3(0.0);
+    if (dq > r + 0.01) return vec3(0.0);
 
-    float mask = smoothstep(r, r - 0.06, dq);
-    float rim  = smoothstep(r - 0.01, r, dq) * (1.0 - smoothstep(r, r + 0.015, dq));
+    // Mask is pure antialiasing (~1.5% of radius) so the visible extent
+    // IS r — the 50% point sits right at r, matching the physics. Rim is
+    // a tight band centred at r, not a soft halo.
+    float mask = smoothstep(r, r - 0.015, dq);
+    float rim  = smoothstep(r - 0.008, r, dq) * (1.0 - smoothstep(r, r + 0.008, dq));
 
     // Fold counts drift around nHome so the interior is never static.
     float nOuter = nHome + 3.0 * sin(t * 0.053 + phaseB * 1.3);
