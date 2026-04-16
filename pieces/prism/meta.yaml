@@ -1,0 +1,43 @@
+title: Prism
+slug: prism
+created: 2026-04-16T20:45:00.000Z
+audio: audio.mp3
+time_source: audio
+duration: 419
+render_scale: 0.7
+uniforms: []
+notes: |
+  Dihedral symmetry — a real kaleidoscope. Every frame folds its source
+  material N times with both rotation AND reflection, so mirror pairs
+  appear inside every wedge. The one-character difference from C_n
+  (cyclic) symmetry — an abs() on the folded angle — is why this piece
+  reads crystalline instead of spinning.
+
+  Set to DJ Huntsman's "Neuroknobs 1" (~7 minutes of modulated percussive
+  textures). The track's evolving drones are the right shape for a
+  kaleidoscope: slow input, big reflected motion.
+
+  Architecture cleanly separates the two concerns kaleidoscopes have always
+  had:
+    - source(uv) — what's between the mirrors. A warm fbm fluid plus three
+      Lissajous "beads" on coprime rates (3, 5, 7) plus hash-gated fine
+      sparkles. No symmetry logic — just moving content.
+    - kaleidoFold(pixel) — the mirror system. Applies D_n symmetry to each
+      fragment before sampling source.
+
+  Two kaleido passes stacked — the main at n from 4..12 (mouse.y selects),
+  a second at n/2-ish for depth. Max-blended. Audio drives zoom (bass
+  nudges into the tube), flow rate, and per-fold wedge flashes on kicks.
+
+  Mouse:
+    - vertical      pick fold count (snaps to integers 4..12)
+    - horizontal    rotate the mirror axis
+    - idle          slow autonomous drift so the piece breathes alone
+
+  Palette stays warm family. Track hosted locally — this is a visual
+  tribute to the track, not a distribution.
+
+  This closes the "kaleidoscopes" open question in VISION.md and the
+  "mouse + audio both driving" one.
+published_at: null
+rendered_at: '2026-04-16T18:43:37.863Z'
