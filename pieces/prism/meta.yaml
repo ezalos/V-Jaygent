@@ -17,37 +17,45 @@ notes: |
   textures). The track's evolving drones are the right shape for a
   kaleidoscope: slow input, big reflected motion.
 
-  Architecture cleanly separates the two concerns kaleidoscopes have always
-  had:
-    - source(uv) — what's between the mirrors. A warm fbm fluid plus three
-      Lissajous "beads" on coprime rates (3, 5, 7) plus a continuous soft
-      shimmer (smoothed, no longer step-quantised — less blinking).
-    - kaleidoFold(pixel) — the mirror system. Applies D_n symmetry to each
-      fragment before sampling source.
+  Architecture separates the two concerns kaleidoscopes have always had:
+    - source() / interior()   —  what's between the mirrors.
+    - kaleidoFold(pixel)      —  the mirror system (D_n dihedral).
 
   Two background kaleido passes stacked — the main cycles n slowly through
   5..9, a second through 3..6 for depth. Max-blended. Audio drives zoom
-  (bass nudges into the tube), flow rate, and a softened per-fold wedge
-  glow on kicks.
+  (bass), flow rate, and a softened per-fold wedge glow.
 
-  On top: four small bouncing sub-kaleidoscopes, DVD-logo style. Each is
-  its own circular kaleidoscope disk with its own fold count (5, 6, 7, 8),
-  travelling on coprime triangle-wave velocities so they never realign.
-  Inside each disk, the SAME source function is re-folded locally — a
-  fractal of symmetries. Each bounce against a wall shifts the disk's
-  tint; getting close to a corner adds a subtle global warm tint (the
-  "is it going to hit?!" feeling from the DVD screensaver, made
-  mathematical).
+  On top: four bouncing sub-kaleidoscopes, DVD-logo style. Slow
+  triangle-wave velocities (~0.02-0.08 per second) so they drift rather
+  than race. Each disk runs a nested dihedral fold (outer at nHome
+  drifting ±3, inner at nHome/2 drifting ±2 on top of the already-folded
+  coords — three temporal scales of motion). Two counter-rotating axes.
+  Breathing radius. Slow interior zoom. The pattern is always evolving;
+  no orbit ever closes exactly.
+
+  Colour: each disk owns its own hue signature (amber, green, teal,
+  violet) from a restrained full-spectrum palette, cycling slowly over
+  time so a disk that was warm becomes cool later. Background stays in
+  the warm-family palette — that's the VISION "spectrum exception":
+  reflection pieces earn the right to colour because breaking light
+  into hues is the POINT of a prism.
+
+  Less blinking: continuous fbm shimmer instead of step() sparkles,
+  wider-softer bead falloff, bounded interior boost, Reinhard tonemap
+  on the output so peaks roll off to warm white rather than clip to
+  pure white.
+
+  Wall-bounces shift each disk's tint; "close to corner" adds a subtle
+  warm global tint — the DVD-screensaver "is it going to hit?!"
+  feeling, made mathematical.
 
   Audio response throughout: bass nudges speed + zoom + axis jitter; mid
-  modulates bead brightness; high drives the soft shimmer. Time-driven
-  and autonomous — no mouse input, the piece breathes on its own.
+  modulates bead brightness; high drives the soft shimmer. No mouse
+  input — the piece breathes on its own.
 
-  Closes two open questions from VISION.md:
-    - kaleidoscopes (dihedral symmetry with explicit mirror reflections)
-    - audio drives a piece without needing a cursor as co-instrument
+  Closes the kaleidoscope and audio+no-mouse questions in VISION.md.
+  Opens the spectrum-exception rule for future reflection pieces.
 
   See brainstorming/techniques/kaleidoscopes.md and
       brainstorming/techniques/dvd-logo-bounce.md.
 published_at: null
-rendered_at: '2026-04-16T18:56:27.683Z'

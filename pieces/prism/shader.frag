@@ -18,8 +18,9 @@ out vec4 fragColor;
 const float PI  = 3.14159265359;
 const float TAU = 6.28318530718;
 
-// ---------- palette ----------
+// ---------- palettes ----------
 
+// Warm-family cyclic palette — anchors the background.
 vec3 warmCycle(float t) {
     t = fract(t);
     vec3 c0 = vec3(1.00, 0.80, 0.50);
@@ -33,6 +34,20 @@ vec3 warmCycle(float t) {
     if (t < 0.80) return mix(c3, c4, (t - 0.60)  * 5.0);
     return                mix(c4, c0, (t - 0.80) * 5.0);
 }
+
+// Iñigo Quílez cosine palette — full spectrum, saturation pulled back so
+// nothing clips to cyan/lime. Used inside the bouncing disks so each
+// kaleidoscope can own its own hue while the background stays warm.
+vec3 spectrum(float t) {
+    vec3 a = vec3(0.52, 0.46, 0.50);
+    vec3 b = vec3(0.45, 0.45, 0.45);
+    vec3 c = vec3(1.00, 1.00, 1.00);
+    vec3 d = vec3(0.00, 0.33, 0.67);
+    return a + b * cos(6.28318 * (c * t + d));
+}
+
+// Reinhard tonemap — rolls peaks off instead of clipping to pure white.
+vec3 tonemap(vec3 c) { return c / (1.0 + c); }
 
 // ---------- noise ----------
 
@@ -114,47 +129,51 @@ vec3 source(vec2 q, float t, float bass, float mid, float high, float level) {
 }
 
 // ---------- interior content for a sub-kaleidoscope ----------
-// A more concentrated, higher-contrast source than the background `source()`.
-// This is what gets folded inside each bouncing disk — "what's between the
-// mirrors" needs to be busy for the kaleidoscope to show its work.
-vec3 interior(vec2 q, float t, float mid, float high, float level) {
-    // Warm fluid backbone.
-    vec2 w = vec2(fbm(q * 2.2 + vec2(0.0, t * 0.28)),
-                  fbm(q * 2.2 + vec2(4.1, 1.7) - t * 0.21));
+// Busy but never peaking to white. `hueBase` shifts the whole disk's colour
+// signature — each bouncing disk gets its own, so the four of them can span
+// the full spectrum without any single disk being rainbow-confetti.
+vec3 interior(vec2 q, float t, float hueBase, float mid, float high, float level) {
+    // Warm fluid backbone — palette shifted by the disk's hue.
+    vec2 w = vec2(fbm(q * 2.2 + vec2(0.0, t * 0.20)),
+                  fbm(q * 2.2 + vec2(4.1, 1.7) - t * 0.15));
     float fluid = fbm(q * 3.0 + 2.0 * w);
-    vec3  col   = warmCycle(0.15 + 0.5 * fluid + t * 0.06)
-                * (0.25 + 1.1 * fluid);
+    vec3  col   = spectrum(hueBase + 0.18 * fluid + t * 0.04)
+                * (0.25 + 0.95 * fluid);
 
-    // Bright beads on fast orbits — these give the interior crisp symmetric
-    // highlights through the fold.
+    // Beads on two-frequency motion (irrational-feeling ratio) so orbits
+    // never close — intricate, always evolving.
     for (int k = 0; k < 5; k++) {
-        float kf    = float(k);
-        float rate  = 2.0 + kf * 1.3;
-        float phase = kf * 1.7;
-        vec2  c     = 0.55 * vec2(cos(t * rate + phase),
-                                  sin(t * rate * 0.77 + phase * 1.4));
-        float d = length(q - c);
-        float bright = exp(-120.0 * d * d) * 1.6
-                     + exp(-22.0  * d * d) * 0.38;
-        col += warmCycle(0.03 + kf * 0.22 + t * 0.05) * bright * (0.8 + 1.4 * mid);
+        float kf     = float(k);
+        float rate_a = 0.9 + kf * 0.41;
+        float rate_b = 1.37 + kf * 0.29;
+        float phase  = kf * 1.7;
+        vec2  c = 0.48 * vec2(cos(t * rate_a + phase)       + 0.35 * cos(t * rate_b - phase),
+                              sin(t * rate_a * 0.88 + phase) + 0.35 * sin(t * rate_b * 1.23));
+        float d2 = dot(q - c, q - c);
+        // Softer, wider beads — no exp(-120) spike that blows out to white.
+        float bright = exp(-35.0 * d2) * 0.70
+                     + exp(-9.0  * d2) * 0.22;
+        col = max(col, spectrum(hueBase + 0.08 + kf * 0.06 + t * 0.03)
+                       * bright * (0.8 + 1.0 * mid));
     }
 
-    // Continuous soft shimmer.
-    float shimmer = smoothstep(0.55, 0.95, fbm(q * 9.0 + t * 0.6));
-    col += warmCycle(0.02 + t * 0.04) * shimmer * (0.35 + 0.9 * high);
+    // Continuous soft shimmer — upper bound pulled down so highs don't slam
+    // pure white into the output.
+    float shimmer = smoothstep(0.58, 0.82, fbm(q * 9.0 + t * 0.45));
+    col += spectrum(hueBase + 0.22 + t * 0.03) * shimmer * (0.22 + 0.55 * high);
 
-    // Boost the whole thing — interior should feel hot.
-    return col * (1.15 + 0.5 * level);
+    // Interior boost, but bounded.
+    return col * (1.05 + 0.30 * level);
 }
 
 // ---------- a small bouncing sub-kaleidoscope ----------
-// Circular disk at `centre`, radius `r`. Inside: a NESTED dihedral fold of
-// the interior source — fold, transform, fold again at a different n. High
-// fold counts (primes 7/11/13/17) for alien density.
+// Nested dihedral fold with fold counts that drift slowly so each disk
+// evolves over time — 7 → 11 → 13 → 17 and back, but smoothly. Each disk
+// carries its own hue signature that cycles around the spectrum.
 vec3 bouncingKaleido(vec2 p, vec2 centre, vec2 vel, vec2 phase,
-                     float t, float nLocal, float bass, float mid,
-                     float high, float level) {
-    float r = 0.26;
+                     float t, float nHome, float hueSeed, float bass,
+                     float mid, float high, float level) {
+    float r = 0.26 + 0.012 * sin(t * 0.19 + phase.x);   // breathing radius
     vec2 q = p - centre;
     float dq = length(q);
     if (dq > r * 1.15) return vec3(0.0);
@@ -163,35 +182,45 @@ vec3 bouncingKaleido(vec2 p, vec2 centre, vec2 vel, vec2 phase,
     float mask = smoothstep(r, r - 0.06, dq);
     float rim  = smoothstep(r - 0.01, r, dq) * (1.0 - smoothstep(r, r + 0.015, dq));
 
-    // Two-stage kaleido fold: outer fold at nLocal, then a smaller inner fold
-    // at ~nLocal/2 (rounded to integer) on the folded coordinates. Makes the
-    // interior obviously-kaleidoscopic — you see symmetry inside symmetry.
-    float axis1 = t * 0.55 + phase.x * 1.7 + bass * 0.40;   // faster inner spin
-    float axis2 = -axis1 * 0.6 + phase.y * 2.3;
-    float nInner = max(3.0, floor(nLocal * 0.5 + 0.5));
+    // Fold count drifts within a small window around nHome. The fold lives
+    // in floating-point — a slight "seam" appears one way across the disk,
+    // reads as an organic crack rather than a bug, adds visible evolution.
+    float nOuter = nHome + 3.0 * sin(t * 0.053 + phase.y * 1.3);
+    float nInner = max(3.0, nHome * 0.5 + 2.0 * sin(t * 0.031 + phase.x * 2.1));
 
-    vec2 src1 = kaleidoFold(q / r, nLocal, axis1);
-    vec2 src2 = kaleidoFold(src1 * 1.35 - 0.1, nInner, axis2);
+    // Outer axis rotates, inner axis counter-rotates at a different rate —
+    // three temporal scales interacting, never closes.
+    float axis1 = t * 0.38 + phase.x * 1.7 + bass * 0.25
+                + 0.15 * sin(t * 0.07);
+    float axis2 = -axis1 * 0.61 + phase.y * 2.3
+                + 0.35 * sin(t * 0.11 + 1.3);
 
-    vec3 inside = interior(src2 * 0.8, t, mid, high, level);
+    // Slow interior zoom so the pattern "breathes".
+    float innerZoom = 1.15 + 0.25 * sin(t * 0.047 + phase.x);
 
-    // Extra symmetric bright core at the disk's centre, folded through the
-    // same transform — punches through the pattern like a lens focus point.
+    vec2 src1 = kaleidoFold(q / r, nOuter, axis1);
+    vec2 src2 = kaleidoFold(src1 * innerZoom - 0.08, nInner, axis2);
+
+    // Hue signature cycles slowly — each disk owns its current colour.
+    float hueBase = hueSeed + t * 0.018 + 0.08 * bass;
+
+    vec3 inside = interior(src2 * 0.8, t, hueBase, mid, high, level);
+
+    // Symmetric soft core — warm glow at the disk's folded centre, scaled
+    // way back from the previous "punch through" version.
     float coreD = length(src2);
-    inside += warmCycle(0.06 + phase.x * 0.13) * exp(-pow(coreD * 6.0, 2.0)) * 0.8;
+    inside += spectrum(hueBase + 0.04) * exp(-pow(coreD * 5.0, 2.0)) * 0.35;
 
-    // DVD "colour change on bounce": intensity + hue shift near wall hits.
+    // DVD "colour change on bounce": hue shift near wall hits.
     float wallE = wallBump(tri(t * vel.x + phase.x))
                 + wallBump(tri(t * vel.y + phase.y));
     float nBounces = bounces(t, vel.x, phase.x) + bounces(t, vel.y, phase.y);
-    float hueShift = 0.14 * nBounces + 0.06 * wallE;
-    vec3  tint     = warmCycle(0.10 + hueShift + phase.x * 0.07);
-    inside = mix(inside, inside * tint * 1.5, 0.55);
-    inside *= 1.0 + 0.55 * wallE;
+    float hueShift = 0.10 * nBounces + 0.05 * wallE;
+    vec3  tint     = spectrum(hueBase + hueShift);
+    inside = mix(inside, inside * tint * 1.35, 0.55);
+    inside *= 1.0 + 0.45 * wallE;
 
-    // Rim in the tint colour so the disk edges clearly.
-    vec3 rimCol = tint * (0.85 + 0.9 * wallE) * (0.6 + 0.7 * level);
-
+    vec3 rimCol = tint * (0.70 + 0.65 * wallE) * (0.5 + 0.55 * level);
     return inside * mask + rimCol * rim;
 }
 
@@ -247,28 +276,35 @@ void main() {
     float aspect = u_resolution.x / max(u_resolution.y, 1.0);
     vec2  bounds = vec2(aspect, 1.0) * 0.92;
 
+    // Hue seeds — each disk sits in a different quadrant of the spectrum.
+    // Slow global drift so a disk that was amber will be teal later, then
+    // magenta, then amber again. Always evolving.
+    float hueSeeds[N_TILES];
+    hueSeeds[0] = 0.02;   // warm amber start
+    hueSeeds[1] = 0.28;   // shifts through green over time
+    hueSeeds[2] = 0.55;   // cool-teal/blue territory
+    hueSeeds[3] = 0.78;   // magenta/violet
+
     float cornerProximity = 0.0;
     for (int i = 0; i < N_TILES; i++) {
-        // Very gentle bass nudge on speed so kicks don't turn them into racers.
-        vec2 vel   = vec2(vels_x[i], vels_y[i]) * (1.0 + 0.08 * bass);
+        vec2 vel   = vec2(vels_x[i], vels_y[i]) * (1.0 + 0.06 * bass);
         vec2 phase = vec2(phas_x[i], phas_y[i]);
         vec2 bpx   = vec2(tri(t * vel.x + phase.x), tri(t * vel.y + phase.y));
         vec2 centre = bpx * (bounds - 0.26);
-        col += bouncingKaleido(p, centre, vel, phase, t, folds[i],
+        col += bouncingKaleido(p, centre, vel, phase, t, folds[i], hueSeeds[i],
                                bass, mid, high, level);
 
-        // Track "close to corner" across all tiles — used for a rare global
-        // flash when any tile is about to hit a corner.
         cornerProximity = max(cornerProximity,
                               min(wallBump(bpx.x), wallBump(bpx.y)));
     }
 
-    // The iconic "is it going to hit?!" moment — subtle global tint when any
-    // tile is near a corner. Soft so it's a feeling, not a strobe.
-    col += warmCycle(0.02) * pow(cornerProximity, 3.0) * 0.22;
+    // The iconic "is it going to hit?!" moment — subtle warm tint.
+    col += warmCycle(0.02) * pow(cornerProximity, 3.0) * 0.18;
 
-    // Vignette + gentle gamma.
+    // Vignette + Reinhard tonemap so peaks roll off instead of clipping
+    // to pure white, then gentle gamma.
     col *= 1.0 - 0.22 * dot(p, p);
+    col  = tonemap(col * 1.25);
     col  = pow(max(col, 0.0), vec3(0.88));
 
     fragColor = vec4(col, 1.0);

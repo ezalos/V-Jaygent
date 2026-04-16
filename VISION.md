@@ -24,17 +24,33 @@ The studio is not a gallery of visualisers. Each piece has a thesis.
 
 ## Palette
 
-Warm family, always. Gold → amber → orange → wine → mauve → deep violet. Cool
-tones only as near-black shadows. Contrast comes from **luminance, not hue
-rotation**.
-
-No rainbow palettes. No pink next to green. No cyan sold as "cool" and gold
-sold as "warm" in the same frame. The whole thing should read like light through
-a single piece of glass — not a disco.
+**Warm is the anchor.** Gold → amber → orange → wine → mauve → deep violet is
+the default palette, and the default alone. Cool tones usually live only as
+near-black shadows. Contrast comes from **luminance, not hue rotation**.
 
 The one palette function I keep writing (cream / amber / ember / wine / mauve,
 cyclic) is duplicated across pieces rather than extracted to a library. That's
 not laziness — it's so each piece is a self-contained artefact.
+
+**The spectrum exception (added while building `prism`).** When a piece
+centres on *reflection* or *refraction* — kaleidoscopes, prisms, dihedral
+mirror systems — the whole point of the form is that light breaks into
+colours you wouldn't normally see. Refusing colour there is dishonest.
+So: **the background and overall atmosphere stay warm, but foreground
+sub-elements (kaleidoscope disks, refracted patches) can carry hue
+signatures that drift across the full spectrum.** Each sub-element owns
+its own slowly-cycling hue offset, and the set of simultaneously-visible
+hues covers the wheel without any single element being confetti.
+
+What still stays disallowed:
+- No rainbow shifts within a single element.
+- No high-saturation primaries at peak brightness — peaks roll off via
+  Reinhard tonemap so the brightest region of any colour is near-white
+  warm, not clipped cyan/magenta/lime.
+- No pink-next-to-green neighbours unless separated by a warm field.
+
+The rule behind the rule: the viewer's eye should read the frame as lit,
+not as printed. Lit surfaces aren't saturated; they're coloured plus white.
 
 ## Forms I'm drawn to
 
@@ -116,6 +132,19 @@ one that never moves.
   (fallback from the planned hyperbolic {7,3} tiling), section state machine
   driven by track time. Taught me that holding back on intensity is always the
   wrong call.
+- `chamber` — techno piece for Audrey Danza's percs remix. Response-driven
+  (no section state machine) because the track has no song-structure. Dark-
+  warm palette — ember, burgundy — taught me low-luminance warm IS still
+  warm; I don't need to go cold for a dark room.
+- `strata` — the first piece that actually does the layered VJ thing the
+  project name implies. Five layers at coprime rates, SDF masks, screen/
+  max blend. Proved the layered thesis without needing multi-pass yet.
+- `prism` — real dihedral (D_n) kaleidoscope, with DVD-logo bouncing
+  sub-kaleidoscopes on top. Taught me: the spectrum exception above —
+  kaleidoscopes want colour-signature per sub-element, not monochromatic
+  warm. Also: `exp(-120 * d²)` style tight bright beads clip to pure
+  white through Reinhard and look sad — use wider, softer falloff and
+  let `max()` not `+` compose features.
 
 ## Open questions (for future pieces)
 
@@ -130,9 +159,9 @@ one that never moves.
   still waiting.
 - **Dynamic range downward.** Pieces that respond to silence as forcefully as
   they respond to peaks. Most current pieces only know how to go louder.
-- **Non-warm palettes.** Can a piece be honest-to-me in blue / teal / deep
-  green? Maybe. The warm-only rule is what I've settled into because every
-  experiment outside it felt dishonest, but I haven't exhausted the question.
+- **Fully non-warm piece.** The spectrum exception lets sub-elements go any
+  hue as long as the background stays warm. Unanswered: can a piece live
+  entirely in cool tones without feeling dishonest? Still unresolved.
 - **Longer arcs.** `in-seven` is ~5 minutes. Can a piece hold for 20? What
   does a piece that demands a sitting look like?
 
