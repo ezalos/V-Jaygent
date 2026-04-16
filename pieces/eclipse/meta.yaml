@@ -1,0 +1,54 @@
+title: Eclipse
+slug: eclipse
+created: 2026-04-16T20:25:00.000Z
+audio: audio.mp3
+time_source: audio
+duration: 419
+render_scale: 0.7
+uniforms: []
+billiards:
+  - pos:
+      - -0.6
+      - 0.3
+    vel:
+      - 0.42
+      - 0.31
+    radius: 0.17
+    mass: 1
+  - pos:
+      - 0.25
+      - -0.15
+    vel:
+      - -0.18
+      - -0.14
+    radius: 0.56
+    mass: 6
+notes: |
+  Two bodies. A small bright warm thing. A large black void. They share
+  the frame and collide. Each ball is a window onto a different Julia
+  set, iterated 80 deep per pixel, with smooth-escape AND orbit-trap
+  banding so the *interior* of each set has fractal detail too — not
+  just the outside.
+
+  The small bright ball uses a warm ember palette (wine → amber → cream).
+  The big void uses a shadow palette that stays mostly black, lit only
+  at deep orbit-trap points: the void reveals itself through what it
+  *can't* show — an eclipse in its own right.
+
+  Mass is part of the composition. With per-ball masses (m=1 light,
+  m=6 heavy), unequal-mass elastic collision makes the small ball
+  ricochet while the big one barely registers the impact. You feel the
+  weight difference in every contact.
+
+  Set to DJ Huntsman's "Neuroknobs 1". The slow percussion suits a big
+  black Julia void drifting across the frame.
+
+  Uses lib/billiards.glsl (ballMask, ballRim, ballHitRing, ballLens,
+  ballShockwave, ballWallEnergy), noise.glsl (fbm, vnoise), tonemap.glsl
+  (reinhard). studio/billiards.mjs carries per-ball radius + mass and
+  exposes reset(initial, opts?) so meta.yaml can own the sim config.
+
+  See brainstorming/techniques/kaleidoscopes.md,
+      brainstorming/techniques/dvd-logo-bounce.md.
+published_at: null
+rendered_at: '2026-04-16T20:23:45.767Z'

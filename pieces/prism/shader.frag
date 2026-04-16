@@ -1,11 +1,9 @@
-// ABOUTME: Prism — two balls on a warm field: one small bright white, one big
-// ABOUTME: black void. Inside each: a Julia-set fractal at per-disk parameters.
+// ABOUTME: Prism — a dihedral kaleidoscope folding a living warm source,
+// ABOUTME: with CPU-simulated billiard-ball sub-kaleidos riding on top.
 #version 300 es
 precision highp float;
 
 #include "billiards.glsl"
-#include "noise.glsl"
-#include "tonemap.glsl"
 
 uniform vec2  u_resolution;
 uniform float u_time;
@@ -15,145 +13,234 @@ uniform float u_audio_bass;
 uniform float u_audio_mid;
 uniform float u_audio_high;
 uniform float u_audio_playing;
+uniform float u_audio_time;
 
+// Billiard balls integrated on the CPU (see studio/billiards.mjs); positions
+// in world-space (same frame as `p` below). u_ball_hit[i] is the post-collision
+// energy, exponentially decaying.
 uniform vec2  u_ball_pos[4];
 uniform float u_ball_hit[4];
-uniform vec2  u_ball_hit_pos[4];
-uniform float u_ball_radius[4];
 
 out vec4 fragColor;
 
 const float PI  = 3.14159265359;
 const float TAU = 6.28318530718;
 
-// Warm ramp for the bright ball + background. Deep wine → amber → warm cream.
-vec3 ember(float t) {
-    t = clamp(t, 0.0, 1.0);
-    vec3 c0 = vec3(0.020, 0.010, 0.020);
-    vec3 c1 = vec3(0.180, 0.040, 0.060);
-    vec3 c2 = vec3(0.55,  0.12,  0.12 );
-    vec3 c3 = vec3(0.95,  0.40,  0.15 );
-    vec3 c4 = vec3(1.00,  0.82,  0.50 );
-    if (t < 0.25) return mix(c0, c1,  t          * 4.0);
-    if (t < 0.55) return mix(c1, c2, (t - 0.25)  * 3.333);
-    if (t < 0.82) return mix(c2, c3, (t - 0.55)  * 3.704);
-    return                mix(c3, c4, (t - 0.82)  * 5.555);
+// ---------- palettes ----------
+
+// Warm-family cyclic palette — anchors the background.
+vec3 warmCycle(float t) {
+    t = fract(t);
+    vec3 c0 = vec3(1.00, 0.80, 0.50);
+    vec3 c1 = vec3(1.00, 0.55, 0.30);
+    vec3 c2 = vec3(0.85, 0.25, 0.25);
+    vec3 c3 = vec3(0.55, 0.18, 0.40);
+    vec3 c4 = vec3(0.42, 0.22, 0.48);
+    if (t < 0.20) return mix(c0, c1,  t          * 5.0);
+    if (t < 0.40) return mix(c1, c2, (t - 0.20)  * 5.0);
+    if (t < 0.60) return mix(c2, c3, (t - 0.40)  * 5.0);
+    if (t < 0.80) return mix(c3, c4, (t - 0.60)  * 5.0);
+    return                mix(c4, c0, (t - 0.80) * 5.0);
 }
 
-// Dark ramp for the black ball's interior — mostly black, with faint embers
-// only at the deep points of the Julia set. The void reveals itself only in
-// silhouette.
-vec3 shadowEmber(float t) {
-    t = clamp(t, 0.0, 1.0);
-    vec3 c0 = vec3(0.000, 0.000, 0.000);
-    vec3 c1 = vec3(0.035, 0.010, 0.020);
-    vec3 c2 = vec3(0.18,  0.04,  0.04 );
-    vec3 c3 = vec3(0.42,  0.15,  0.08 );
-    if (t < 0.55) return mix(c0, c1,  t          * 1.818);
-    if (t < 0.85) return mix(c1, c2, (t - 0.55)  * 3.333);
-    return                mix(c2, c3, (t - 0.85)  * 6.666);
+// Warm-biased spectrum — gold → orange → ember → magenta → violet → rose
+// → gold. Every anchor keeps red >= 0.55, so the cycle never passes through
+// cyan / green / deep blue. Used inside the bouncing disks so each
+// kaleidoscope owns its own hue while still feeling lit-not-printed.
+vec3 spectrum(float t) {
+    t = fract(t);
+    vec3 c0 = vec3(1.00, 0.80, 0.45);   // gold
+    vec3 c1 = vec3(1.00, 0.45, 0.25);   // warm orange
+    vec3 c2 = vec3(0.95, 0.20, 0.30);   // ember red
+    vec3 c3 = vec3(0.80, 0.22, 0.55);   // magenta
+    vec3 c4 = vec3(0.58, 0.28, 0.70);   // violet (never fully blue — R still dominant)
+    vec3 c5 = vec3(0.72, 0.40, 0.65);   // dusty rose, back toward warm
+    if (t < 0.1666) return mix(c0, c1,  t           * 6.0);
+    if (t < 0.3333) return mix(c1, c2, (t - 0.1666) * 6.0);
+    if (t < 0.5000) return mix(c2, c3, (t - 0.3333) * 6.0);
+    if (t < 0.6666) return mix(c3, c4, (t - 0.5000) * 6.0);
+    if (t < 0.8333) return mix(c4, c5, (t - 0.6666) * 6.0);
+    return                 mix(c5, c0, (t - 0.8333) * 6.0);
 }
 
-// Smooth-escape Julia iteration. Returns a float in [0, iters] that encodes
-// smoothly-interpolated escape time (or == iters if the point stayed bounded).
-// This is the heart of the fractal interior — per-pixel complex iteration.
-float julia(vec2 z, vec2 c, int maxIters) {
-    float iter = 0.0;
-    for (int i = 0; i < 256; i++) {
-        if (i >= maxIters) break;
-        if (dot(z, z) > 64.0) {
-            // Smooth escape: continuous iter so bands are seamless.
-            return float(i) - log2(log2(dot(z, z))) + 4.0;
-        }
-        z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
+// Reinhard tonemap — rolls peaks off instead of clipping to pure white.
+vec3 tonemap(vec3 c) { return c / (1.0 + c); }
+
+// ---------- noise ----------
+
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+float vnoise(vec2 p) {
+    vec2 i = floor(p), f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash(i),             hash(i + vec2(1,0)), u.x),
+               mix(hash(i + vec2(0,1)), hash(i + vec2(1,1)), u.x),
+               u.y);
+}
+
+float fbm(vec2 p) {
+    float v = 0.0, a = 0.5;
+    for (int i = 0; i < 4; i++) { v += a * vnoise(p); p *= 2.03; p += 1.7; a *= 0.55; }
+    return v;
+}
+
+// ---------- helpers ----------
+
+vec2 rot(vec2 p, float a) { float c = cos(a), s = sin(a); return mat2(c,-s,s,c) * p; }
+
+// Triangle wave in [-1,1], period 2. The DVD bounce primitive.
+float tri(float t) { return abs(fract(t * 0.5) * 2.0 - 1.0) * 2.0 - 1.0; }
+
+// Smooth envelope peaking when a bounce axis is at the wall.
+float wallBump(float x) { return smoothstep(0.88, 1.00, abs(x)); }
+
+// Integer bounce count — increments on each wall hit.
+float bounces(float t, float v, float phase) {
+    return floor((t * v + phase) * 0.5);
+}
+
+// ---------- the kaleidoscope fold (dihedral D_n) ----------
+vec2 kaleidoFold(vec2 p, float n, float axisAngle) {
+    p = rot(p, -axisAngle);
+    float r  = length(p);
+    float a  = atan(p.y, p.x);
+    float sector = TAU / n;
+    a = mod(a, sector);
+    a = abs(a - sector * 0.5);
+    return vec2(cos(a), sin(a)) * r;
+}
+
+// ---------- the SOURCE material (what's between the mirrors) ----------
+vec3 source(vec2 q, float t, float bass, float mid, float high, float level) {
+    // Slow warm fbm "fluid" — domain-warped so it folds on itself organically.
+    vec2 w1 = vec2(fbm(q * 1.2 + vec2(0.0, t * 0.09)),
+                   fbm(q * 1.2 + vec2(5.2, 1.3) - t * 0.07));
+    vec2 w2 = vec2(fbm(q * 1.5 + 2.8 * w1 + vec2(1.7, 9.2)),
+                   fbm(q * 1.5 + 2.8 * w1 + vec2(8.3, 2.8) - t * 0.06));
+    float fluid = fbm(q * 1.7 + 2.4 * w2 + 0.6 * bass);
+
+    float hue = 0.20 + 0.25 * fluid + t * 0.018 + 0.14 * mid;
+    vec3  col = warmCycle(hue) * (0.18 + 0.8 * fluid);
+    col      *= 0.55 + 0.9 * level;
+
+    // Three bright "beads" on coprime Lissajous rates.
+    for (int k = 0; k < 3; k++) {
+        float kf    = float(k);
+        float rate  = (3.0 + 2.0 * kf);
+        float phase = kf * 2.1;
+        vec2  beadC = 0.55 * vec2(cos(t * 0.12 * rate + phase),
+                                  sin(t * 0.09 * rate * 0.83 + phase * 1.3));
+        float d = length(q - beadC);
+        float bright = exp(-90.0 * d * d) * 1.2
+                     + exp(-18.0 * d * d) * 0.28;
+        col += warmCycle(0.05 + kf * 0.18 + t * 0.03) * bright * (0.6 + 1.3 * mid);
     }
-    return float(maxIters);
+
+    // Continuous soft shimmer (replaces the old hard step() sparkle) — reads
+    // as breathing grain rather than blinking noise.
+    float shimmer = 0.5 + 0.5 * fbm(q * 7.5 + t * 0.3);
+    shimmer       = smoothstep(0.55, 0.95, shimmer) * (0.25 + 0.5 * high);
+    col += warmCycle(0.02 + t * 0.02) * shimmer * 0.30;
+
+    return col;
 }
 
-// A brief trail-of-iterations trap — minimum |z|² encountered during the
-// iteration. Gives bands INSIDE the set, not just outside. Needed for the
-// interior to have visible fractal structure rather than being flat.
-vec2 juliaTrap(vec2 z, vec2 c, int maxIters) {
-    float trap = 1e10;
-    float iter = 0.0;
-    bool escaped = false;
-    for (int i = 0; i < 256; i++) {
-        if (i >= maxIters) break;
-        trap = min(trap, dot(z, z));
-        if (dot(z, z) > 64.0) {
-            iter = float(i) - log2(log2(dot(z, z))) + 4.0;
-            escaped = true;
-            break;
-        }
-        z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
+// ---------- interior content for a sub-kaleidoscope ----------
+// Busy but never peaking to white. `hueBase` shifts the whole disk's colour
+// signature — each bouncing disk gets its own, so the four of them can span
+// the full spectrum without any single disk being rainbow-confetti.
+vec3 interior(vec2 q, float t, float hueBase, float mid, float high, float level) {
+    // Warm fluid backbone — palette shifted by the disk's hue.
+    vec2 w = vec2(fbm(q * 2.2 + vec2(0.0, t * 0.20)),
+                  fbm(q * 2.2 + vec2(4.1, 1.7) - t * 0.15));
+    float fluid = fbm(q * 3.0 + 2.0 * w);
+    vec3  col   = spectrum(hueBase + 0.18 * fluid + t * 0.04)
+                * (0.25 + 0.95 * fluid);
+
+    // Beads on two-frequency motion (irrational-feeling ratio) so orbits
+    // never close — intricate, always evolving.
+    for (int k = 0; k < 5; k++) {
+        float kf     = float(k);
+        float rate_a = 0.9 + kf * 0.41;
+        float rate_b = 1.37 + kf * 0.29;
+        float phase  = kf * 1.7;
+        vec2  c = 0.48 * vec2(cos(t * rate_a + phase)       + 0.35 * cos(t * rate_b - phase),
+                              sin(t * rate_a * 0.88 + phase) + 0.35 * sin(t * rate_b * 1.23));
+        float d2 = dot(q - c, q - c);
+        // Softer, wider beads — no exp(-120) spike that blows out to white.
+        float bright = exp(-35.0 * d2) * 0.70
+                     + exp(-9.0  * d2) * 0.22;
+        col = max(col, spectrum(hueBase + 0.08 + kf * 0.06 + t * 0.03)
+                       * bright * (0.8 + 1.0 * mid));
     }
-    if (!escaped) iter = float(maxIters);
-    return vec2(iter, trap);
+
+    // Continuous soft shimmer — upper bound pulled down so highs don't slam
+    // pure white into the output.
+    float shimmer = smoothstep(0.58, 0.82, fbm(q * 9.0 + t * 0.45));
+    col += spectrum(hueBase + 0.22 + t * 0.03) * shimmer * (0.22 + 0.55 * high);
+
+    // Interior boost, but bounded.
+    return col * (1.05 + 0.30 * level);
 }
 
-// Render a fractal "world" inside a ball. `p` is pixel coords, `centre` +
-// `r` are the ball's position + radius. `c` is the Julia parameter.
-// `outer` selects the palette for escaped points; `inner` for interior.
-// Returns a contribution colour plus a mask-alpha to composite cleanly.
-vec4 fractalBall(vec2 p, vec2 centre, float r, vec2 c, float hitPulse,
-                 bool light, float bass) {
+// ---------- a small bouncing sub-kaleidoscope ----------
+// Position comes from the CPU-side billiard sim (u_ball_pos). hitPulse is a
+// post-collision energy that decays exponentially — drives the tint flash.
+vec3 bouncingKaleido(vec2 p, vec2 centre, float phaseA, float phaseB,
+                     vec2 bounds, float t, float nHome, float hueSeed,
+                     float hitPulse, float bass, float mid, float high,
+                     float level) {
+    // Radius is fixed — physics uses the same value (BALL_RADIUS in
+    // runtime.mjs), so any variation here desyncs the visible edge from
+    // where the bounce fires. The *interior* kaleido pattern breathes
+    // plenty; the outline stays put.
+    const float r = 0.26;
     vec2 q = p - centre;
     float dq = length(q);
-    if (dq >= r) return vec4(0.0);
+    // Hard cut at r — nothing the disk contributes exists outside this.
+    if (dq >= r) return vec3(0.0);
 
-    float mask = ballMask(dq, r);
-    float rim  = ballRim (dq, r);
+    float mask = ballMask(dq, r);      // antialiased alpha, 0 at r
+    float rim  = ballRim (dq, r);      // tight outline inside r
 
-    // Local coordinates in [-1.8, 1.8] range — a comfortable zoom for Julia.
-    vec2 z = (q / r) * 1.8;
+    // Fold counts drift around nHome so the interior is never static.
+    float nOuter = nHome + 3.0 * sin(t * 0.053 + phaseB * 1.3);
+    float nInner = max(3.0, nHome * 0.5 + 2.0 * sin(t * 0.031 + phaseA * 2.1));
 
-    // Parameter c slowly drifts so the fractal reshapes itself.
-    vec2 cDrift = c + 0.08 * vec2(cos(u_time * 0.13), sin(u_time * 0.09));
-    // Kicks of bass briefly push c outward — the fractal shudders on beat.
-    cDrift += 0.05 * bass * vec2(cos(u_time * 0.7), sin(u_time * 0.9));
+    float axis1 = t * 0.38 + phaseA * 1.7 + bass * 0.25
+                + 0.15 * sin(t * 0.07);
+    float axis2 = -axis1 * 0.61 + phaseB * 2.3
+                + 0.35 * sin(t * 0.11 + 1.3);
+    float innerZoom = 1.15 + 0.25 * sin(t * 0.047 + phaseA);
 
-    vec2 res   = juliaTrap(z, cDrift, 80);
-    float iter = res.x;
-    float trap = res.y;
-    bool  inSet = iter >= 79.5;
+    vec2 src1 = kaleidoFold(q / r, nOuter, axis1);
+    vec2 src2 = kaleidoFold(src1 * innerZoom - 0.08, nInner, axis2);
 
-    vec3 col;
-    if (light) {
-        // Bright world: warm exterior, softer warm interior.
-        if (inSet) {
-            // Inside-set banding from orbit trap — gives internal fractal structure.
-            float band = smoothstep(0.05, 2.0, trap);
-            col = ember(0.35 + 0.4 * band) * (0.45 + 0.35 * band);
-        } else {
-            float t = fract(iter * 0.05 + u_time * 0.02);
-            col = ember(0.55 + 0.35 * t) * (0.55 + 0.6 * t);
-        }
-        col *= 1.0 + 0.8 * hitPulse;
-    } else {
-        // Dark world: nearly black interior, embers at deep approaches.
-        if (inSet) {
-            float band = smoothstep(0.01, 1.2, trap);
-            col = shadowEmber(0.20 + 0.6 * band) * (0.5 + 0.45 * band);
-        } else {
-            float t = fract(iter * 0.06 + u_time * 0.02);
-            col = shadowEmber(0.35 + 0.5 * t) * (0.35 + 0.5 * t);
-        }
-        // Deep horizon: edges of disk darker than middle.
-        col *= 0.7 + 0.5 * smoothstep(0.0, r * 0.9, r - dq);
-        col *= 1.0 + 0.6 * hitPulse;
-    }
+    // Hue signature cycles slowly + nudges forward on collisions (hitPulse
+    // briefly shoves the hue, making ball-on-ball impacts visibly recolour).
+    float hueBase = hueSeed + t * 0.018 + 0.08 * bass + 0.25 * hitPulse;
 
-    // Rim tint — warm for the bright ball, deep ember for the black.
-    vec3 rimTint = light
-        ? ember(0.86) * (0.8 + 0.9 * hitPulse)
-        : ember(0.58) * (0.5 + 1.1 * hitPulse);
+    vec3 inside = interior(src2 * 0.8, t, hueBase, mid, high, level);
 
-    // Collision flash inside the disk.
-    float coll = ballHitRing(dq, r, hitPulse);
-    vec3  collTint = light ? ember(0.95) : ember(0.75);
+    float coreD = length(src2);
+    inside += spectrum(hueBase + 0.04) * exp(-pow(coreD * 5.0, 2.0)) * 0.35;
 
-    return vec4(col * mask + rimTint * rim + collTint * coll * mask, mask);
+    float wallE = ballWallEnergy(centre, bounds);
+
+    // Tint shifts with wall proximity + collision pulse.
+    vec3  tint = spectrum(hueBase + 0.05 * wallE + 0.20 * hitPulse);
+    inside = mix(inside, inside * tint * 1.35, 0.55);
+    inside *= 1.0 + 0.35 * wallE + 0.65 * hitPulse;
+
+    float collisionRing = ballHitRing(dq, r, hitPulse);
+
+    vec3 rimCol = tint * (0.70 + 0.60 * wallE + 0.90 * hitPulse) * (0.5 + 0.55 * level);
+    // mask clips every interior contribution at dq = r. Nothing extends
+    // past the silhouette — no ghost halo before collision.
+    return (inside + tint * collisionRing) * mask + rimCol * rim;
 }
+
+// ---------- main ----------
 
 void main() {
     vec2 p = (gl_FragCoord.xy - 0.5 * u_resolution.xy)
@@ -161,49 +248,68 @@ void main() {
 
     float t     = u_time;
     float audio = max(u_audio_playing, 0.0);
-    float bass  = mix(0.28 + 0.15 * sin(t * 0.61), u_audio_bass,  audio);
-    float mid   = mix(0.25 + 0.12 * sin(t * 0.43), u_audio_mid,   audio);
-    float high  = mix(0.22 + 0.10 * sin(t * 1.09), u_audio_high,  audio);
+    float bass  = mix(0.28 + 0.18 * sin(t * 0.61),     u_audio_bass,  audio);
+    float mid   = mix(0.25 + 0.14 * sin(t * 0.47+1.1), u_audio_mid,   audio);
+    float high  = mix(0.22 + 0.11 * sin(t * 1.23+2.7), u_audio_high,  audio);
     float level = mix(0.33, u_audio_level, audio);
 
-    // --- Warm drifting background: very slow fbm, reads as atmosphere.
-    vec2 w = vec2(fbm(p * 0.9 + vec2(0.0, t * 0.04)),
-                  fbm(p * 0.9 + vec2(4.1, 1.7) - t * 0.03));
-    float bg = fbm(p * 1.1 + 1.5 * w);
-    vec3 col = ember(0.25 + 0.35 * bg) * (0.28 + 0.55 * level);
+    // --- background kaleidoscope (no mouse — fully autonomous) ---
+    // Fold count drifts slowly: 5 → 7 → 9 → 7 → 5 → ... on a very slow cycle.
+    float nPhase = sin(t * 0.018) * 0.5 + 0.5;                 // [0, 1]
+    float n      = floor(5.0 + nPhase * 4.999);                 // 5..9 integer
+    float axisAngle = t * 0.08 + bass * 0.30;
 
-    // --- Ball 1: small bright "white" (warm cream) Julia body.
-    vec2  c1 = vec2(-0.72, 0.18);       // classic Julia parameter
-    vec4  b1 = fractalBall(p, u_ball_pos[0], u_ball_radius[0], c1,
-                           u_ball_hit[0], true, bass);
-    // --- Ball 2: big "black" Julia void with shadowy interior.
-    vec2  c2 = vec2(-0.12, 0.74);       // different c → different fractal shape
-    vec4  b2 = fractalBall(p, u_ball_pos[1], u_ball_radius[1], c2,
-                           u_ball_hit[1], false, bass);
+    // Gentle zoom breathing with bass.
+    float zoom = 1.05 + 0.08 * sin(t * 0.15) + 0.15 * bass;
+    vec2  pZ   = p / zoom;
 
-    // Compose: the black ball occludes (overwrites) the background, the
-    // white ball lays over both. Done via mask weights.
-    col = mix(col, b2.rgb, b2.a);
-    col = mix(col, b1.rgb + col * (1.0 - b1.a * 0.3), b1.a);
+    vec2 src = kaleidoFold(pZ, n, axisAngle);
+    vec3 col = source(src, t, bass, mid, high, level);
 
-    // Shockwaves from each ball's actual last hit position.
-    for (int i = 0; i < 2; i++) {
-        float h = u_ball_hit[i];
-        if (h < 0.01) continue;
-        float age = -log(max(h, 1e-4)) / 4.0;
-        float wv  = ballShockwave(p, u_ball_hit_pos[i], age, 1.15, 0.035);
-        col += ember(i == 0 ? 0.95 : 0.60) * wv * (0.35 + 1.2 * h);
-    }
+    // Second background kaleido at different n for depth.
+    float n2 = floor(3.0 + (1.0 - nPhase) * 3.999);             // 3..6 integer
+    vec2  src2 = kaleidoFold(pZ * 1.4, n2, -axisAngle * 0.7);
+    vec3  col2 = source(src2, t * 0.85, bass * 0.7, mid, high * 0.6, level);
+    col = max(col, col2 * 0.55);
 
-    // Wall glow when either ball is about to hit.
+    // Per-wedge gentle glow on kicks (softer than before).
+    float wedgeFlash = exp(-pow(length(pZ) - 0.7, 2.0) * 16.0)
+                    * (0.12 + 0.6 * bass);
+    col += warmCycle(0.08 + t * 0.04) * wedgeFlash * 0.18;
+
+    // --- bouncing sub-kaleidoscopes (billiard balls) ---
+    // Positions come from the CPU-side sim; each ball gets its own fold
+    // count (primes 7, 11, 13, 17) and a starting hue across the spectrum.
+    float folds[4];     folds[0]=7.0;   folds[1]=11.0;  folds[2]=13.0;  folds[3]=17.0;
+    float hueSeeds[4];  hueSeeds[0]=0.02; hueSeeds[1]=0.28; hueSeeds[2]=0.55; hueSeeds[3]=0.78;
+    float phaseA[4];    phaseA[0]=0.00;   phaseA[1]=0.73;   phaseA[2]=1.41;   phaseA[3]=2.07;
+    float phaseB[4];    phaseB[0]=0.40;   phaseB[1]=1.11;   phaseB[2]=0.28;   phaseB[3]=1.89;
+
     float aspect = u_resolution.x / max(u_resolution.y, 1.0);
     vec2  bounds = vec2(aspect, 1.0) * 0.96;
-    float wall   = max(ballWallEnergy(u_ball_pos[0], bounds),
-                       ballWallEnergy(u_ball_pos[1], bounds));
-    col += ember(0.78) * pow(wall, 3.0) * 0.10;
 
-    // Vignette + tonemap + gamma.
-    col *= 1.0 - 0.28 * dot(p, p);
-    col  = reinhard(col * 1.25);
-    fragColor = vec4(pow(max(col, 0.0), vec3(0.88)), 1.0);
+    float wallEnergy = 0.0;
+    for (int i = 0; i < 4; i++) {
+        vec2  centre   = u_ball_pos[i];
+        float hitPulse = u_ball_hit[i];
+        col += bouncingKaleido(p, centre, phaseA[i], phaseB[i], bounds,
+                               t, folds[i], hueSeeds[i], hitPulse,
+                               bass, mid, high, level);
+
+        // Track closeness to a wall (max across balls).
+        float wx = smoothstep(bounds.x * 0.80, bounds.x * 0.96, abs(centre.x));
+        float wy = smoothstep(bounds.y * 0.80, bounds.y * 0.96, abs(centre.y));
+        wallEnergy = max(wallEnergy, min(wx, wy));
+    }
+
+    // Corner / wall feeling — subtle global warm tint when balls near a wall.
+    col += warmCycle(0.02) * pow(wallEnergy, 3.0) * 0.15;
+
+    // Vignette + Reinhard tonemap so peaks roll off instead of clipping
+    // to pure white, then gentle gamma.
+    col *= 1.0 - 0.22 * dot(p, p);
+    col  = tonemap(col * 1.25);
+    col  = pow(max(col, 0.0), vec3(0.88));
+
+    fragColor = vec4(col, 1.0);
 }

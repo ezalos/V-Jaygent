@@ -6,59 +6,65 @@ time_source: audio
 duration: 419
 render_scale: 0.7
 uniforms: []
-billiards:
-  - pos:
-      - -0.6
-      - 0.3
-    vel:
-      - 0.42
-      - 0.31
-    radius: 0.17
-    mass: 1
-  - pos:
-      - 0.25
-      - -0.15
-    vel:
-      - -0.18
-      - -0.14
-    radius: 0.56
-    mass: 6
 notes: |
-  Two balls on a slow warm field — one small, bright, almost-white; one
-  big, black, a moving void. Inside each: a Julia-set fractal at its own
-  parameter, iterated 80 deep per pixel, with orbit-trap banding so
-  even the interior of the set has visible structure. The fractal is
-  really fractal — infinite detail, each pixel its own escape-time
-  computation.
+  Dihedral symmetry — a real kaleidoscope. Every frame folds its source
+  material N times with both rotation AND reflection, so mirror pairs
+  appear inside every wedge. The one-character difference from C_n
+  (cyclic) symmetry — an abs() on the folded angle — is why this piece
+  reads crystalline instead of spinning.
 
-  The mass imbalance matters: equal-mass elastic collision gives
-  trivial swaps, but the billiards lib now carries per-ball mass so the
-  big black ball barely moves while the small one ricochets hard off
-  it. You feel the weight difference.
+  Set to DJ Huntsman's "Neuroknobs 1" (~7 minutes of modulated percussive
+  textures). The track's evolving drones are the right shape for a
+  kaleidoscope: slow input, big reflected motion.
 
-  Library work (studio/billiards.mjs):
-    - per-ball radius and mass carried through state
-    - wall collision uses each ball's own radius
-    - ball-ball elastic response uses the real unequal-mass formula
-    - reset(initial, opts?) lets any piece reconfigure the sim via
-      meta.yaml (runtime calls billiards.reset(meta.billiards) on load)
-    - new radiusArray getter, uploaded as u_ball_radius[N]
+  Architecture separates the two concerns kaleidoscopes have always had:
+    - source() / interior()   —  what's between the mirrors.
+    - kaleidoFold(pixel)      —  the mirror system (D_n dihedral).
 
-  Shader fractal interiors:
-    - fractalBall(p, centre, r, c, hitPulse, light, bass) in prism
-    - julia() returns smooth-escape iteration count (standard nu correction)
-    - juliaTrap() also returns min |z|² across the orbit — bands the
-      interior of the set, not just the outside
-    - the small bright ball uses a warm palette; the big black one uses
-      a shadow palette that stays mostly black, lit only at deep points
-    - c drifts slowly and shudders on bass — the fractal shapes shift
-      with the track
+  Two background kaleido passes stacked — the main cycles n slowly through
+  5..9, a second through 3..6 for depth. Max-blended. Audio drives zoom
+  (bass), flow rate, and a softened per-fold wedge glow.
 
-  Set to DJ Huntsman's "Neuroknobs 1". The slow percussion suits the
-  quiet menace of a big black Julia void drifting across the frame.
+  On top: four bouncing sub-kaleidoscopes — now actual billiard balls.
+  Positions and velocities integrated on the CPU (see stepBalls() in
+  studio/runtime.mjs), O(n²) elastic-collision check each frame,
+  equal-mass velocity swap along the contact normal. Positions pass to
+  the shader via `u_ball_pos[4]`; a per-ball collision pulse passes
+  via `u_ball_hit[4]` (exponential decay from impact). The disks can
+  now smack into each other — trajectories visibly diverge after a
+  hit, so the motion is no longer time-symmetric the way a DVD-logo
+  triangle-wave bounce is.
 
-  See lib/billiards.glsl (ballMask, ballRim, ballHitRing, ballLens,
-  ballShockwave, ballWallEnergy), brainstorming/techniques/
-  kaleidoscopes.md, brainstorming/techniques/dvd-logo-bounce.md.
+  Each disk runs a nested dihedral fold (outer at nHome drifting ±3,
+  inner at nHome/2 drifting ±2 on top of the already-folded coords).
+  Two counter-rotating axes. Breathing radius. Slow interior zoom.
+  On collision a thin ring pulses out and the disk's hue nudges
+  forward — the impact is visible at multiple scales.
+
+  Colour: each disk owns its own hue signature (amber, green, teal,
+  violet) from a restrained full-spectrum palette, cycling slowly over
+  time so a disk that was warm becomes cool later. Background stays in
+  the warm-family palette — that's the VISION "spectrum exception":
+  reflection pieces earn the right to colour because breaking light
+  into hues is the POINT of a prism.
+
+  Less blinking: continuous fbm shimmer instead of step() sparkles,
+  wider-softer bead falloff, bounded interior boost, Reinhard tonemap
+  on the output so peaks roll off to warm white rather than clip to
+  pure white.
+
+  Wall-bounces shift each disk's tint; "close to corner" adds a subtle
+  warm global tint — the DVD-screensaver "is it going to hit?!"
+  feeling, made mathematical.
+
+  Audio response throughout: bass nudges speed + zoom + axis jitter; mid
+  modulates bead brightness; high drives the soft shimmer. No mouse
+  input — the piece breathes on its own.
+
+  Closes the kaleidoscope and audio+no-mouse questions in VISION.md.
+  Opens the spectrum-exception rule for future reflection pieces.
+
+  See brainstorming/techniques/kaleidoscopes.md and
+      brainstorming/techniques/dvd-logo-bounce.md.
 published_at: null
-rendered_at: '2026-04-16T20:19:36.160Z'
+rendered_at: '2026-04-16T20:24:18.049Z'

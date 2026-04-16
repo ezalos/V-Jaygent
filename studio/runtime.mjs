@@ -664,11 +664,13 @@ async function loadPiece(slug) {
     currentMeta = meta;
     currentSlug = slug;
     currentMtime = mtime;
-    // Reconfigure the billiard sim if the piece declared its own ball setup
-    // (pos / vel / radius / mass per ball). Omitted meta → sim keeps defaults.
-    if (Array.isArray(meta?.billiards) && meta.billiards.length > 0) {
-      billiards.reset(meta.billiards);
-    }
+    // Reconfigure the billiard sim on every piece load. If the piece
+    // declared its own ball setup, use that; otherwise fall back to the
+    // library defaults (4 balls, unit mass, default radius).
+    const pieceBalls = Array.isArray(meta?.billiards) && meta.billiards.length > 0
+      ? meta.billiards
+      : null;
+    billiards.reset(pieceBalls);
     attachAudio(slug, meta);
     pushSlugToUrl(slug);
     setMetaOverlay(meta);
