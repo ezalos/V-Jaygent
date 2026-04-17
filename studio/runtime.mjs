@@ -109,6 +109,12 @@ let audioOnsets = {
 let audioPlaying   = false;
 let audioKey       = null;   // `${slug}:${filename}` to detect piece changes
 
+// Live-capture state — attached when meta.audio === 'live'.
+let liveStream        = null;   // MediaStream from getUserMedia
+let liveStreamSource  = null;   // MediaStreamAudioSourceNode
+let liveStartTime     = 0;      // performance.now() when stream connected
+let attachedDeviceId  = null;   // deviceId of the active track
+
 resize();
 window.addEventListener('resize', resize);
 
@@ -622,7 +628,10 @@ function setStandardUniforms(vw, vh, now) {
                                            audioOnsets.mid.pulse,
                                            audioOnsets.high.pulse));
   setUniform1f('u_audio_playing', audioPlaying ? 1.0 : 0.0);
-  setUniform1f('u_audio_time',    audioEl ? audioEl.currentTime : 0.0);
+  setUniform1f('u_audio_time',
+    audioEl ? audioEl.currentTime :
+    liveStream ? now :
+    0.0);
   setUniform2fv('u_ball_pos',     billiards.posArray);
   setUniform1fv('u_ball_hit',     billiards.hitArray);
   setUniform2fv('u_ball_hit_pos', billiards.hitPosArray);
@@ -821,11 +830,87 @@ function attachAudio(slug, meta) {
   armFirstGestureAutoplay();
 }
 
-// Stub — replaced with real getUserMedia wiring in the next task.
-// For now just detaches so the runtime does not try to fetch `/file/live`.
 function attachLiveAudio(slug, meta) {
+  const key = `${slug}:live`;
+  if (audioKey === key && liveStream) { updateAudioUi(); return; }
+
   detachAudio();
-  audioKey = `${slug}:live`;
+
+  audioKey     = key;
+  audioPlaying = false;
+  audioBands   = { level: 0, bass: 0, mid: 0, high: 0 };
+
+  // Show the audio UI container (the device picker lives inside it in a
+  // later task); hide the scrub progress bar (no track to scrub).
+  audioUiEl?.classList.remove('hidden');
+  audioProgressEl?.classList.add('hidden');
+  updateAudioUi();
+
+  // Try immediately — browsers usually block until user gesture; the
+  // first-gesture listeners already installed by armFirstGestureAutoplay
+  // will retry when the user clicks / keys / touches.
+  tryAttachLiveStream();
+  armFirstGestureAutoplay();
+}
+
+async function tryAttachLiveStream() {
+  if (liveStream) return;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return;
+  if (!audioCtx) {
+    audioCtx              = new Ctx();
+    audioAnalyser         = audioCtx.createAnalyser();
+    audioAnalyser.fftSize = 1024;
+    audioAnalyser.smoothingTimeConstant = 0.65;
+    audioFreqData         = new Uint8Array(audioAnalyser.frequencyBinCount);
+  }
+  if (audioCtx.state === 'suspended') {
+    try { await audioCtx.resume(); } catch {}
+  }
+
+  const savedId = localStorage.getItem('vjay_audio_input_device_id') || null;
+  const constraints = {
+    audio: {
+      deviceId:         savedId ? { exact: savedId } : undefined,
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl:  false,
+    },
+  };
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+  } catch (err) {
+    // Common causes: user denied, no device, or the savedId is stale.
+    // If a savedId was passed, retry once with the default device.
+    if (savedId) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+        });
+      } catch (retryErr) {
+        console.warn('[audio] getUserMedia rejected', retryErr);
+        return;
+      }
+    } else {
+      console.warn('[audio] getUserMedia rejected', err);
+      return;
+    }
+  }
+
+  liveStream       = stream;
+  liveStreamSource = audioCtx.createMediaStreamSource(stream);
+  // IMPORTANT: do NOT connect the analyser to audioCtx.destination —
+  // that would route the mic back to speakers and cause feedback.
+  liveStreamSource.connect(audioAnalyser);
+
+  liveStartTime     = performance.now();
+  audioPlaying      = true;
+  attachedDeviceId  = stream.getAudioTracks()[0]?.getSettings()?.deviceId ?? null;
+
+  disarmAutoplay();
+  updateAudioUi();
 }
 
 // Try to start the current audio element, swallowing the browser's autoplay
@@ -858,6 +943,18 @@ function disarmAutoplay() {
 }
 
 function detachAudio() {
+  // Live-capture teardown — stop tracks (dismiss red-dot indicator)
+  // and disconnect the source node.
+  if (liveStream) {
+    for (const t of liveStream.getTracks()) { try { t.stop(); } catch {} }
+    liveStream = null;
+  }
+  if (liveStreamSource) {
+    try { liveStreamSource.disconnect(); } catch {}
+    liveStreamSource = null;
+  }
+  attachedDeviceId = null;
+
   if (audioEl) {
     try { audioEl.pause(); } catch {}
     audioEl.src = '';
@@ -876,6 +973,8 @@ function detachAudio() {
     high:  { short: 0, long: 0, pulse: 0 },
   };
   audioUiEl?.classList.add('hidden');
+  // Restore progress bar visibility for file pieces (live-attach hid it).
+  audioProgressEl?.classList.remove('hidden');
   updateAudioUi();
 }
 
