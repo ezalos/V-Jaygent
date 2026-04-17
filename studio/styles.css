@@ -223,3 +223,42 @@ body.hud-off .audio-ui { display: none; }
 .audio-ui .progress:hover .tooltip,
 .audio-ui .progress.dragging .tooltip { opacity: 1; }
 
+
+.audio-input {
+  position: fixed;
+  right: 20px;
+  bottom: 52px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--ink-dim);
+  pointer-events: auto;
+}
+.audio-input.hidden { display: none; }
+.audio-input select {
+  background: rgba(0, 0, 0, 0.5);
+  color: var(--ink);
+  border: 1px solid rgba(232, 230, 223, 0.25);
+  padding: 3px 6px;
+  font-size: 11px;
+  font-family: inherit;
+  max-width: 240px;
+}
+
+.audio-hint {
+  position: fixed;
+  right: 20px;
+  bottom: 90px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--ink-dim);
+  pointer-events: none;
+  max-width: 40ch;
+}
+.audio-hint.hidden { display: none; }

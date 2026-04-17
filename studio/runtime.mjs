@@ -37,6 +37,9 @@ const audioProgressEl = document.getElementById('audio-progress');
 const audioFillEl     = document.getElementById('audio-progress-fill');
 const audioHandleEl   = document.getElementById('audio-progress-handle');
 const audioTooltipEl  = document.getElementById('audio-progress-tooltip');
+const liveInputEl     = document.getElementById('audio-input');
+const liveSelectEl    = document.getElementById('audio-input-select');
+const liveHintEl      = document.getElementById('audio-hint');
 
 const gl = canvas.getContext('webgl2', { preserveDrawingBuffer: true, antialias: true });
 if (!gl) {
@@ -190,6 +193,21 @@ if (audioProgressEl) {
     if (!scrubbing) return;
     scrubbing = false;
     audioProgressEl.classList.remove('dragging');
+  });
+}
+
+if (liveSelectEl) {
+  liveSelectEl.addEventListener('change', async () => {
+    const id = liveSelectEl.value;
+    if (!id) return;
+    localStorage.setItem('vjay_audio_input_device_id', id);
+    await rebuildLiveSource(id);
+  });
+}
+
+if (navigator.mediaDevices?.addEventListener) {
+  navigator.mediaDevices.addEventListener('devicechange', () => {
+    if (liveStream) populateDeviceList();
   });
 }
 
@@ -891,10 +909,12 @@ async function tryAttachLiveStream() {
         });
       } catch (retryErr) {
         console.warn('[audio] getUserMedia rejected', retryErr);
+        showLiveHint('🎤 click to grant audio input — piece runs autonomously otherwise');
         return;
       }
     } else {
       console.warn('[audio] getUserMedia rejected', err);
+      showLiveHint('🎤 click to grant audio input — piece runs autonomously otherwise');
       return;
     }
   }
@@ -909,8 +929,71 @@ async function tryAttachLiveStream() {
   audioPlaying      = true;
   attachedDeviceId  = stream.getAudioTracks()[0]?.getSettings()?.deviceId ?? null;
 
+  hideLiveHint();
+  await populateDeviceList();
   disarmAutoplay();
   updateAudioUi();
+}
+
+async function populateDeviceList() {
+  if (!liveSelectEl || !navigator.mediaDevices?.enumerateDevices) return;
+  let devices;
+  try {
+    devices = await navigator.mediaDevices.enumerateDevices();
+  } catch (err) {
+    console.warn('[audio] enumerateDevices', err);
+    return;
+  }
+  const inputs = devices.filter((d) => d.kind === 'audioinput');
+  liveSelectEl.replaceChildren();
+  for (const d of inputs) {
+    const opt = document.createElement('option');
+    opt.value = d.deviceId;
+    opt.textContent = d.label || `input (${d.deviceId.slice(0, 8)})`;
+    liveSelectEl.appendChild(opt);
+  }
+  if (attachedDeviceId) {
+    const hasOpt = Array.from(liveSelectEl.options).some((o) => o.value === attachedDeviceId);
+    if (hasOpt) liveSelectEl.value = attachedDeviceId;
+  }
+  liveInputEl?.classList.remove('hidden');
+}
+
+async function rebuildLiveSource(deviceId) {
+  if (liveStreamSource) { try { liveStreamSource.disconnect(); } catch {} liveStreamSource = null; }
+  if (liveStream) {
+    for (const t of liveStream.getTracks()) { try { t.stop(); } catch {} }
+    liveStream = null;
+  }
+  audioPlaying = false;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        deviceId:         { exact: deviceId },
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl:  false,
+      },
+    });
+    liveStream       = stream;
+    liveStreamSource = audioCtx.createMediaStreamSource(stream);
+    liveStreamSource.connect(audioAnalyser);
+    audioPlaying     = true;
+    attachedDeviceId = stream.getAudioTracks()[0]?.getSettings()?.deviceId ?? deviceId;
+    hideLiveHint();
+  } catch (err) {
+    console.warn('[audio] getUserMedia rebuild rejected', err);
+    showLiveHint(`🎤 couldn't switch to that device (${err.name || 'error'})`);
+  }
+}
+
+function showLiveHint(text) {
+  if (!liveHintEl) return;
+  liveHintEl.textContent = text;
+  liveHintEl.classList.remove('hidden');
+}
+function hideLiveHint() {
+  liveHintEl?.classList.add('hidden');
 }
 
 // Try to start the current audio element, swallowing the browser's autoplay
@@ -975,6 +1058,8 @@ function detachAudio() {
   audioUiEl?.classList.add('hidden');
   // Restore progress bar visibility for file pieces (live-attach hid it).
   audioProgressEl?.classList.remove('hidden');
+  liveInputEl?.classList.add('hidden');
+  hideLiveHint();
   updateAudioUi();
 }
 
