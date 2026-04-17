@@ -130,9 +130,21 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'c' || e.key === 'C') toggleCatalog();
   else if (e.key === 'Escape') closeCatalog();
   else if (e.key === ' ') {
-    if (audioEl) { toggleAudio(); e.preventDefault(); }
+    // Always preventDefault so space never scrolls the page, even during the
+    // boot window where audioEl hasn't attached yet. The browser's sticky
+    // user-activation from this keypress stays valid for ~5s, so attachAudio's
+    // own tryAutoplay() will cash it in when it runs.
+    e.preventDefault();
+    if (audioEl) toggleAudio();
   }
 });
+
+// Install first-gesture autoplay listeners NOW, not later inside attachAudio.
+// attachAudio is awaited during boot, so without this, a space press during
+// boot falls on the floor: no listeners yet, and the command handler above
+// sees audioEl === null. Installing early means sticky activation is in play
+// by the time attachAudio's own tryAutoplay() runs.
+armFirstGestureAutoplay();
 
 canvas.addEventListener('click', () => {
   if (audioEl && audioEl.paused) toggleAudio();
@@ -776,8 +788,10 @@ function closeCatalog() {
 // ---------- audio ----------
 
 function attachAudio(slug, meta) {
-  const filename = meta?.audio;
-  if (!filename) { detachAudio(); return; }
+  const spec = meta?.audio;
+  if (!spec) { detachAudio(); return; }
+  if (spec === 'live') { attachLiveAudio(slug, meta); return; }
+  const filename = spec;
   const key = `${slug}:${filename}`;
   if (audioKey === key && audioEl) { updateAudioUi(); return; }  // already attached
 
@@ -805,6 +819,13 @@ function attachAudio(slug, meta) {
   // and silently reject; the first-gesture listener below catches up.
   tryAutoplay();
   armFirstGestureAutoplay();
+}
+
+// Stub — replaced with real getUserMedia wiring in the next task.
+// For now just detaches so the runtime does not try to fetch `/file/live`.
+function attachLiveAudio(slug, meta) {
+  detachAudio();
+  audioKey = `${slug}:live`;
 }
 
 // Try to start the current audio element, swallowing the browser's autoplay
