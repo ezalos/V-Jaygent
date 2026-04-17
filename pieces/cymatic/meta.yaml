@@ -1,0 +1,20 @@
+title: Cymatic
+slug: cymatic
+created: 2026-04-18T00:00:00.000Z
+audio: live
+render_scale: 1.0
+uniforms: []
+notes: |
+  Chladni standing-wave field driven by live audio input. Default
+  source is the system microphone; any audioinput device (line-in,
+  loopback such as BlackHole / PulseAudio monitor) can be chosen via
+  the input picker in the audio UI. Hum / sing / play music at it;
+  pattern crystallises. Whisper or deny permission — autonomous FBM
+  mode sweep keeps the piece alive. Cursor pins the antinode. Kick /
+  snare / cymbal transients punch radial shockwaves from the cursor.
+
+  Requires HTTPS or localhost for getUserMedia. On LAN-by-IP
+  (http://10.x.x.x:7777) mic permission will be refused by the
+  browser — piece falls back to idle drift.
+
+published_at: null
