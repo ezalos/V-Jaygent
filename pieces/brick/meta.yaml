@@ -1,0 +1,43 @@
+title: Brick
+slug: brick
+created: 2026-04-18T00:00:00.000Z
+notes: |
+  For Pink Floyd's "Another Brick In The Wall, Part Two." A wall of bricks
+  builds itself upward at the song's tempo (~104 BPM) — one row per beat,
+  bond pattern, slotting in with a quick drop-in. Each brick carries a faint
+  Scarfe-ghost face; the mortar grid makes the lockstep read as industrial.
+  Behind the wall burns a furnace: domain-warped FBM, amber-through-white
+  palette, flickering at ~22 Hz.
+
+  Interaction: cursor crack the wall. sim.frag keeps a persistent damage
+  field (rgba16f half-res ping-pong) that a gaussian kernel loads under the
+  cursor and decays back to zero over ~3 seconds. In the display, damage
+  plus per-fragment FBM gives a jagged shatter edge, white-hot spark on the
+  boundary, embers spraying upward into the flame. When the cursor is idle,
+  an on-beat "invisible fist" cycles across the middle of the wall —
+  percussive attack envelope, figure-eight path — so the published clip has
+  an inner rhythm instead of a frozen facade.
+
+  The song's thesis as a shader: conformity (the bond pattern, the lockstep
+  build) is always on the verge of being broken, and the moment you stop
+  striking, the wall heals itself back.
+duration: 24
+render_scale: 1
+uniforms: []
+published_at: null
+passes:
+  - name: simulate
+    shader: sim.frag
+    target:
+      format: rgba16f
+      ping_pong: true
+      scale: 0.5
+    inputs:
+      u_state: simulate
+    iterations: 1
+  - name: display
+    shader: shader.frag
+    target: screen
+    inputs:
+      u_state: simulate
+rendered_at: '2026-04-17T22:26:46.664Z'

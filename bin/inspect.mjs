@@ -60,6 +60,19 @@ try {
   // Click the stage to unlock audio (no-op if the piece has none) and let
   // the runtime finish its initial compile + first few frames.
   await page.click('#stage').catch(() => {});
+  // The click parks Playwright's virtual cursor at stage center, which
+  // keeps cursor-reactive pieces in their "hand on the canvas" branch
+  // indefinitely. Dispatch a mousemove whose (clientX, clientY) map to the
+  // runtime's mouse=(0,0) idle sentinel — so inspected frames represent
+  // the published-clip state, not a held hand.
+  await page.evaluate(() => {
+    const c = document.getElementById('stage');
+    if (!c) return;
+    window.dispatchEvent(new MouseEvent('mousemove', {
+      clientX: 0,
+      clientY: c.clientHeight,
+    }));
+  });
   await page.waitForTimeout(1500);
 
   for (let i = 0; i < frames; i++) {
