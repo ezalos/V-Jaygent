@@ -1047,6 +1047,14 @@ function detachAudio() {
     try { audioSource.disconnect(); } catch {}
     audioSource = null;
   }
+  // Also sever analyser → destination. Without this, switching from a
+  // file piece (which wires analyser→destination in ensureAudioContext)
+  // to a live piece leaves the destination edge in place — the live
+  // stream would then route to speakers and induce feedback. Safe to
+  // call even when no such edge exists; the throw is swallowed.
+  if (audioAnalyser && audioCtx) {
+    try { audioAnalyser.disconnect(audioCtx.destination); } catch {}
+  }
   audioKey     = null;
   audioPlaying = false;
   audioBands   = { level: 0, bass: 0, mid: 0, high: 0 };
