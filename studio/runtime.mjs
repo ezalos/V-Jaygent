@@ -40,6 +40,23 @@ const audioTooltipEl  = document.getElementById('audio-progress-tooltip');
 const liveInputEl     = document.getElementById('audio-input');
 const liveSelectEl    = document.getElementById('audio-input-select');
 const liveHintEl      = document.getElementById('audio-hint');
+const touchBarEl      = document.getElementById('touch-bar');
+const tbPrevEl        = document.getElementById('tb-prev');
+const tbCatalogEl     = document.getElementById('tb-catalog');
+const tbPlayEl        = document.getElementById('tb-play');
+const tbNextEl        = document.getElementById('tb-next');
+
+const coarsePointerMQ = window.matchMedia('(pointer: coarse)');
+function applyCoarsePointer() {
+  document.body.classList.toggle('coarse-pointer', coarsePointerMQ.matches);
+}
+applyCoarsePointer();
+coarsePointerMQ.addEventListener?.('change', applyCoarsePointer);
+
+tbPrevEl?.addEventListener('click',    () => { userOverride = true; cycle(-1); });
+tbNextEl?.addEventListener('click',    () => { userOverride = true; cycle(+1); });
+tbCatalogEl?.addEventListener('click', () => toggleCatalog());
+tbPlayEl?.addEventListener('click',    () => { if (audioEl) toggleAudio(); });
 
 const gl = canvas.getContext('webgl2', { preserveDrawingBuffer: true, antialias: true });
 if (!gl) {
@@ -1223,6 +1240,8 @@ function updateAudioUi() {
   if (!audioUiEl) return;
   if (!audioEl) {
     audioUiEl.classList.add('hidden');
+    if (tbPlayEl) tbPlayEl.hidden = !liveStream;
+    if (tbPlayEl && liveStream) tbPlayEl.textContent = audioPlaying ? '⏸' : '▶';
     return;
   }
   audioUiEl.classList.remove('hidden');
@@ -1231,6 +1250,10 @@ function updateAudioUi() {
   const pct = dur > 0 ? (cur / dur) * 100 : 0;
   if (audioFillEl)   audioFillEl.style.width  = pct + '%';
   if (audioHandleEl) audioHandleEl.style.left = pct + '%';
+  if (tbPlayEl) {
+    tbPlayEl.hidden = false;
+    tbPlayEl.textContent = audioPlaying ? '⏸' : '▶';
+  }
 }
 
 function formatTime(s) {
