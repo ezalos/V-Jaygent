@@ -108,6 +108,8 @@ export function createGestureTracker(opts = {}) {
     getZoom: () => zoom,
     getPan:  () => [pan[0], pan[1]],
     setRefSize(n) { cfg.refSize = Math.max(1, n); },
+    setZoom(v) { zoom = clamp(v, cfg.zoomMin, cfg.zoomMax); },
+    setPan(x, y) { pan = [x, y]; },
     reset,
   };
 }

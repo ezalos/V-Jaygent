@@ -133,3 +133,12 @@ test('reset restores zoom=1 and pan=[0,0]', () => {
   assert.equal(g.getZoom(), 1.0);
   assert.deepEqual(g.getPan(), [0, 0]);
 });
+
+test('setZoom clamps and setPan writes state', () => {
+  const g = createGestureTracker({ refSize: 1000 });
+  g.setZoom(10);      assert.equal(g.getZoom(), 4.0);
+  g.setZoom(0.01);    assert.equal(g.getZoom(), 0.25);
+  g.setZoom(1.5);     assert.equal(g.getZoom(), 1.5);
+  g.setPan(0.3, -0.4);
+  assert.deepEqual(g.getPan(), [0.3, -0.4]);
+});

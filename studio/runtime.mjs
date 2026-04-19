@@ -116,6 +116,7 @@ const billiards = createBilliards({ radius: 0.26, boundsMargin: 0.96 });
 // u_tap_pulse. Created early so resize() can update refSize on every call.
 const gestures = createGestureTracker({ refSize: 1 });
 let tapPulse = 0;  // decays in render(); set to 1 on tap
+let programUsesZoom = false;  // wheel-zoom gate; set on every swapProgram/swapPipeline
 
 // Audio plumbing — created lazily on first user gesture.
 let audioEl        = null;
@@ -170,18 +171,43 @@ window.addEventListener('pointermove', (e) => {
   wakeOverlays();
 });
 
+let desktopPanOrigin = null;  // { startX, startY, panAtStart } when shift-drag active
+
 canvas.addEventListener('pointerdown', (e) => {
   canvas.setPointerCapture(e.pointerId);
+  if (e.pointerType === 'mouse' && e.shiftKey) {
+    desktopPanOrigin = {
+      startX:     e.clientX,
+      startY:     e.clientY,
+      panAtStart: gestures.getPan(),
+    };
+    return;
+  }
   gestures.addPointer(e.pointerId, e.clientX, e.clientY, e.timeStamp);
   mouse = [e.clientX, canvas.clientHeight - e.clientY];
   wakeOverlays();
 });
 
 canvas.addEventListener('pointermove', (e) => {
+  if (desktopPanOrigin) {
+    const refSize = Math.min(canvas.clientWidth, canvas.clientHeight) || 1;
+    const dx = (e.clientX - desktopPanOrigin.startX) / refSize;
+    const dy = (e.clientY - desktopPanOrigin.startY) / refSize;
+    gestures.setPan(
+      desktopPanOrigin.panAtStart[0] + dx,
+      desktopPanOrigin.panAtStart[1] + dy,
+    );
+    wakeOverlays();
+    return;
+  }
   gestures.movePointer(e.pointerId, e.clientX, e.clientY, e.timeStamp);
 });
 
 function endCanvasPointer(e) {
+  if (desktopPanOrigin) {
+    desktopPanOrigin = null;
+    return;
+  }
   const cls = gestures.removePointer(e.pointerId, e.clientX, e.clientY, e.timeStamp);
   if (!cls) return;
   if (cls.kind === 'tap') {
@@ -195,6 +221,16 @@ function endCanvasPointer(e) {
 
 canvas.addEventListener('pointerup',     endCanvasPointer);
 canvas.addEventListener('pointercancel', endCanvasPointer);
+
+canvas.addEventListener('wheel', (e) => {
+  if (!programUsesZoom) return;
+  if (catalogEl && !catalogEl.classList.contains('hidden')) return;
+  e.preventDefault();
+  // Negative deltaY = scroll up = zoom in. Exponential so response feels
+  // linear in perceived scale.
+  const factor = Math.exp(-e.deltaY * 0.001);
+  gestures.setZoom(gestures.getZoom() * factor);
+}, { passive: false });
 
 window.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight') { cycle(+1); e.preventDefault(); }
@@ -514,6 +550,7 @@ function swapProgram(prog) {
   if (currentProgram) gl.deleteProgram(currentProgram);
   currentProgram = prog;
   currentUniforms = {};
+  programUsesZoom = gl.getUniformLocation(prog, 'u_zoom') !== null;
   startTime = performance.now();
 }
 
@@ -523,6 +560,9 @@ function swapPipeline(pipeline) {
   currentProgram = null;
   currentUniforms = {};
   currentPipeline = pipeline;
+  programUsesZoom = pipeline.passes.some(
+    (p) => gl.getUniformLocation(p.program, 'u_zoom') !== null,
+  );
   startTime = performance.now();
 }
 
