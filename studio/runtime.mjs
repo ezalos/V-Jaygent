@@ -882,6 +882,10 @@ async function tryAttachLiveStream() {
     audioAnalyser.smoothingTimeConstant = 0.65;
     audioFreqData         = new Uint8Array(audioAnalyser.frequencyBinCount);
   }
+  // An initial resume() attempt here — may fail if the context was just
+  // constructed without a user gesture. The post-stream-attach resume
+  // below catches the case where the browser prompt's "Allow" click is
+  // enough, and the first-gesture listener catches the rest.
   if (audioCtx.state === 'suspended') {
     try { await audioCtx.resume(); } catch {}
   }
@@ -924,6 +928,14 @@ async function tryAttachLiveStream() {
   // IMPORTANT: do NOT connect the analyser to audioCtx.destination —
   // that would route the mic back to speakers and cause feedback.
   liveStreamSource.connect(audioAnalyser);
+
+  // Resume after stream attach — granting the mic prompt counts as a
+  // gesture in Chrome/Firefox, so this usually succeeds where the
+  // earlier resume call silently failed. Without this the analyser
+  // produces all zeros and the shader locks in its idle branch.
+  if (audioCtx.state === 'suspended') {
+    try { await audioCtx.resume(); } catch {}
+  }
 
   liveStartTime     = performance.now();
   audioPlaying      = true;
@@ -1011,13 +1023,25 @@ async function tryAutoplay() {
 function armFirstGestureAutoplay() {
   if (autoplayArmed) return;
   autoplayArmed = true;
-  autoplayKickFn = () => { tryAutoplay(); };
+  autoplayKickFn = async () => {
+    // Any gesture is enough to unblock both file audio (play) and live
+    // audio (resume the suspended context). Tolerate either path failing
+    // so one doesn't starve the other.
+    if (audioCtx && audioCtx.state === 'suspended') {
+      try { await audioCtx.resume(); } catch {}
+    }
+    if (audioKey && audioKey.endsWith(':live') && !liveStream) {
+      tryAttachLiveStream();
+    }
+    tryAutoplay();
+  };
   window.addEventListener('pointerdown', autoplayKickFn);
   window.addEventListener('keydown',     autoplayKickFn);
   window.addEventListener('touchstart',  autoplayKickFn, { passive: true });
 }
 
 function disarmAutoplay() {
+  autoplayArmed = false;
   if (!autoplayKickFn) return;
   window.removeEventListener('pointerdown', autoplayKickFn);
   window.removeEventListener('keydown',     autoplayKickFn);
