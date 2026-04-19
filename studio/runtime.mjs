@@ -121,6 +121,16 @@ let attachedDeviceId  = null;   // deviceId of the active track
 resize();
 window.addEventListener('resize', resize);
 
+// Mobile browsers resize the visual viewport independently of window when
+// URL bar hides/shows or the soft keyboard appears. Listen to both.
+if (window.visualViewport) {
+  let rafId = 0;
+  window.visualViewport.addEventListener('resize', () => {
+    if (rafId) return;
+    rafId = requestAnimationFrame(() => { rafId = 0; resize(); });
+  });
+}
+
 const quad = gl.createBuffer();
 gl.bindBuffer(gl.ARRAY_BUFFER, quad);
 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
