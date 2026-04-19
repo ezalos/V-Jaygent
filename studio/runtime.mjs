@@ -2,6 +2,7 @@
 // ABOUTME: hot-reload via mtime polling, keyboard navigation, optional record mode.
 
 import { createBilliards } from './billiards.mjs';
+import { createGestureTracker } from './gestures.mjs';
 
 const VERT = `#version 300 es
 in vec2 a_pos;
@@ -111,6 +112,11 @@ let autoplayKickFn = null;
 // Collision radius MUST equal the shader-side disk radius.
 const billiards = createBilliards({ radius: 0.26, boundsMargin: 0.96 });
 
+// Unified gesture state — consumed in render() for u_mouse / u_zoom / u_pan /
+// u_tap_pulse. Created early so resize() can update refSize on every call.
+const gestures = createGestureTracker({ refSize: 1 });
+let tapPulse = 0;  // decays in render(); set to 1 on tap
+
 // Audio plumbing — created lazily on first user gesture.
 let audioEl        = null;
 let audioCtx       = null;
@@ -153,10 +159,42 @@ gl.bindBuffer(gl.ARRAY_BUFFER, quad);
 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
 
 document.body.classList.add('active');
-window.addEventListener('mousemove', (e) => {
+
+// u_mouse always tracks the cursor — hover on desktop, finger drag on touch.
+// Pointer events fire for both; the gesture tracker only sees pointers after
+// pointerdown (needed for tap/swipe/pinch classification), while the direct
+// mouse update below keeps the "cursor is always an instrument" contract for
+// desktop hover.
+window.addEventListener('pointermove', (e) => {
   mouse = [e.clientX, canvas.clientHeight - e.clientY];
   wakeOverlays();
 });
+
+canvas.addEventListener('pointerdown', (e) => {
+  canvas.setPointerCapture(e.pointerId);
+  gestures.addPointer(e.pointerId, e.clientX, e.clientY, e.timeStamp);
+  mouse = [e.clientX, canvas.clientHeight - e.clientY];
+  wakeOverlays();
+});
+
+canvas.addEventListener('pointermove', (e) => {
+  gestures.movePointer(e.pointerId, e.clientX, e.clientY, e.timeStamp);
+});
+
+function endCanvasPointer(e) {
+  const cls = gestures.removePointer(e.pointerId, e.clientX, e.clientY, e.timeStamp);
+  if (!cls) return;
+  if (cls.kind === 'tap') {
+    tapPulse = 1.0;
+    if (audioEl && audioEl.paused) toggleAudio();
+  } else if (cls.kind === 'swipe') {
+    userOverride = true;
+    cycle(cls.dir);
+  }
+}
+
+canvas.addEventListener('pointerup',     endCanvasPointer);
+canvas.addEventListener('pointercancel', endCanvasPointer);
 
 window.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight') { cycle(+1); e.preventDefault(); }
@@ -182,11 +220,8 @@ window.addEventListener('keydown', (e) => {
 // by the time attachAudio's own tryAutoplay() runs.
 armFirstGestureAutoplay();
 
-canvas.addEventListener('click', () => {
-  if (audioEl && audioEl.paused) toggleAudio();
-});
-
 let scrubbing = false;
+let scrubPointerId = null;
 if (audioProgressEl) {
   const seekFromEvent = (e) => {
     if (!audioEl || !isFinite(audioEl.duration)) return;
@@ -203,24 +238,29 @@ if (audioProgressEl) {
     audioTooltipEl.textContent = formatTime(t);
     audioTooltipEl.style.left  = (pct * 100) + '%';
   };
-  audioProgressEl.addEventListener('mousedown', (e) => {
+  audioProgressEl.addEventListener('pointerdown', (e) => {
     scrubbing = true;
+    scrubPointerId = e.pointerId;
+    audioProgressEl.setPointerCapture(e.pointerId);
     audioProgressEl.classList.add('dragging');
     seekFromEvent(e);
     updateTooltipFromEvent(e);
     e.preventDefault();
   });
-  audioProgressEl.addEventListener('mousemove', updateTooltipFromEvent);
-  window.addEventListener('mousemove', (e) => {
-    if (!scrubbing) return;
-    seekFromEvent(e);
+  audioProgressEl.addEventListener('pointermove', (e) => {
+    if (scrubbing && e.pointerId === scrubPointerId) {
+      seekFromEvent(e);
+    }
     updateTooltipFromEvent(e);
   });
-  window.addEventListener('mouseup', () => {
-    if (!scrubbing) return;
+  const endScrub = (e) => {
+    if (!scrubbing || e.pointerId !== scrubPointerId) return;
     scrubbing = false;
+    scrubPointerId = null;
     audioProgressEl.classList.remove('dragging');
-  });
+  };
+  audioProgressEl.addEventListener('pointerup',     endScrub);
+  audioProgressEl.addEventListener('pointercancel', endScrub);
 }
 
 if (liveSelectEl) {
@@ -297,6 +337,8 @@ function render() {
     : (performance.now() - startTime) / 1000;
 
   sampleAudio();
+  tapPulse *= 0.85;
+  if (tapPulse < 1e-4) tapPulse = 0;
   updateAudioUi();
   const ballAspect = (canvas.clientWidth || 1) / Math.max(canvas.clientHeight, 1);
   billiards.step(now, ballAspect);
@@ -1343,6 +1385,7 @@ function resize() {
   canvas.width  = newW;
   canvas.height = newH;
   if (changed && currentPipeline) reallocPipelineTargets(currentPipeline);
+  gestures.setRefSize(Math.min(canvas.clientWidth, canvas.clientHeight) || 1);
 }
 
 // ---------- record mode (used by bin/publish.mjs via Playwright) ----------
