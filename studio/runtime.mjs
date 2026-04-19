@@ -1305,6 +1305,28 @@ function wakeOverlays() {
 }
 wakeOverlays();
 
+applyHintForModality();
+coarsePointerMQ.addEventListener?.('change', applyHintForModality);
+
+function applyHintForModality() {
+  if (!hintEl) return;
+  if (coarsePointerMQ.matches) {
+    if (localStorage.getItem('vjay_hint_dismissed') === '1') {
+      hintEl.classList.add('hidden');
+      return;
+    }
+    hintEl.textContent = 'swipe ← → cycle · pinch zoom · two-finger pan · tap pokes';
+    hintEl.classList.remove('hidden');
+    setTimeout(() => {
+      hintEl.classList.add('hidden');
+      localStorage.setItem('vjay_hint_dismissed', '1');
+    }, 6000);
+  } else {
+    hintEl.textContent = '← →  next/prev     c  catalog     space  play/pause     drag bottom bar  scrub     r  reset time     h  toggle hud';
+    hintEl.classList.remove('hidden');
+  }
+}
+
 function toggleHud() {
   hudOn = !hudOn;
   document.body.classList.toggle('hud-off', !hudOn);
