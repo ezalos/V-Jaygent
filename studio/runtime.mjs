@@ -221,6 +221,29 @@ if (navigator.mediaDevices?.addEventListener) {
   });
 }
 
+// Devtools-callable introspection — type __vj_audio() in the console to
+// see what the live-audio path is actually doing.
+window.__vj_audio = () => ({
+  audioKey,
+  audioPlaying,
+  ctxState:        audioCtx?.state ?? null,
+  hasLiveStream:   !!liveStream,
+  hasStreamSource: !!liveStreamSource,
+  tracks: liveStream?.getAudioTracks().map((t) => ({
+    label:    t.label,
+    enabled:  t.enabled,
+    muted:    t.muted,
+    state:    t.readyState,
+    settings: t.getSettings(),
+  })) ?? [],
+  bands:  { ...audioBands },
+  onsets: {
+    bass:  audioOnsets.bass.pulse,
+    mid:   audioOnsets.mid.pulse,
+    high:  audioOnsets.high.pulse,
+  },
+});
+
 // Initial boot and poll loops
 await refreshCatalog();
 await loadCurrent({ initial: true });
@@ -239,7 +262,12 @@ function render() {
   if (fpsSamples.length > 60) fpsSamples.shift();
   if ((frameCount & 15) === 0 && fpsEl) {
     const avg = fpsSamples.reduce((a, b) => a + b, 0) / fpsSamples.length;
-    fpsEl.textContent = `${Math.round(1000 / avg)} fps`;
+    let line = `${Math.round(1000 / avg)} fps`;
+    if (liveStream) {
+      const ctxState = audioCtx?.state ?? '?';
+      line += ` · ${ctxState} · L ${audioBands.level.toFixed(2)} B ${audioBands.bass.toFixed(2)} M ${audioBands.mid.toFixed(2)} H ${audioBands.high.toFixed(2)}`;
+    }
+    fpsEl.textContent = line;
   }
 
   // If the piece is audio-driven and audio is playing, advance time from the

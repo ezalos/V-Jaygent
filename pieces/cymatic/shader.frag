@@ -51,14 +51,16 @@ void main() {
     float high  = u_audio_high;
     float level = u_audio_level;
 
-    // Idle branch: slow FBM-driven mode weights. Gives the piece a life
-    // when mic is denied / room is silent / before first gesture.
+    // Idle branch: FBM-driven mode weights. Gives the piece a life when
+    // mic is denied / room is silent / before first gesture. Pace is
+    // deliberately brisk — 0.25× u_time means the FBM argument moves a
+    // full noise unit every 4s, so silence never reads as a frozen frame.
     if (level < 0.02) {
-        float t = u_time * 0.04;
-        bass  = 0.12 + 0.18 * fbm(vec2(t,        0.0));
-        mid   = 0.10 + 0.14 * fbm(vec2(0.0,      t + 2.1));
-        high  = 0.06 + 0.10 * fbm(vec2(t + 4.3,  t + 4.3));
-        level = 0.18;
+        float t = u_time * 0.25;
+        bass  = 0.14 + 0.22 * fbm(vec2(t,        0.0));
+        mid   = 0.12 + 0.18 * fbm(vec2(0.0,      t + 2.1));
+        high  = 0.08 + 0.14 * fbm(vec2(t + 4.3,  t + 4.3));
+        level = 0.22;
     }
 
     // --- Shockwaves from transient onsets, centred on the antinode ---
