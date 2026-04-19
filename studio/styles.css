@@ -164,7 +164,7 @@ body.hud-off .audio-ui { display: none; }
 
 .audio-ui .progress {
   position: relative;
-  height: 36px;              /* invisible hit zone */
+  height: 44px;              /* finger-sized hit zone */
   cursor: pointer;
   pointer-events: auto;
   display: flex;
@@ -174,13 +174,13 @@ body.hud-off .audio-ui { display: none; }
 .audio-ui .progress .track {
   position: relative;
   width: 100%;
-  height: 2px;
+  height: 3px;
   background: rgba(232, 230, 223, 0.28);
   transition: height 120ms ease-out;
 }
 
 .audio-ui .progress:hover .track,
-.audio-ui .progress.dragging .track { height: 4px; }
+.audio-ui .progress.dragging .track { height: 5px; }
 
 .audio-ui .progress-fill {
   position: absolute;
@@ -264,3 +264,26 @@ body.hud-off .audio-ui { display: none; }
   max-width: 40ch;
 }
 .audio-hint.hidden { display: none; }
+
+/* ---------- mobile / coarse-pointer responsive ---------- */
+
+@media (max-width: 480px) {
+  .catalog {
+    padding: 4vh 4vw;
+  }
+  .catalog-inner {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .card {
+    padding: 16px 18px;
+  }
+  #meta { left: 14px; bottom: 12px; max-width: 80vw; }
+  #meta .title { font-size: 13px; }
+  #meta .sub { font-size: 10px; }
+  .fps { font-size: 9px; top: 8px; right: 10px; }
+}
+
+@media (pointer: coarse) {
+  .audio-ui .tooltip { display: none; }
+}
