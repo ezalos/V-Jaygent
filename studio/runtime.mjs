@@ -747,6 +747,10 @@ function setStandardUniforms(vw, vh, now) {
     audioEl ? audioEl.currentTime :
     liveStream ? now :
     0.0);
+  setUniform1f('u_zoom',      gestures.getZoom());
+  const _pan = gestures.getPan();
+  setUniform2f('u_pan',       _pan[0], _pan[1]);
+  setUniform1f('u_tap_pulse', tapPulse);
   setUniform2fv('u_ball_pos',     billiards.posArray);
   setUniform1fv('u_ball_hit',     billiards.hitArray);
   setUniform2fv('u_ball_hit_pos', billiards.hitPosArray);

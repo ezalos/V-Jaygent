@@ -1,0 +1,14 @@
+title: touch probe
+slug: touch-probe
+created: 2026-04-19T00:00:00.000Z
+duration: 10
+render_scale: 1.0
+uniforms: []
+notes: |
+  Debug piece for mobile gesture wiring. Rings lock to shader-space origin
+  so u_pan shifts them and u_zoom rescales them. A spot of light follows
+  the cursor (u_mouse) through the zoomed+panned frame. Single tap flashes
+  the screen via u_tap_pulse.
+
+  Not aesthetic work — verification tool. Keep at root of catalog until
+  mobile ships; can be deleted after.
