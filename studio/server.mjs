@@ -66,6 +66,7 @@ async function handle(req, res, { piecesRoot, libRoot, studioDir, stats, statsTo
   // Runtime-side modules imported by runtime.mjs. Allow-listed so the server
   // only serves expected files (no directory enumeration via `/<foo>.mjs`).
   if (path === '/billiards.mjs')     return serveStatic(res, studioDir, 'billiards.mjs');
+  if (path === '/gestures.mjs')      return serveStatic(res, studioDir, 'gestures.mjs');
 
   // `/<slug>` → serve the studio page if <slug> is a valid piece directory.
   // Runtime reads location.pathname to pin the displayed piece.
