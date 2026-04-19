@@ -239,6 +239,25 @@ Write `pieces/<slug>/shader.frag`. Respect:
   endorses.
 - **Audio uniforms declared if audio is used**: u_audio_bass,
   u_audio_mid, u_audio_high, u_audio_level, u_audio_playing, u_audio_time.
+- **Interaction uniforms available** (all additive — declare only what
+  you use, defaults are neutral so pieces that ignore them behave as
+  before):
+  - `uniform float u_zoom;` — 1.0 neutral, clamped 0.25–4.0. On mobile:
+    pinch. On desktop: scroll wheel (only consumed when the shader
+    references `u_zoom`, so page scroll still works for pieces that
+    don't).
+  - `uniform vec2  u_pan;` — [0,0] neutral. `uv + u_pan` shifts the
+    frame by one unit per min(canvas.w, canvas.h). On mobile: two-finger
+    drag. On desktop: shift+drag.
+  - `uniform float u_tap_pulse;` — 0 resting, spikes to 1 on a single
+    tap/click and decays ~0.85/frame. Same shape as `u_audio_kick`; use
+    it to pulse a parameter the viewer can poke. Discrete events —
+    don't drive continuous parameters off it.
+- **`u_mouse` is driven by touch on mobile** — the runtime treats finger
+  drags as cursor movement, so pieces that already use `u_mouse` (via
+  `lib/interaction.glsl`'s `vjMouseWorld` etc.) gain touch support for
+  free. A piece that uses the cursor as an instrument gets a mobile
+  audience for free too.
 - **`render_scale`** set in meta.yaml for any shader with:
   - pathline integration
   - ray marching
@@ -250,6 +269,32 @@ If the piece needs state (RD, particle accumulation, trails), scaffold
 with `node bin/new-piece.mjs <slug> --sim` — produces a `sim.frag`
 ping-pong pair plus display shader, with `lib/diffusion.glsl` and
 `lib/noise.glsl` already included.
+
+### 7b. Mobile / touch sanity
+
+The studio is served at `vjaygent.develle.fr`, which means every piece
+lands on phones. Before step 9's sanity render, answer these:
+
+- **Does the piece claim cursor reactivity?** If so, it must survive
+  touch. Drive from `u_mouse` via `lib/interaction.glsl`; don't invent
+  bespoke pointer handling. Check it in Chrome device emulation (iPhone
+  14) before committing if cursor is central to the claim.
+- **Does it use `u_zoom` / `u_pan` / `u_tap_pulse`?** If yes, the piece
+  reads differently on touch than on mouse — phone is the intended
+  primary input. Make sure it's expressive under a thumb, not just a
+  trackpad.
+- **Is the composition portrait-friendly?** Canvas aspect on a phone in
+  portrait is ≈ 9:20. A composition that leans on landscape framing
+  (horizontal bands, wide triangles) can collapse. Narrow the viewport
+  in the shader-editing phase to check — cheaper than finding out after
+  publish.
+- **Is `render_scale` honest about phone GPUs?** Mid-range phones choke
+  on anything heavier than 2–3 full-resolution passes. For ray-marched
+  or multi-pass pieces, bias `render_scale` toward 0.5 rather than 0.75.
+
+30-second sanity pass, not full QA. If the piece is purely autonomous
+(no cursor reactivity, single-pass, cheap) most of these answer
+themselves as "yes".
 
 ### 8. Meta
 
@@ -373,7 +418,9 @@ Then tell the user:
 
 ## Notes for future maintenance
 
-If the studio runtime gains new capabilities (multi-pass, new uniforms),
-update the shader template section here. If `taste.md` adds a dimension,
-update step 10's scoring guidance. The skill should stay in sync with
-VISION, taste, and the runtime's ambient capabilities.
+If the studio runtime gains new capabilities (multi-pass, new uniforms,
+new input modalities), update the shader template section AND the 7b
+mobile sanity checklist here. If `taste.md` adds a dimension, update
+step 10's scoring guidance. The skill should stay in sync with VISION,
+taste, and the runtime's ambient capabilities — a capability added to
+the runtime that isn't surfaced here will never show up in new pieces.
