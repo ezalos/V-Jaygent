@@ -1221,7 +1221,113 @@ git commit -m "studio: desktop parity — wheel zoom + shift-drag pan"
 
 ---
 
-## Task 9: Final integration check
+## Task 9: Update `vjay-new-piece` skill to reflect mobile capability
+
+**Rationale:** The skill's "Notes for future maintenance" section explicitly says "If the studio runtime gains new capabilities (multi-pass, new uniforms), update the shader template section here." This plan adds three new uniforms and a touch-first interaction model — future piece-creation runs should know they exist and be nudged to use them.
+
+**Files:**
+- Modify: `skills/vjay-new-piece/SKILL.md` (Step 7 "Shader" — add uniforms; add a short "Mobile / touch" subsection)
+
+- [ ] **Step 1: Extend Step 7's uniform/capability list**
+
+`skills/vjay-new-piece/SKILL.md` — in Step 7 "Shader", after the existing `Audio uniforms declared if audio is used` bullet (around line 240-241), insert a new bullet:
+
+```markdown
+- **Interaction uniforms available** (all additive — declare only what you
+  use, defaults are neutral so pieces that ignore them behave as before):
+  - `uniform float u_zoom;` — 1.0 neutral, 0.25–4.0. On mobile: pinch.
+    On desktop: scroll wheel (only consumed when the shader references
+    `u_zoom`, so page-scroll still works elsewhere).
+  - `uniform vec2  u_pan;` — [0,0] neutral. `uv + u_pan` shifts the
+    frame by one unit per min(canvas.w, canvas.h). On mobile: two-finger
+    drag. On desktop: shift+drag.
+  - `uniform float u_tap_pulse;` — 0 resting, spikes to 1 on a single
+    tap/click and decays ~0.85/frame. Same shape as `u_audio_kick`; use
+    it to pulse a parameter the viewer can poke. Unlike `u_mouse`, taps
+    are discrete events, so don't drive continuous parameters off it.
+- **`u_mouse` is driven by touch on mobile** — the runtime treats a
+  finger drag as cursor movement, so pieces that already use `u_mouse`
+  (via `lib/interaction.glsl`'s `vjMouseWorld` etc.) gain touch support
+  for free. A piece that uses the cursor as an instrument gets a mobile
+  audience for free too.
+```
+
+- [ ] **Step 2: Add a short "Mobile / touch" subsection after Step 7**
+
+`skills/vjay-new-piece/SKILL.md` — right before the existing Step 8 ("Meta"), insert a new subsection. Find the line `### 8. Meta` and insert above it:
+
+```markdown
+### 7b. Mobile / touch sanity
+
+The studio is served at `vjaygent.develle.fr`, which means every piece
+lands on phones. Before step 9's sanity render, answer these:
+
+- **Does the piece claim cursor reactivity?** If so, it must survive
+  touch. Drive from `u_mouse` via `lib/interaction.glsl`; don't invent
+  bespoke pointer handling. Test later with Chrome device emulation
+  (iPhone 14) before committing if cursor is central to the claim.
+- **Does it use `u_zoom` / `u_pan` / `u_tap_pulse`?** If yes, the piece
+  reads differently on touch than on mouse — a phone is the intended
+  primary input. Make sure it's expressive under a thumb, not just a
+  trackpad.
+- **Is the composition portrait-friendly?** Canvas aspect on a phone in
+  portrait is ≈ 9:20. A composition that leans on landscape framing
+  (e.g. horizontal bands, wide triangles) can collapse. Check
+  composition in a narrow viewport (Chrome DevTools → iPhone) while
+  still in the shader-editing phase — cheaper than rendering and
+  publishing before finding out.
+- **Is `render_scale` honest about phone GPUs?** Mid-range phones choke
+  on anything heavier than 2–3 full-resolution passes. If the piece is
+  ray-marched or multi-pass, bias `render_scale` toward 0.5 rather than
+  0.75.
+
+This is a 30-second sanity pass, not a full QA loop. If the piece is
+purely autonomous (no cursor reactivity, single-pass, cheap) most of
+these answer themselves as "yes".
+
+```
+
+- [ ] **Step 3: Tighten the "Notes for future maintenance" footer**
+
+Near the end of the file, the existing footer says:
+
+```markdown
+If the studio runtime gains new capabilities (multi-pass, new uniforms),
+update the shader template section here.
+```
+
+Replace with:
+
+```markdown
+If the studio runtime gains new capabilities (multi-pass, new uniforms,
+new input modalities), update the shader template section AND the
+7b mobile sanity checklist here. The skill should stay in sync with
+VISION, taste, and the runtime's ambient capabilities — a capability
+added to the runtime that isn't surfaced here will never show up in
+new pieces.
+```
+
+- [ ] **Step 4: Verify the skill still parses as valid markdown**
+
+```bash
+# No formal parser; eyeball-check the diff renders cleanly.
+git diff skills/vjay-new-piece/SKILL.md
+```
+
+Check frontmatter (`---` / `user-invocable: true` / etc.) is unchanged,
+numbered sections still read in order (7 → 7b → 8), and no stray
+backticks or heading levels break the render.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add skills/vjay-new-piece/SKILL.md
+git commit -m "skills: /vjay-new-piece learns the mobile uniforms and touch-first sanity check"
+```
+
+---
+
+## Task 10: Final integration check
 
 **Files:** (no changes — verification only)
 
