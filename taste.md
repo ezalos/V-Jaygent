@@ -147,7 +147,7 @@ radius, or cursor dragging the Julia `c` parameter, is composition.
 Decorative reactivity scores low on Motion. Compositional reactivity
 scores high.
 
-*Operational probes (from `brainstorming/techniques/interactivity.md`,
+*Cursor probes (from `brainstorming/techniques/interactivity.md`,
 adapted from Golan Levin's Painterly Interfaces thesis). Run on
 pieces that declare cursor reactivity. A piece must pass 5/7 to
 claim "cursor as instrument"; 3/7 or fewer and the interaction is
@@ -182,6 +182,79 @@ See `brainstorming/techniques/interactivity.md` for artist
 references, pattern taxonomy (field modulation, parameter pilot,
 camera control, velocity-driven, dwell, hybrid), and the "mouse-Y
 as zoom" case study.
+
+*Music probes (from `brainstorming/techniques/music-to-shader.md`).
+Run on pieces that declare audio reactivity — shader references
+`u_audio_*`, `meta.time_source: audio`, or meta.yaml describes
+music behaviour. A piece must pass 3/4 to claim that music composes
+it; 2/4 or fewer and the audio is decoration.*
+
+1. **Motion-over-luminance probe.** Read the shader. Do `u_audio_*`
+   uniforms feed into *geometric* parameters (things that decide
+   WHERE pixels are — coordinates, angles, radii, velocities,
+   scales, warp amounts, positions), or only into *brightness*
+   parameters (things that decide HOW BRIGHT a pixel is — glow
+   multipliers, additive flashes, wall-light gains, envelope
+   amplitudes, alpha)? The test is "if I render the piece with this
+   term replaced by a constant, do *shapes* change or only
+   *brightness*?"
+
+   Concrete FAIL shapes (all brightness):
+     - `coreEnv = 0.30 + 1.20 * bass;`   ← envelope of a glow
+     - `wallLight *= 1.0 + 1.20 * bass;` ← gain on lighting
+     - `pulseAmp = 0.10 + 1.70 * bass;`  ← amplitude of a ring
+     - `sigma = 1.1 + 5.2 * mid;`        ← opacity/density (count
+       as geometric only if σ drives a motion scale, not just fade)
+
+   Concrete PASS shapes (geometry):
+     - `pulseSpeed = 0.70 + 0.55 * bass;` ← ring *propagation rate*
+     - `rimR = 1.05 - (0.55 + 0.22*bass) * relief;` ← wall *position*
+     - `zoom *= 1.0 - 0.05 * bass;`       ← camera *displacement*
+     - `theta += 0.03 * bass * sin(...);` ← angular *perturbation*
+     - `warpAmt = 0.08 + 0.28 * level;`   ← deformation *amount*
+
+   Fail if every `u_audio_*` usage is a brightness-family expression.
+   Shader-verdict form (`shader-pass` / `shader-fail` /
+   `shader-unclear`) with line citations.
+
+2. **Bass→movement probe.** Specifically: does `u_audio_bass` appear
+   in at least one PASS-shape expression from probe 1's taxonomy?
+   Mids and level may push structure (warp, haze scale) — that's
+   fine for probe 1 — but *bass specifically* must move something,
+   because in most electronic music bass IS the beat and the viewer
+   hears "kick" while seeing nothing shift in geometry if bass is
+   only wired to glow envelopes.
+
+   The canonical FAIL shape: every `bass` term is inside a
+   brightness multiplier (`1 + k*bass`, `a + b*bass` where the
+   output is an intensity/envelope/amplitude). The ring exists,
+   the glow exists, the rim kick exists — with or without bass —
+   and bass only changes their brightness. The motion is
+   *independent of bass*; bass modulates only how brightly that
+   independent motion reads.
+
+   PASS shapes: bass appears in an expression that determines a
+   coordinate, angle, radius, velocity, scale, warp, or camera
+   transform — something whose removal would visibly reposition
+   pixels, not dim them.
+
+   Shader-verdict form.
+3. **Rhythm-in-stills probe.** Do the captured frames show the piece
+   *mid-phase* — a ring in flight, a chamber geometrically
+   compressed on a hit, flow with clear direction — as opposed to
+   "the same scene at different brightness levels"? The music should
+   leave geometric evidence in frozen time. Frame-driven;
+   pass/fail/weak.
+4. **Quiet-reads-quiet probe.** At low `u_audio_level`, does the
+   piece de-energize *structurally* — slower flow, tighter scale,
+   calmer geometry, less warp — or just drop in luminance? Silence
+   must be silence in form, not dimness. Shader-verdict form when
+   no quiet frame was captured; frame-verdict when one was.
+
+See `brainstorming/techniques/music-to-shader.md` for the
+"In Seven" learnings (band→parameter mapping, section state
+machines, beat-snap vs beat-follow, multiplicative vs additive
+flashes).
 
 **Silence as form.** Quiet passages aren't failed loud passages.
 Real dark, sparse activity, low luminance — these are part of the
@@ -303,6 +376,12 @@ mesmerizing_probes:
   squint: pass
   hue_drift: pass
   mystery: fail
+music_passes: 2           # 0-4 or "n/a" if piece is not audio-reactive
+music_probes:             # omit entirely if n/a
+  motion_over_luminance: shader-fail
+  bass_movement: shader-fail
+  rhythm_in_stills: fail
+  quiet_reads_quiet: pass
 scores:
   palette_cohesion: 5
   composition: 4

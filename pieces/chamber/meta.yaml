@@ -8,32 +8,44 @@ render_scale: 0.65
 uniforms: []
 notes: |
   A techno piece set to "April (Audrey Danza's Percs Remix)" by Alpha Tracks
-  — 6:15, percussion-forward, no pre-marked song structure. So this piece
-  responds entirely to what the track is doing *right now*, rather than to
-  a composed timeline. The arc is the track's arc.
+  — 6:15, percussion-forward, no pre-marked song structure. The piece
+  responds to what the track is doing *right now*, not to a composed
+  timeline. The arc is the track's arc.
 
-  Form: a polar-coordinate scene read as a cavernous chamber seen from inside.
-  The origin is a luminous source; outward radius is depth into the room; at
-  ~r = 1 the chamber wall, relief-carved by fbm-noise angular modulation so
-  columns and recesses emerge only where light reaches them.
+  Form: a cavernous stone chamber seen from inside. A pinpoint source at
+  the origin lights the surrounding wall, whose radius at each angle is
+  carved by three octaves of angular fbm — tall columns protrude inward
+  (close, bright), deep recesses cut outward (far, black). The wall
+  occupies the outer half of the frame at rest; the air inside is hazy,
+  threaded with a faint grain, and crossed by outward pulses that fly
+  faster and the wall closes harder on the bass.
 
-  Illumination is volumetric — emission at the origin, haze of density σ in
-  the air, transmittance exp(-σ·r) falls off toward the rim. σ is driven by
-  the mid-band (loud mids = thick smoke, light trapped near the core; quiet
-  mids = clear air, wall visible). The bass drives both the sustained core
-  brightness and a continuous outward wave pattern whose amplitude is gated
-  by the bass level — kicks push visible light across the room. The high
-  band fires percussive radial slashes at fixed angular slots around the
-  rim (13 of them) via a time-bucketed stutter.
+  Audio → geometry first, then light:
+    - bass  → motion. Pulse propagation speed rides the bass so kicks
+              fling the ring outward faster; the wall's relief depth
+              amplifies on the beat so columns physically push inward;
+              a small camera zoom-punch lurches the view forward on
+              each hit. On top of that: core envelope, pulse amplitude,
+              wall-light gain, and rim-kick overlay all brighten.
+    - mid   → haze density σ; loud mids push the wall back into smoke,
+              quiet mids bring it forward.
+    - high  → stochastic column glints (13 slots, ~12 Hz stutter).
+    - level → compresses the exposure curve AND twists the relief field
+              via fbm angle-warp, so loud passages make the stone squirm.
 
-  Mouse.x pans the yaw angle continuously, so dragging across rotates the
-  chamber under you. Mouse.y is ignored; ceiling and floor are symmetrical.
-  If the cursor hasn't moved, yaw drifts slowly on its own.
+  Interaction (cursor is an instrument, not a garnish):
+    - mouse.x pans yaw continuously — dragging rotates the chamber.
+    - mouse.y is exponential zoom — cursor up pushes the camera into a
+              single column; cursor down pulls back so the whole chamber
+              is a lit lozenge in void.
+    - idle:   yaw drifts at 0.06 rad/s and the radial breath oscillates
+              on a 29 s period, so the frames are never still.
 
   Palette is deep ember — black → burgundy → rust → ember-orange → warm
-  amber. Monotonic warm, narrow, pushed down into low luminance. The 4am
-  club palette, not the festival-stage one. Dark-warm is still warm.
+  amber. Monotonic warm. The 4am club palette, not the festival stage.
 
-  Ends: last 1.5s crushes to black with a final amber flash.
+  Arc: opens from near-black (first 30 s exposure ramp 0.25→1.0), sustains,
+  intensifies 300-370 s (×1.35), then crushes to black with a final amber
+  flash in the last 1.5 s.
 published_at: null
-rendered_at: '2026-04-16T17:50:55.699Z'
+rendered_at: '2026-04-20T05:41:36.646Z'

@@ -189,13 +189,22 @@ the eye, not the checklist.
    pilot, camera control, velocity-driven, dwell, hybrid). Skip it
    for pieces with no cursor reactivity.
 
-8. Each of the 4 frames at
+8. /home/ezalos/42/V-Jaygent/brainstorming/techniques/music-to-shader.md
+   READ THIS if the piece declares audio reactivity (shader
+   references `u_audio_*`, `meta.time_source: audio`, or meta.yaml
+   describes music behaviour). It holds the band→parameter rules
+   ("don't bind visuals to u_audio_* naively"), the section-state
+   and beat-snap patterns, and the open question on onset detection.
+   Grounds the four Music probes (see taste.md §"VJ lenses /
+   Interaction agency / Music probes"). Skip it for silent pieces.
+
+9. Each of the 4 frames at
    /home/ezalos/42/V-Jaygent/pieces/<slug>/inspect/frame-*.png
    Actually look. Your observations must cite specific frame numbers.
 
-9. Any previous critique at
-   /home/ezalos/42/V-Jaygent/brainstorming/critiques/<slug>-v*.md
-   So you know what has already been tried and don't re-propose it.
+10. Any previous critique at
+    /home/ezalos/42/V-Jaygent/brainstorming/critiques/<slug>-v*.md
+    So you know what has already been tried and don't re-propose it.
 
 # Write the critique as Markdown, then a YAML tail
 
@@ -277,6 +286,63 @@ interaction is decorative — `top_fix` must address interaction,
 regardless of other probe results, unless the piece can simply drop
 cursor reactivity from its claim.
 
+## Music reactivity probes
+
+**Run this section only if the piece declares audio reactivity**
+(shader references `u_audio_*` uniforms, `meta.time_source: audio`,
+or meta.yaml describes music behaviour). Otherwise, write
+"Not applicable — piece is not audio-reactive" and skip to Claim
+check.
+
+The four probes live in `taste.md` §"VJ lenses / Interaction agency /
+Music probes" and `brainstorming/techniques/music-to-shader.md` —
+read those first so your verdicts reference the same criteria.
+
+Probes 1, 2, and 4 are primarily shader-structure checks — read
+the shader, locate where `u_audio_*` feeds in, decide whether it
+touches structure or only brightness. Cite the specific shader line
+or constant. Mark `shader-pass` / `shader-fail` / `shader-unclear`.
+Probe 3 is frame-driven — judge from the captured frames.
+
+| Probe                   | Verdict                                 | Why                                                   |
+|-------------------------|-----------------------------------------|-------------------------------------------------------|
+| Motion-over-luminance   | pass/fail/weak/shader-*                 | audio drives geometry/camera/flow, not only colour   |
+| Bass→movement           | pass/fail/weak/shader-*                 | `u_audio_bass` moves things (camera, zoom, radial)   |
+| Rhythm-in-stills        | pass/fail/weak                          | frames show mid-phase action, not just on/off        |
+| Quiet-reads-quiet       | pass/fail/weak/shader-*                 | low-audio passages are calm in structure, not dim    |
+
+Count passes (counting `shader-pass` as pass). Record
+`music_passes: N/4` in the YAML tail. 2/4 or fewer and the audio
+is decorative — `top_fix` must address music reactivity,
+regardless of other probe results, unless the piece can simply
+drop audio reactivity from its claim.
+
+Critical test for Motion-over-luminance and Bass→movement — the
+"replace-with-constant" check:
+
+For each `u_audio_*` usage in the shader, ask: *if I replace this
+term with its mean value (a constant), do shapes shift or do only
+brightnesses shift?* If only brightness shifts, that usage counts
+as luminance. If shapes shift (ring reaches a different radius by
+time t, wall sits at a different distance, camera moves, angle
+changes, warp deforms a field differently), that usage counts as
+geometry.
+
+A shader with `pulseAmp = 0.10 + 1.70*bass`, `coreEnv = 0.30 +
+1.20*bass`, `rimKick = 0.25 + 1.90*bass`, and `pulseSpeed = 0.95`
+(constant) FAILS Bass→movement. The ring still propagates at 0.95
+with or without bass — bass only scales how brightly that pre-
+existing motion reads. Do not be fooled by "there is motion, and
+bass affects it" — the question is "is the motion itself driven by
+bass?" Ring amplitude riding bass while ring *speed* is constant
+is luminance modulation of independent motion, not bass-driven
+motion.
+
+A shader with `pulseSpeed = 0.70 + 0.55*bass`, `rimR = 1.05 -
+(0.55 + 0.22*bass)*relief`, or `zoom *= 1.0 - 0.05*bass` PASSES
+Bass→movement — each replaces bass with a constant and shapes
+visibly shift.
+
 ## Claim check
 
 Pass or fail. One paragraph. Does the piece deliver what it claimed
@@ -313,8 +379,10 @@ Number 1 is the most important fix. Priority order:
    probe(s) is #1.
 3. Else, 3/7 or fewer interaction probes (if piece claims cursor
    reactivity) → interaction fix is #1.
-4. Else, dimension scores below 3 → #1 raises the lowest.
-5. Else, polish toward chef d'oeuvre.
+4. Else, 2/4 or fewer music probes (if piece claims audio
+   reactivity) → music fix is #1.
+5. Else, dimension scores below 3 → #1 raises the lowest.
+6. Else, polish toward chef d'oeuvre.
 
 ## Verdict
 
@@ -362,6 +430,12 @@ interaction_probes:                       # omit entirely if n/a
   dominance:     <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
   convention:    <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
   latency:       <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+music_passes: <0-4 or "n/a">              # n/a if piece is not audio-reactive
+music_probes:                             # omit entirely if n/a
+  motion_over_luminance: <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+  bass_movement:         <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+  rhythm_in_stills:      <pass|fail|weak>
+  quiet_reads_quiet:     <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
 scores:
   palette_cohesion: <1-5>
   composition: <1-5>
@@ -422,6 +496,10 @@ To drive the loop, extract the YAML tail. Find the last ```yaml ...
 - `claim_check` — `pass` or `fail`
 - `mesmerizing_passes` — integer 0-5
 - `mesmerizing_probes` — map of five probe verdicts
+- `interaction_passes` — integer 0-7 or "n/a"
+- `interaction_probes` — map of seven probe verdicts (omit if n/a)
+- `music_passes` — integer 0-4 or "n/a"
+- `music_probes` — map of four probe verdicts (omit if n/a)
 - `scores` — the 6-dimension map (unchanged shape)
 - `top_fix` — object if `verdict: needs-tweak`, else `null`
 
