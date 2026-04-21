@@ -96,7 +96,7 @@ vec2 juliaTrap(vec2 z, vec2 c, int maxIters) {
 // `outer` selects the palette for escaped points; `inner` for interior.
 // Returns a contribution colour plus a mask-alpha to composite cleanly.
 vec4 fractalBall(vec2 p, vec2 centre, float r, vec2 c, float hitPulse,
-                 bool light, float bass) {
+                 bool light, float bass, float mid, float high) {
     vec2 q = p - centre;
     float dq = length(q);
     if (dq >= r) return vec4(0.0);
@@ -105,12 +105,18 @@ vec4 fractalBall(vec2 p, vec2 centre, float r, vec2 c, float hitPulse,
     float rim  = ballRim (dq, r);
 
     // Local coordinates in [-1.8, 1.8] range — a comfortable zoom for Julia.
-    vec2 z = (q / r) * 1.8;
+    // High-frequency energy breathes the zoom in/out so ball interiors shiver
+    // on every hat. Geometric (scale), not brightness.
+    vec2 z = (q / r) * 1.8 * (1.0 + 0.025 * high * sin(u_time * 11.0));
 
     // Parameter c slowly drifts so the fractal reshapes itself.
     vec2 cDrift = c + 0.08 * vec2(cos(u_time * 0.13), sin(u_time * 0.09));
-    // Kicks of bass briefly push c outward — the fractal shudders on beat.
-    cDrift += 0.05 * bass * vec2(cos(u_time * 0.7), sin(u_time * 0.9));
+    // Kicks of bass push c outward — the fractal recomposes on the beat.
+    // Amplitude boosted from 0.05 to 0.18 so the shudder reads.
+    cDrift += 0.18 * bass * vec2(cos(u_time * 0.70), sin(u_time * 0.90));
+    // Mids drag c on a slower, orthogonal clock so mid-range energy deforms
+    // the Julia landscape independently of the kick.
+    cDrift += 0.09 * mid  * vec2(sin(u_time * 0.43), cos(u_time * 0.31));
 
     vec2 res   = juliaTrap(z, cDrift, 80);
     float iter = res.x;
@@ -175,11 +181,11 @@ void main() {
     // --- Ball 1: small bright "white" (warm cream) Julia body.
     vec2  c1 = vec2(-0.72, 0.18);       // classic Julia parameter
     vec4  b1 = fractalBall(p, u_ball_pos[0], u_ball_radius[0], c1,
-                           u_ball_hit[0], true, bass);
+                           u_ball_hit[0], true, bass, mid, high);
     // --- Ball 2: big "black" Julia void with shadowy interior.
     vec2  c2 = vec2(-0.12, 0.74);       // different c → different fractal shape
     vec4  b2 = fractalBall(p, u_ball_pos[1], u_ball_radius[1], c2,
-                           u_ball_hit[1], false, bass);
+                           u_ball_hit[1], false, bass, mid, high);
 
     // Compose: the black ball occludes (overwrites) the background, the
     // white ball lays over both. Done via mask weights.

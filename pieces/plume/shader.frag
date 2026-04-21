@@ -141,6 +141,13 @@ void main() {
     vec3  col      = vec3(0.0);
     vec2  drift    = macroDrift(t);
     vec2  q        = p - drift;              // whole composition wanders
+    // Bass deforms the sample coordinate before the pathline — pixels shift
+    // position on kicks (geometry), not only brightness. The warp is a slow
+    // fbm offset so the distortion breathes rather than strobes.
+    float warpAmt  = 0.08 + 0.18 * bass;
+    vec2  bassWarp = vec2(fbm3(q * 0.5 + vec2(0.0, t * 0.10)),
+                          fbm3(q * 0.5 + vec2(1.3, t * 0.10)));
+    q             += bassWarp * warpAmt;
     float fade     = 1.0;
     float stepSize = 0.028 + 0.020 * bass;   // stronger kick = longer trails
 

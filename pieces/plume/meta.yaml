@@ -22,10 +22,14 @@ notes: |
   3-octave fbm.
 
   How the track shapes it:
-    - bass    → density pulse at each of the seven sources + longer trails
+    - bass    → motion first, then light. A slow fbm warp of the sample
+                coordinate rides the bass so pixels physically shift on
+                kicks — the smoke doesn't just pulse brighter, it
+                deforms. On top of that: density pulse at each of the
+                seven sources and longer pathline trails.
     - mid     → turbulence scale (loud mids tighten the eddies)
     - high    → glints on vortex cores (step-gated so they stay sparse)
-    - level   → global exposure
+    - level   → global upward buoyancy + global exposure
 
   Mouse: the cursor is a buoyant heat source. Upward velocity push + mild
   radial component near it — drag the cursor and the smoke rises from
@@ -43,4 +47,4 @@ notes: |
   Fluid-dynamics research notes in
   brainstorming/techniques/fluid-dynamics.md.
 published_at: null
-rendered_at: '2026-04-16T19:04:32.989Z'
+rendered_at: '2026-04-21T07:09:46.558Z'

@@ -43,6 +43,16 @@ notes: |
   Set to DJ Huntsman's "Neuroknobs 1". The slow percussion suits a big
   black Julia void drifting across the frame.
 
+  Audio → Julia geometry:
+    - bass  → the Julia c-parameter lurches outward on each kick, so
+              the fractal interior recomposes on the beat (amplitude
+              0.18).
+    - mid   → c-drift on a slower orthogonal clock; mid-range energy
+              deforms the Julia landscape independently of the kick.
+    - high  → breathes the interior zoom in/out at ~11 Hz so fine
+              orbit-trap bands shiver with the hats.
+    - level → background exposure envelope.
+
   Uses lib/billiards.glsl (ballMask, ballRim, ballHitRing, ballLens,
   ballShockwave, ballWallEnergy), noise.glsl (fbm, vnoise), tonemap.glsl
   (reinhard). studio/billiards.mjs carries per-ball radius + mass and
@@ -51,4 +61,4 @@ notes: |
   See brainstorming/techniques/kaleidoscopes.md,
       brainstorming/techniques/dvd-logo-bounce.md.
 published_at: null
-rendered_at: '2026-04-16T20:23:45.767Z'
+rendered_at: '2026-04-21T07:09:43.019Z'
