@@ -22,22 +22,38 @@ void main() {
     // advection. Strength modest so the underlying gradient stays readable
     // through the warp.
     vec2 force = texture(u_force, uv).rg * 2.0 - 1.0;
-    float strength = 0.045 + 0.025 * u_audio_bass;
+    float strength = 0.05 + 0.03 * u_audio_bass;
     vec2 q = uv - force * strength;
 
     // Advect u_below — pixels of the layer beneath get carried by the field.
     vec3 below = texture(u_below, q).rgb;
 
-    // Internal warm noise that the field also stirs, layered on top of the
-    // advected base for added texture. Slower clock than the field itself
-    // (fbm time at ~0.18× the lodestone clock).
-    float n = fbm(q * 3.2 + u_time * 0.18);
-    float swirl = smoothstep(0.45, 0.95, n);
-    vec3 warm = vec3(1.05, 0.62, 0.22) * swirl * 0.55;
+    // Two-scale internal noise — fine churn (high octaves) layered on coarse
+    // structure. fbmRot rotates per-octave to hide the lattice grid that
+    // plain fbm leaks at low scale. The two scales (3.6 and 11.0) drift on
+    // independent rates so the texture never repeats.
+    float n_coarse = fbmRot(q * 3.6 + vec2(u_time * 0.18, 0.0));
+    float n_fine   = fbmRot(q * 11.0 - vec2(0.0, u_time * 0.27));
+    float n = mix(n_coarse, n_fine, 0.45);
+    // Sharpen the bright bands so flow reads as filaments, not haze
+    float swirl = smoothstep(0.42, 0.78, n);
+    vec3 warm = vec3(1.05, 0.62, 0.22) * swirl * 0.65;
 
-    // Light history feedback so flow lines persist a few frames — fades fast
-    // so the piece doesn't smear.
-    vec3 hist = texture(u_history, uv - force * (strength * 0.5)).rgb * 0.55;
+    // Curl-noise perturbation that shifts the apparent advection direction
+    // pixel-by-pixel — breaks the uniform-sliding feel by giving each region
+    // its own micro-velocity bias on top of the lodestone field.
+    float h_eps = 0.005;
+    float dphi_dx = fbmRot(q * 8.0 + vec2(h_eps, 0.0)) - fbmRot(q * 8.0 - vec2(h_eps, 0.0));
+    float dphi_dy = fbmRot(q * 8.0 + vec2(0.0, h_eps)) - fbmRot(q * 8.0 - vec2(0.0, h_eps));
+    vec2 curl = vec2(-dphi_dy, dphi_dx) / (2.0 * h_eps);
+    vec2 q2 = q - curl * 0.012;
+    vec3 below2 = texture(u_below, q2).rgb;
+    below = mix(below, below2, 0.5);
+
+    // History feedback advected by the same field — flow lines persist a few
+    // frames before fading. Sample at slightly different offset so trails
+    // bend rather than slide rigidly.
+    vec3 hist = texture(u_history, uv - force * (strength * 0.7) - curl * 0.006).rgb * 0.62;
 
     vec3 col = max(below + warm, hist);
     fragColor = vec4(col, 1.0);

@@ -10,32 +10,36 @@ uniform float u_time;
 uniform float u_audio_bass;
 out vec4 fragColor;
 
-vec2 normalizedField(vec2 uv, vec2 mass, float strength) {
+// 1/r² pull (real gravity falloff) — produces strong gradients near the
+// masses and quiet far field, so different screen regions see distinctly
+// different forces. Clamped on the inside so we don't blow up at the
+// singularity.
+vec2 inverseSquare(vec2 uv, vec2 mass, float strength) {
     vec2 d = uv - mass;
-    float r = length(d) + 0.06;
-    return -d / r * strength * (0.6 + 0.4 * u_audio_bass);
+    float r2 = dot(d, d) + 0.025;
+    return -d * strength / r2 * (0.7 + 0.4 * u_audio_bass);
 }
 
 void main() {
-    // Aspect-corrected UV so the field is circular regardless of canvas
-    // ratio.
     float aspect = u_resolution.x / u_resolution.y;
     vec2 uv = gl_FragCoord.xy / u_resolution;
     vec2 p  = (uv - 0.5) * vec2(aspect, 1.0);
 
-    // Two masses on slow lissajous orbits at golden-ratio rates so they
-    // never realign.
+    // Three masses on independent rates (irrationally related) so the
+    // field never repeats and the gradient is non-uniform across the
+    // whole screen. Smaller orbital radii so the masses stay on-screen.
     float t = u_time;
-    vec2 m1 = 0.32 * vec2(cos(t * 0.13), sin(t * 0.21));
-    vec2 m2 = 0.28 * vec2(cos(t * 0.21 + 1.7), sin(t * 0.13 + 0.9));
+    vec2 m1 = 0.30 * vec2(cos(t * 0.13),       sin(t * 0.21));
+    vec2 m2 = 0.26 * vec2(cos(t * 0.21 + 1.7), sin(t * 0.13 + 0.9));
+    vec2 m3 = 0.18 * vec2(cos(t * 0.31 + 3.1), sin(t * 0.17 + 2.2));
 
-    vec2 force = normalizedField(p, m1, 0.55) + normalizedField(p, m2, 0.45);
+    vec2 force =
+          inverseSquare(p, m1, 0.060)
+        + inverseSquare(p, m2, 0.052)
+        + inverseSquare(p, m3, 0.040);
 
-    // Visual: dim warm pools at the masses so the eye reads the source.
-    float pull = 1.0 / (length(p - m1) + 0.05) + 1.0 / (length(p - m2) + 0.05);
-    vec3 pool = vec3(0.45, 0.20, 0.05) * smoothstep(2.0, 6.0, pull) * 0.35;
+    // Clamp the magnitude so encoding stays in [-1, 1] for the rg channels.
+    force = clamp(force, -0.95, 0.95);
 
-    // Encode signed force (rg) for downstream consumers; b/a carry the
-    // visible pool intensity so blend modes still composite sensibly.
-    fragColor = vec4(0.5 + 0.5 * force, pool.r * 0.6, 1.0);
+    fragColor = vec4(0.5 + 0.5 * force, 0.0, 1.0);
 }
