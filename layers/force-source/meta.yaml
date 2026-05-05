@@ -1,0 +1,8 @@
+name: force-source
+identity: "publishes a 2D force field (rg-encoded) for downstream consumers"
+default_blend: normal
+uniforms: {}
+reads: []
+publishes:
+  force: vec2
+consumes: []

@@ -921,13 +921,21 @@ function parseLayerSpec(spec, idx) {
     if (!(blendName in BLEND_MODE_TO_INT)) {
         throw new Error(`layers[${idx}].blend "${blendName}" — must be one of: ${Object.keys(BLEND_MODE_TO_INT).join(', ')}`);
     }
+    // v1 publish/consume: a layer's outputTex IS its publish (no MRT). Multiple
+    // publishes per layer aren't supported yet — the schema accepts the map for
+    // forward-compat but the engine uses the layer's main output as the
+    // published texture for every declared name.
+    const publishes = (spec.publishes && typeof spec.publishes === 'object') ? spec.publishes : {};
+    const consumes  = (spec.consumes  && typeof spec.consumes  === 'object') ? spec.consumes  : {};
     return {
         name: spec.layer,
         blend: blendName,
         blendMode: BLEND_MODE_TO_INT[blendName],
         alpha: Number.isFinite(spec.alpha) ? spec.alpha : 1.0,
-        uniforms: spec.uniforms ?? {},     // static defaults (override layer's own defaults)
-        drivers: spec.drivers ?? {},       // re-bind uniforms to engine values
+        uniforms: spec.uniforms ?? {},
+        drivers: spec.drivers ?? {},
+        publishes,                          // { name: type } — type is informational in v1
+        consumes,                           // { uniformName: publishedName }
     };
 }
 
@@ -1000,15 +1008,31 @@ async function buildLayerEngine(slug, layerSpecs) {
         compositorUniforms: {},
         width: 0,
         height: 0,
+        // publishedBy: name → layer-index. Updated as layers are validated;
+        // a later publish of the same name shadows an earlier one for any
+        // consumer downstream of that publish.
+        publishedBy: new Map(),
     };
     try {
         for (let i = 0; i < layerSpecs.length; i++) {
             const parsed = parseLayerSpec(layerSpecs[i], i);
+
+            // Validate consumes — every consumed name must have been published
+            // by an EARLIER layer. Forward references are an engine error.
+            for (const [uniformName, publishedName] of Object.entries(parsed.consumes)) {
+                if (!engine.publishedBy.has(publishedName)) {
+                    throw new Error(
+                        `layers[${i}] "${parsed.name}": consumes.${uniformName} = "${publishedName}", ` +
+                        `but no earlier layer publishes that name. ` +
+                        `Available publishes so far: ${[...engine.publishedBy.keys()].join(', ') || '(none)'}`
+                    );
+                }
+            }
+
             const fragUrl = `/api/pieces/${encodeURIComponent(slug)}/layer/${encodeURIComponent(parsed.name)}/shader.frag`;
             const metaUrl = `/api/pieces/${encodeURIComponent(slug)}/layer/${encodeURIComponent(parsed.name)}/meta`;
             const [fragRes, metaRes] = await Promise.all([fetch(fragUrl), fetch(metaUrl)]);
             if (!fragRes.ok) throw new Error(`layers[${i}] "${parsed.name}": shader.frag not found (HTTP ${fragRes.status})`);
-            // meta is optional in v1; default to empty so layers without one still work.
             const layerMeta = metaRes.ok ? await metaRes.json().catch(() => ({})) : {};
             const fragText = await preprocessShader(await fragRes.text());
             const program = buildProgram(fragText);
@@ -1016,14 +1040,19 @@ async function buildLayerEngine(slug, layerSpecs) {
                 ...parsed,
                 meta: layerMeta,
                 program,
-                uniforms: {},        // per-layer uniform location cache (mirrors pass.uniforms)
+                uniforms: {},
                 outputTex: null,
                 outputFbo: null,
+                layerIndex: i,
             });
+
+            // Register publishes for downstream consumers. v1: outputTex
+            // doubles as the published texture — no MRT.
+            for (const publishedName of Object.keys(parsed.publishes)) {
+                engine.publishedBy.set(publishedName, i);
+            }
         }
-        // Compositor program — inlined source, no #include resolution needed.
         engine.compositorProgram = buildProgram(COMPOSITOR_FRAG);
-        // Allocate FBOs once layers are compiled.
         allocLayerEngineTargets(engine);
     } catch (err) {
         freeLayerEngine(engine);
@@ -1140,6 +1169,22 @@ function runLayerEngine(engine, now, audioSample) {
         gl.bindTexture(gl.TEXTURE_2D, engine.historyTex);
         const histLoc = layer.uniforms.u_history ??= gl.getUniformLocation(layer.program, 'u_history');
         if (histLoc !== null) gl.uniform1i(histLoc, 1);
+
+        // Consumed shared-state textures — bound on TEXTURE2..N. v1: a publish
+        // is the publishing layer's outputTex (no MRT). Earlier-rendered
+        // layers' outputTex have fresh content for this frame; later in the
+        // stack we'd see stale content (validated against at build time).
+        let unit = 2;
+        for (const [uniformName, publishedName] of Object.entries(layer.consumes)) {
+            const sourceLayerIdx = engine.publishedBy.get(publishedName);
+            if (sourceLayerIdx === undefined) continue;  // already validated, but defensive
+            gl.activeTexture(gl.TEXTURE0 + unit);
+            gl.bindTexture(gl.TEXTURE_2D, engine.layers[sourceLayerIdx].outputTex);
+            const loc = layer.uniforms[uniformName] ??= gl.getUniformLocation(layer.program, uniformName);
+            if (loc !== null) gl.uniform1i(loc, unit);
+            unit++;
+        }
+
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
         // (b) run the compositor: write-side acc = blend(read-side acc, layer output)

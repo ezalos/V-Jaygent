@@ -1,0 +1,8 @@
+name: follow-force
+identity: "warm grid displaced by a consumed 2D force field"
+default_blend: screen
+uniforms: {}
+reads: []
+publishes: []
+consumes:
+  u_force: vec2

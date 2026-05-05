@@ -1,0 +1,22 @@
+title: "[engine test] layer publish/consume"
+slug: layer-publish-test
+notes: |
+  Integration test for shared-state publish/consume. Three layers:
+    1. solid-warm (base, no shared state)
+    2. force-source (publishes `force` — a 2D force field, rg-encoded)
+    3. follow-force (consumes `force` as u_force; warm grid displaced
+       by the field)
+  Smoke-tested by bin/smoke-shaders.mjs. (No `created:` so it sorts to
+  the bottom of the catalog.)
+duration: 6
+layers:
+  - layer: solid-warm
+    blend: normal
+  - layer: force-source
+    blend: normal
+    publishes:
+      force: vec2
+  - layer: follow-force
+    blend: screen
+    consumes:
+      u_force: force
