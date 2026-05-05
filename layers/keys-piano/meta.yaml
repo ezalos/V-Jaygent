@@ -1,0 +1,9 @@
+name: keys-piano
+identity: "9 keyboard-driven orbs with press-rings and history trails"
+default_blend: replace
+uniforms: {}
+reads:
+  - u_below
+  - u_history
+publishes: []
+consumes: []

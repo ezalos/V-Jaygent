@@ -1,0 +1,29 @@
+title: keyboard
+slug: keyboard
+created: 2026-05-05T23:30:00.000Z
+keyboard_synth: true
+notes: |
+  Press **a s d f g h j k l** to play the white keys C4 → D5.
+  Each key triggers a sawtooth+sine voice through a 2.4s convolver
+  reverb. The visual orb at that key glows; an expanding ring marks
+  the press; held notes sustain; releasing fades over ~0.45s.
+
+  The architecture: this piece is the first to use the new
+  keyboard_synth flag in meta.yaml. The runtime listens for a..l
+  keydown events and exposes per-key envelope (`u_keys[9]`) and
+  press pulse (`u_key_event[9]`) uniforms. The synth chain (osc →
+  filter → ADSR → reverb) lives in studio/keyboard-music.mjs and
+  routes through the studio's shared AudioContext.
+
+  Self-explanatory cues:
+  - 9 orbs at the bottom of the screen sit in the same left-to-right
+    order as the a..l keys on a QWERTY row.
+  - When idle (no audio playing, no key pressed), the orbs breathe
+    in sequence so the row reads as "ready to play".
+  - On press, the orb fires a clear ring + saturates to bright amber.
+duration: 60
+layers:
+  - layer: solid-warm
+    blend: normal
+  - layer: keys-piano
+    blend: replace

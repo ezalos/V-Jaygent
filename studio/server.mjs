@@ -71,6 +71,7 @@ async function handle(req, res, { piecesRoot, libRoot, layersRoot, studioDir, st
   if (path === '/billiards.mjs')     return serveStatic(res, studioDir, 'billiards.mjs');
   if (path === '/gestures.mjs')      return serveStatic(res, studioDir, 'gestures.mjs');
   if (path === '/audio-analysis.mjs') return serveStatic(res, studioDir, 'audio-analysis.mjs');
+  if (path === '/keyboard-music.mjs') return serveStatic(res, studioDir, 'keyboard-music.mjs');
 
   // `/<slug>` → serve the studio page if <slug> is a valid piece directory.
   // Runtime reads location.pathname to pin the displayed piece.

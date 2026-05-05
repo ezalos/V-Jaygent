@@ -4,6 +4,7 @@
 import { createBilliards } from './billiards.mjs';
 import { createGestureTracker } from './gestures.mjs';
 import * as audioAnalysis from './audio-analysis.mjs';
+import { createKeyboardSynth } from './keyboard-music.mjs';
 
 const VERT = `#version 300 es
 in vec2 a_pos;
@@ -198,6 +199,11 @@ let programUsesZoom = false;  // wheel-zoom gate; set on every swapProgram/swapP
 // Audio plumbing — created lazily on first user gesture.
 let audioEl        = null;
 let audioCtx       = null;
+// Lazily created when a piece declares keyboard_synth: true. Pieces without
+// the flag never instantiate the synth — the chord of zero envelopes still
+// reaches the shader's u_keys uniform as zeros.
+let keyboardSynth  = null;
+const ZERO_KEYS = new Float32Array(9);
 let audioSource    = null;
 let audioAnalyser  = null;
 let audioFreqData  = null;
@@ -309,7 +315,36 @@ canvas.addEventListener('wheel', (e) => {
   gestures.setZoom(gestures.getZoom() * factor);
 }, { passive: false });
 
+function pieceWantsKeyboardSynth() {
+  return currentMeta?.keyboard_synth === true;
+}
+
+function ensureKeyboardSynth() {
+  if (keyboardSynth) return keyboardSynth;
+  if (!audioCtx) {
+    const Ctx = window.AudioContext ?? window.webkitAudioContext;
+    if (!Ctx) return null;
+    audioCtx = new Ctx();
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+  keyboardSynth = createKeyboardSynth(audioCtx);
+  return keyboardSynth;
+}
+
 window.addEventListener('keydown', (e) => {
+  if (e.repeat) return;  // ignore OS auto-repeat — synth treats hold as one press
+  // Piano-on-keyboard shortcut path. Active only when the current piece
+  // declares keyboard_synth: true. Lowercase a..l with no modifier keys
+  // strikes a note; suppresses the existing h/c single-letter shortcuts
+  // (HUD/catalog) for those pieces. Other shortcuts still work.
+  if (pieceWantsKeyboardSynth() && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+    const synth = ensureKeyboardSynth();
+    if (synth && synth.keyToMidi[e.key] !== undefined) {
+      synth.startNote(e.key);
+      e.preventDefault();
+      return;
+    }
+  }
   if (e.key === 'ArrowRight') { cycle(+1); e.preventDefault(); }
   else if (e.key === 'ArrowLeft') { cycle(-1); e.preventDefault(); }
   else if (e.key === 'r' || e.key === 'R') startTime = performance.now();
@@ -323,6 +358,16 @@ window.addEventListener('keydown', (e) => {
     // own tryAutoplay() will cash it in when it runs.
     e.preventDefault();
     if (audioEl) toggleAudio();
+  }
+});
+
+// Mirror keyup so notes can be released. Only relevant when the piece
+// declares keyboard_synth; otherwise we never started a note in the first
+// place.
+window.addEventListener('keyup', (e) => {
+  if (!keyboardSynth) return;
+  if (keyboardSynth.keyToMidi[e.key] !== undefined) {
+    keyboardSynth.releaseNote(e.key);
   }
 });
 
@@ -910,6 +955,17 @@ function setStandardUniforms(vw, vh, now) {
   setUniform1i('u_key_tonic',          aSample.u_key_tonic);
   setUniform1i('u_key_mode',           aSample.u_key_mode);
 
+  // Keyboard-synth uniforms — zeroed when no synth is active so non-
+  // keyboard pieces still see well-defined arrays.
+  if (keyboardSynth) {
+    keyboardSynth.update();
+    setUniform1fv('u_keys',      keyboardSynth.envelopes);
+    setUniform1fv('u_key_event', keyboardSynth.events);
+  } else {
+    setUniform1fv('u_keys',      ZERO_KEYS);
+    setUniform1fv('u_key_event', ZERO_KEYS);
+  }
+
   setUniform1f('u_zoom',      gestures.getZoom());
   const _pan = gestures.getPan();
   setUniform2f('u_pan',       _pan[0], _pan[1]);
@@ -1402,6 +1458,7 @@ async function loadPiece(slug) {
     }
     analysisSampleState = audioAnalysis.createSampleState();
     resetFlashBudget();
+    if (keyboardSynth) keyboardSynth.releaseAll();
 
     // Drop any cached lib sources so edits to lib/*.glsl propagate. The cache
     // persists within a single compile (dedupes repeated #include of the same
