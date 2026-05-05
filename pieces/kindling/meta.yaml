@@ -1,0 +1,37 @@
+title: kindling
+slug: kindling
+created: 2026-05-05T18:00:00.000Z
+notes: |
+  V-Jaygent's first multi-layer flagship piece (v1). Three layers
+  composed at distinct spatial frequencies and time rates, demonstrating
+  the layer-engine architecture introduced in 2026-05.
+
+  Thesis: depth from grain stratification — a slow warm gradient base,
+  a mid-frequency wave distortion of that base, and a sparse spark
+  field with u_history trails over the top. Each layer reads at a
+  different scale (Quayola's strata principle from layered-composition.md);
+  each owns its own clock (polyrhythmic motion).
+
+  Coupling DAG:
+    solid-warm  (base, no reads)
+       ↑
+    wave-distort  (reads u_below, distorts the gradient)
+       ↑
+    ember-spark  (reads u_history, sparks decay through trails)
+
+  v1 status: this is a first cut. Has NOT been through /vjay-iterate;
+  the critic probes (taste.md §"Layered coupling", 6/8 threshold)
+  haven't graded it yet. Intended as proof-of-architecture, not a
+  chef-d'oeuvre.
+
+  No audio — self-plays via the layers' built-in time-driven motion.
+  A future variant could pair this with an ambient drone track and
+  declare audio_features for song-level reactivity.
+duration: 60
+layers:
+  - layer: solid-warm
+    blend: normal
+  - layer: wave-distort
+    blend: replace
+  - layer: ember-spark
+    blend: max

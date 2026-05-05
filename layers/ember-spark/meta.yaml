@@ -1,0 +1,8 @@
+name: ember-spark
+identity: "warm sparks with u_history trails (max-blend)"
+default_blend: max
+uniforms: {}
+reads:
+  - u_history
+publishes: []
+consumes: []
