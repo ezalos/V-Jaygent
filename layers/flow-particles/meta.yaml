@@ -1,0 +1,10 @@
+name: flow-particles
+identity: "particles advected by a consumed force, history feedback as state"
+default_blend: replace
+uniforms: {}
+reads:
+  - u_below
+  - u_history
+publishes: []
+consumes:
+  u_force: vec2

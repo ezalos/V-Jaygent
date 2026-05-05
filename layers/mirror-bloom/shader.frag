@@ -22,8 +22,8 @@ uniform int   u_section_id;
 uniform float u_section_progress;
 uniform float u_song_progress;
 uniform float u_bpm;
-uniform float u_keys[9];
-uniform float u_key_event[9];
+uniform float u_keys[15];
+uniform float u_key_event[15];
 uniform sampler2D u_below;
 uniform sampler2D u_history;
 out vec4 fragColor;
@@ -98,28 +98,44 @@ void main() {
     }
 
     // Central core — bright disc that pulses on bass AND on keyboard input
-    // so a held chord visibly inflates the centre.
+    // so a held chord visibly inflates the centre. Aggregates all 15 keys
+    // (9 white + 6 black) for the "anyKey" signal.
     {
         float anyKey = 0.0;
-        for (int i = 0; i < 9; i++) anyKey = max(anyKey, u_keys[i]);
+        for (int i = 0; i < 15; i++) anyKey = max(anyKey, u_keys[i]);
         float core = smoothstep(0.06 + 0.04 * u_audio_bass + 0.05 * anyKey, 0.0, r);
         col += vec3(1.30, 0.85, 0.50) * core
                * (0.45 + 0.55 * u_audio_bass + 0.6 * anyKey);
     }
 
-    // Per-key spikes on the gear's outer edge — every held key adds a small
-    // bright tooth at its angular position, making the gear visibly grow
-    // teeth when chords play.
+    // Per-key spikes on the gear's outer edge. White keys (0..8) place
+    // teeth on the inner-gear ring at r=0.36; black keys (9..14) sit
+    // farther out at r=0.42, slightly off-axis, so chords with sharps
+    // visibly grow a second tier of teeth.
     {
+        float ang = atan(p.y, p.x);
+        // White keys
         for (int i = 0; i < 9; i++) {
             float fi = float(i);
             float keyAng = -PI + 0.35 + (fi / 8.0) * (TAU - 0.7);
-            float ang = atan(p.y, p.x);
             float aD = abs(atan(sin(keyAng - ang), cos(keyAng - ang)));
             float spike = smoothstep(0.06, 0.0, aD)
                         * smoothstep(0.018, 0.005, abs(r - 0.36))
                         * u_keys[i] * 1.4;
             col += vec3(1.30, 0.80, 0.40) * spike;
+        }
+        // Black keys (mapped between adjacent whites). Indices 9..14 in
+        // KEY_ORDER are w e t y u o; their virtual positions sit between
+        // white pairs (0,1) (1,2) (3,4) (4,5) (5,6) (7,8).
+        // halfPos[i] gives the white-index midpoint for black key i-9.
+        float halfPositions[6] = float[6](0.5, 1.5, 3.5, 4.5, 5.5, 7.5);
+        for (int i = 0; i < 6; i++) {
+            float keyAng = -PI + 0.35 + (halfPositions[i] / 8.0) * (TAU - 0.7);
+            float aD = abs(atan(sin(keyAng - ang), cos(keyAng - ang)));
+            float spike = smoothstep(0.05, 0.0, aD)
+                        * smoothstep(0.020, 0.005, abs(r - 0.42))
+                        * u_keys[9 + i] * 1.6;
+            col += vec3(1.10, 0.55, 0.18) * spike;
         }
     }
 

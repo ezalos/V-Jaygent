@@ -2,8 +2,18 @@
 // ABOUTME: voicing routed through a convolver reverb. Exposes per-key envelope
 // ABOUTME: state and just-pressed pulses for shader uniforms (u_keys, u_key_event).
 
-const KEY_ORDER = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'];
+// Indices 0-8: white keys a..l (C4..D5).
+// Indices 9-14: black keys w e t y u o (C#4, D#4, F#4, G#4, A#4, C#5),
+// each sitting between its two white neighbours on the QWERTY row.
+// Black keys are appended after the whites so existing 9-uniform shader
+// loops still address the white set as the bottom of the array; new
+// shaders that want black keys iterate the full 15.
+const KEY_ORDER = [
+    'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l',
+    'w', 'e', 't', 'y', 'u', 'o',
+];
 const KEY_TO_MIDI = {
+    // White keys
     a: 60,   // C4
     s: 62,   // D4
     d: 64,   // E4
@@ -13,6 +23,13 @@ const KEY_TO_MIDI = {
     j: 71,   // B4
     k: 72,   // C5
     l: 74,   // D5
+    // Black keys (sharps/flats)
+    w: 61,   // C#4 — between a (C4) and s (D4)
+    e: 63,   // D#4 — between s (D4) and d (E4)
+    t: 66,   // F#4 — between f (F4) and g (G4)
+    y: 68,   // G#4 — between g (G4) and h (A4)
+    u: 70,   // A#4 — between h (A4) and j (B4)
+    o: 73,   // C#5 — between k (C5) and l (D5)
 };
 
 function midiToFreq(m) { return 440 * Math.pow(2, (m - 69) / 12); }
@@ -55,17 +72,20 @@ export function createKeyboardSynth(audioCtx) {
     convolver.connect(wetGain);
     wetGain.connect(masterGain);
 
-    const activeVoices = new Map();   // key → { osc1, osc2, env, filter, releaseT }
-    const envelopes = new Float32Array(KEY_ORDER.length);  // 0..1 per key
+    const activeVoices = new Map();   // key → { osc1, osc2, env, filter }
+    const envelopes = new Float32Array(KEY_ORDER.length);  // 0..1 per key, 15 entries
     const events    = new Float32Array(KEY_ORDER.length);  // pulse on press, decays
     let lastTickT = audioCtx.currentTime;
+    // Octave shift in semitones — toggled via z/x in the runtime. Clamped
+    // to ±2 octaves so notes don't drift into inaudible / aliased territory.
+    let octaveOffset = 0;
 
     function startNote(key) {
         const midi = KEY_TO_MIDI[key];
         if (midi === undefined) return;
         if (activeVoices.has(key)) return;  // ignore retrigger while held
 
-        const freq = midiToFreq(midi);
+        const freq = midiToFreq(midi + octaveOffset);
         const now = audioCtx.currentTime;
 
         // Two oscillators slightly detuned for body. Saw is the primary
@@ -147,6 +167,19 @@ export function createKeyboardSynth(audioCtx) {
         for (const key of [...activeVoices.keys()]) releaseNote(key);
     }
 
+    function shiftOctave(deltaSemitones) {
+        // ±2 octaves cap so we don't drift into sub-bass mud or
+        // ear-piercing aliased highs.
+        const next = Math.max(-24, Math.min(24, octaveOffset + deltaSemitones));
+        if (next === octaveOffset) return;
+        // Release any held notes at the old octave so they don't stick at
+        // the previous frequency forever.
+        releaseAll();
+        octaveOffset = next;
+    }
+
+    function getOctaveOffset() { return octaveOffset; }
+
     return {
         keyOrder: KEY_ORDER,
         keyToMidi: KEY_TO_MIDI,
@@ -155,6 +188,8 @@ export function createKeyboardSynth(audioCtx) {
         startNote,
         releaseNote,
         releaseAll,
+        shiftOctave,
+        getOctaveOffset,
         update,
     };
 }

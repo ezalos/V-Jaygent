@@ -3,57 +3,90 @@ slug: stronger
 created: 2026-05-05T23:55:00.000Z
 keyboard_synth: true
 notes: |
-  Daft Punk — *Harder, Better, Faster, Stronger* (Discovery, 2001).
-  v3: 4 simultaneous interactive layers — kaleidoscopic-mechanical
-  gear visuals locked to the music, plus playable keyboard a..l
-  driving radial beams that ride over the gear and the central
-  core that swells to chords.
+  Daft Punk — *Harder, Better, Faster, Stronger*. v5: five layers,
+  three input channels, real physics in the middle.
 
-  ► Press space to play the track. Move the cursor — the gear's
-    centre follows. Hold a..l to play notes through the reverb
-    synth and fire matching radial beams.
+  ► Press space to play. Move the cursor — gear centre follows.
+    Hold a..l (white) and w e t y u o (black) to play notes
+    through the reverb synth and fire matching radial beams. Press
+    z / x to drop / raise the synth one octave.
 
-  Stack (4 layers, each independently interactive):
-    solid-warm     — slow warm gradient base
-    mirror-bloom   — segmented gear + concentric pulse rings.
-                     Cursor → centre. Bass + kick → radial scale.
-                     Bar phase → continuous gear rotation. Beat
-                     phase → tooth-snap on each beat. Downbeat →
-                     expanding ring. Section → palette + tooth
-                     count (8/12/16 cycling). Hi-hat → 16-dot
-                     sparkle ring. Held keys → matching teeth grow
-                     on the outer gear; chord → core inflation.
-    key-rays       — 9 radial beams at fanned angles around the
-                     gear. Held key sustains a soft glow ray;
-                     pressing fires a bright spear that travels
-                     inward from the screen edge to the gear edge.
-                     Per-key warm tint amber → ember → wine left
-                     to right.
-    ember-spark    — sparse warm sparks with u_history trails on
-                     top of the whole composition. Adds depth and
-                     mystery without obscuring the structural read.
+  Layer stack (bottom → top), each independently driven:
 
-  Polyrhythmic clocks: u_time (gear baseline + ember drift),
+    1. solid-warm       Slow warm gradient base. No inputs.
+
+    2. lodestone-pull   Three orbiting masses publishing a vec2
+                        force field (alpha 0 — invisible to the
+                        compositor; only the rg-encoded force
+                        reaches downstream consumers). Bass
+                        modulates field strength.
+
+    3. flow-particles   Real physics. Consumes the force, advects
+                        sparse hash-spawned particles via 4-step
+                        semi-Lagrangian integration of u_history.
+                        Each frame: particles get pulled along
+                        the field lines toward the masses; new
+                        ones spawn at hash positions; decay 0.86
+                        per step. Held keys + bass inflate spawn
+                        density. Downbeat fires an expanding
+                        spawn burst from centre.
+
+    4. mirror-bloom     Segmented gear + central core +
+                        concentric pulse rings. Cursor moves
+                        centre. Bass + kick scale. Bar phase
+                        rotates. Beat phase tooth-snaps. Downbeat
+                        rings. Section cycles tooth count
+                        (8/12/16). Held white keys grow teeth on
+                        the inner gear; held black keys grow
+                        teeth on a second outer ring; any key
+                        inflates the core. Hi-hat sparkle dots.
+
+    5. key-rays         15 radial beams (9 white at integer
+                        positions, 6 black at half-positions
+                        between adjacent whites). Held key
+                        sustains a glow ray; pressing fires a
+                        bright spear inward from the screen edge.
+                        Black keys are tighter beams in slightly
+                        cooler tints.
+
+  Coupling:
+    lodestone-pull → flow-particles via publish/consume of `force`
+    flow-particles → u_history (own state) for advection memory
+    mirror-bloom   → reads u_below (sees the particle layer
+                     beneath it); cursor + audio + keys drive it
+    key-rays       → reads u_below (sees the gear); keys drive it
+    All layers share u_history at the top via the engine's final
+    history-feedback texture.
+
+  Input channels:
+    cursor    → mirror-bloom centre
+    keyboard  → flow-particles spawn density, mirror-bloom teeth +
+                core inflation, key-rays beams (15 keys + octave shift)
+    audio     → lodestone-pull strength, flow-particles bass spawn,
+                mirror-bloom rotation/scale/palette/rings, all song-
+                level uniforms
+
+  Polyrhythmic clocks: u_time (gear baseline, particle hash drift),
   u_bar_phase (gear rotation), u_beat_phase (tooth snap),
-  u_downbeat (concentric pulse), u_section_id (tooth-count cycle),
-  u_song_progress (palette amber → wine), key envelopes (per-key
-  beams).
-
-  Three input channels coupled into one composition: cursor moves
-  the centre, keyboard plays beams + chord-swells the core, audio
-  drives the macro structure (rotation rate, scale, palette, ring
-  cadence). Idle (no audio, no keys, no cursor) the gear still
-  turns and the central core glows so the piece is alive on first
-  load.
+  u_downbeat (concentric pulse + particle burst), u_section_id
+  (tooth-count cycle), u_song_progress (palette), per-key envelopes
+  (15 channels of beam + tooth + spawn).
 duration: 223
 audio: audio.mp3
 audio_features: [beat, sections, key]
 layers:
   - layer: solid-warm
     blend: normal
+  - layer: lodestone-pull
+    blend: normal
+    alpha: 0.0
+    publishes:
+      force: vec2
+  - layer: flow-particles
+    blend: replace
+    consumes:
+      u_force: force
   - layer: mirror-bloom
-    blend: replace
+    blend: max
   - layer: key-rays
-    blend: replace
-  - layer: ember-spark
     blend: max

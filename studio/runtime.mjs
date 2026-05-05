@@ -203,7 +203,9 @@ let audioCtx       = null;
 // the flag never instantiate the synth — the chord of zero envelopes still
 // reaches the shader's u_keys uniform as zeros.
 let keyboardSynth  = null;
-const ZERO_KEYS = new Float32Array(9);
+// 15 entries: 9 white keys (a..l) + 6 black keys (w e t y u o). Matches
+// keyboard-music.mjs's KEY_ORDER length.
+const ZERO_KEYS = new Float32Array(15);
 let audioSource    = null;
 let audioAnalyser  = null;
 let audioFreqData  = null;
@@ -339,10 +341,17 @@ window.addEventListener('keydown', (e) => {
   // (HUD/catalog) for those pieces. Other shortcuts still work.
   if (pieceWantsKeyboardSynth() && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
     const synth = ensureKeyboardSynth();
-    if (synth && synth.keyToMidi[e.key] !== undefined) {
-      synth.startNote(e.key);
-      e.preventDefault();
-      return;
+    if (synth) {
+      // z / x — octave shift down/up by 12 semitones. Discrete events,
+      // ignore OS-repeat (already filtered above by `e.repeat` early-out).
+      if (e.key === 'z') { synth.shiftOctave(-12); e.preventDefault(); return; }
+      if (e.key === 'x') { synth.shiftOctave(+12); e.preventDefault(); return; }
+      // Note key (white or black).
+      if (synth.keyToMidi[e.key] !== undefined) {
+        synth.startNote(e.key);
+        e.preventDefault();
+        return;
+      }
     }
   }
   if (e.key === 'ArrowRight') { cycle(+1); e.preventDefault(); }
