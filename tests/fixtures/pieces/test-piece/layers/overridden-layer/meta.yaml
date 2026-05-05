@@ -1,0 +1,3 @@
+name: overridden-layer
+identity: "piece-local version, overrides the global fixture"
+default_blend: add

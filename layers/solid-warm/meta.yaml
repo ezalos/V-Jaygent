@@ -1,0 +1,7 @@
+name: solid-warm
+identity: "warm vertical gradient base layer"
+default_blend: normal
+uniforms: {}
+reads: []
+publishes: []
+consumes: []

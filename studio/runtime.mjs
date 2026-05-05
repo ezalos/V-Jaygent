@@ -81,6 +81,36 @@ let libCache = new Map();
 // Off-screen target formats — resolved lazily per-allocation so `gl.RGBA8` etc.
 // aren't dereferenced before the WebGL2 context exists. Must exist before
 // buildPipeline runs on the first piece load.
+// Layer-engine compositor source — used by buildLayerEngine. Lives up here
+// because `await loadCurrent` below runs before the layer-engine section.
+const COMPOSITOR_FRAG = `#version 300 es
+precision highp float;
+uniform sampler2D u_acc;
+uniform sampler2D u_layer;
+uniform int   u_blend_mode;
+uniform float u_alpha;
+out vec4 fragColor;
+
+vec3 blend(vec3 b, vec3 a, float al, int mode) {
+    if (mode == 1) return b + a * al;                            // add
+    if (mode == 2) return mix(b, b + (1.0 - b) * a, al);         // screen
+    if (mode == 3) return mix(b, b * a, al);                     // multiply
+    if (mode == 4) return mix(b, max(b, a), al);                 // max
+    if (mode == 5) return mix(b, a, al);                         // replace
+    return mix(b, a, al);                                         // 0 = normal
+}
+
+void main() {
+    vec2 uv = gl_FragCoord.xy / vec2(textureSize(u_acc, 0));
+    vec4 below = texture(u_acc, uv);
+    vec4 above = texture(u_layer, uv);
+    fragColor = vec4(blend(below.rgb, above.rgb, above.a * u_alpha, u_blend_mode), 1.0);
+}`;
+
+const BLEND_MODE_TO_INT = {
+    normal: 0, add: 1, screen: 2, multiply: 3, max: 4, replace: 5,
+};
+
 const FORMAT_MAP = {
   rgba8:   () => ({ iFormat: gl.RGBA8,   format: gl.RGBA, type: gl.UNSIGNED_BYTE }),
   rgba16f: () => ({ iFormat: gl.RGBA16F, format: gl.RGBA, type: gl.HALF_FLOAT }),
@@ -90,6 +120,7 @@ const FORMAT_MAP = {
 let currentProgram = null;
 let currentUniforms = {};
 let currentPipeline = null;
+let currentLayerEngine = null;  // set when meta.yaml has a `layers:` array
 let currentSlug = null;
 let currentMeta = null;
 let currentMtime = 0;
@@ -98,6 +129,10 @@ let currentMtime = 0;
 let currentAnalysis = null;
 let analysisSampleState = audioAnalysis.createSampleState();
 let lastAnalysisSampleT = performance.now();
+// Cached once per frame at the top of render() so that multi-layer pieces
+// see consistent values across all their layers (and the accumulator
+// compositor) within one frame.
+let currentAnalysisSample = audioAnalysis.sample(null, 0, analysisSampleState, 0);
 let startTime = performance.now();
 let frameCount = 0;
 let mouse = [0, 0];
@@ -385,7 +420,19 @@ function render() {
   const ballAspect = (canvas.clientWidth || 1) / Math.max(canvas.clientHeight, 1);
   billiards.step(now, ballAspect);
 
-  if (currentPipeline) {
+  // Sample analysis once per frame so multi-layer pieces see consistent
+  // song-level uniforms across all their layers within a frame.
+  const audioTNow = audioEl ? audioEl.currentTime
+                  : liveStream ? now
+                  : 0.0;
+  const nowMs = performance.now();
+  const dtAnalysis = Math.max(0, (nowMs - lastAnalysisSampleT) / 1000);
+  lastAnalysisSampleT = nowMs;
+  currentAnalysisSample = audioAnalysis.sample(currentAnalysis, audioTNow, analysisSampleState, dtAnalysis);
+
+  if (currentLayerEngine) {
+    runLayerEngine(currentLayerEngine, now, currentAnalysisSample);
+  } else if (currentPipeline) {
     // Multi-pass: each pass owns its own target; the last pass is typically
     // target: screen. We only clear the screen once per frame (before the
     // final on-screen pass renders). Off-screen FBOs are not cleared — sim
@@ -552,7 +599,9 @@ function buildProgram(fragSource) {
 
 function swapProgram(prog) {
   freePipeline(currentPipeline);
+  freeLayerEngine(currentLayerEngine);
   currentPipeline = null;
+  currentLayerEngine = null;
   if (currentProgram) gl.deleteProgram(currentProgram);
   currentProgram = prog;
   currentUniforms = {};
@@ -562,6 +611,8 @@ function swapProgram(prog) {
 
 function swapPipeline(pipeline) {
   freePipeline(currentPipeline);
+  freeLayerEngine(currentLayerEngine);
+  currentLayerEngine = null;
   if (currentProgram) gl.deleteProgram(currentProgram);
   currentProgram = null;
   currentUniforms = {};
@@ -794,12 +845,12 @@ function setStandardUniforms(vw, vh, now) {
                  0.0;
   setUniform1f('u_audio_time', audioT);
 
-  // Song-level uniforms from audio.analysis.json. Zeroed when no analysis
-  // is loaded, so monolithic-FFT pieces stay backward-compatible.
-  const nowMs = performance.now();
-  const dtAnalysis = Math.max(0, (nowMs - lastAnalysisSampleT) / 1000);
-  lastAnalysisSampleT = nowMs;
-  const aSample = audioAnalysis.sample(currentAnalysis, audioT, analysisSampleState, dtAnalysis);
+  // Song-level uniforms from audio.analysis.json. Sampled ONCE per frame
+  // at the top of render() and cached in currentAnalysisSample so all
+  // layers (and the compositor) see consistent values within a frame.
+  // Zeroed when no analysis is loaded → monolithic-FFT pieces stay backward-
+  // compatible.
+  const aSample = currentAnalysisSample;
   setUniform1f('u_bpm',                aSample.u_bpm);
   setUniform1f('u_beat_phase',         aSample.u_beat_phase);
   setUniform1f('u_bar_phase',          aSample.u_bar_phase);
@@ -828,6 +879,321 @@ function setStandardUniforms(vw, vh, now) {
   setUniform2fv('u_ball_hit_pos', billiards.hitPosArray);
   setUniform1fv('u_ball_radius',  billiards.radiusArray);
 }
+
+// ---------- layer engine ----------
+//
+// A layer engine is the runtime form of meta.yaml's `layers:` array (see
+// brainstorming/techniques/using-lib.md §"Components — the layer engine
+// contract"). For each layer:
+//   - Compile its fragment shader (fetched via /api/pieces/<slug>/layer/<name>/...
+//     so piece-local layers override globals).
+//   - Allocate a per-layer output FBO at canvas size.
+// Globally:
+//   - Allocate an `accumulator` (2 ping-pong FBOs) — bottom-to-top blend target.
+//   - Allocate a `history` FBO — last frame's final composite (for `u_history`).
+//   - Compile a single compositor program that blends a layer's output into
+//     the accumulator using a runtime-selected blend mode.
+//
+// Render order per frame:
+//   1. Clear write-side accumulator.
+//   2. For each layer in declaration order (= bottom→top):
+//        a. Render the layer to its own FBO with `u_below` = read-side
+//           accumulator texture, `u_history` = history texture.
+//        b. Run the compositor: read = (read-side acc, layer output),
+//           write = write-side acc, with the layer's blend mode.
+//        c. Swap accumulator read/write.
+//   3. Blit final accumulator to screen + history.
+//
+// Shared-state publish/consume (b-tier coupling) and flash-budget enforcement
+// are not in this v1 — see TODO at the bottom of this section.
+// COMPOSITOR_FRAG and BLEND_MODE_TO_INT live at the top of this module
+// (with other early consts) because top-level `await loadCurrent` runs
+// before this section is reached.
+
+function parseLayerSpec(spec, idx) {
+    if (typeof spec.layer !== 'string' || !spec.layer) {
+        throw new Error(`layers[${idx}].layer (name) required`);
+    }
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(spec.layer)) {
+        throw new Error(`layers[${idx}].layer "${spec.layer}" — invalid name (must match [a-z0-9][a-z0-9-]*)`);
+    }
+    const blendName = spec.blend ?? 'normal';
+    if (!(blendName in BLEND_MODE_TO_INT)) {
+        throw new Error(`layers[${idx}].blend "${blendName}" — must be one of: ${Object.keys(BLEND_MODE_TO_INT).join(', ')}`);
+    }
+    return {
+        name: spec.layer,
+        blend: blendName,
+        blendMode: BLEND_MODE_TO_INT[blendName],
+        alpha: Number.isFinite(spec.alpha) ? spec.alpha : 1.0,
+        uniforms: spec.uniforms ?? {},     // static defaults (override layer's own defaults)
+        drivers: spec.drivers ?? {},       // re-bind uniforms to engine values
+    };
+}
+
+function layerCanvasSize() {
+    return [
+        Math.max(1, gl.drawingBufferWidth),
+        Math.max(1, gl.drawingBufferHeight),
+    ];
+}
+
+function allocLayerEngineTargets(engine) {
+    const [w, h] = layerCanvasSize();
+    engine.width = w;
+    engine.height = h;
+
+    // Per-layer output FBOs
+    for (const layer of engine.layers) {
+        const { tex, fbo } = allocTexAndFbo(w, h, 'rgba8');
+        layer.outputTex = tex;
+        layer.outputFbo = fbo;
+    }
+    // Accumulator (ping-pong)
+    for (let i = 0; i < 2; i++) {
+        const { tex, fbo } = allocTexAndFbo(w, h, 'rgba8');
+        engine.accTextures.push(tex);
+        engine.accFbos.push(fbo);
+    }
+    // History (single, persistent)
+    const { tex: htex, fbo: hfbo } = allocTexAndFbo(w, h, 'rgba8');
+    engine.historyTex = htex;
+    engine.historyFbo = hfbo;
+
+    // Clear all to (0,0,0,0) so frame 0 reads sensibly.
+    const clearTargets = [...engine.layers.map((l) => l.outputFbo), ...engine.accFbos, engine.historyFbo];
+    for (const f of clearTargets) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+        gl.viewport(0, 0, w, h);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+
+function freeLayerEngineTargets(engine) {
+    for (const layer of engine.layers) {
+        if (layer.outputTex) gl.deleteTexture(layer.outputTex);
+        if (layer.outputFbo) gl.deleteFramebuffer(layer.outputFbo);
+        layer.outputTex = null;
+        layer.outputFbo = null;
+    }
+    for (const t of engine.accTextures) gl.deleteTexture(t);
+    for (const f of engine.accFbos)     gl.deleteFramebuffer(f);
+    engine.accTextures = [];
+    engine.accFbos = [];
+    if (engine.historyTex) gl.deleteTexture(engine.historyTex);
+    if (engine.historyFbo) gl.deleteFramebuffer(engine.historyFbo);
+    engine.historyTex = null;
+    engine.historyFbo = null;
+}
+
+async function buildLayerEngine(slug, layerSpecs) {
+    const engine = {
+        layers: [],
+        accTextures: [],
+        accFbos: [],
+        accReadIdx: 0,
+        historyTex: null,
+        historyFbo: null,
+        compositorProgram: null,
+        compositorUniforms: {},
+        width: 0,
+        height: 0,
+    };
+    try {
+        for (let i = 0; i < layerSpecs.length; i++) {
+            const parsed = parseLayerSpec(layerSpecs[i], i);
+            const fragUrl = `/api/pieces/${encodeURIComponent(slug)}/layer/${encodeURIComponent(parsed.name)}/shader.frag`;
+            const metaUrl = `/api/pieces/${encodeURIComponent(slug)}/layer/${encodeURIComponent(parsed.name)}/meta`;
+            const [fragRes, metaRes] = await Promise.all([fetch(fragUrl), fetch(metaUrl)]);
+            if (!fragRes.ok) throw new Error(`layers[${i}] "${parsed.name}": shader.frag not found (HTTP ${fragRes.status})`);
+            // meta is optional in v1; default to empty so layers without one still work.
+            const layerMeta = metaRes.ok ? await metaRes.json().catch(() => ({})) : {};
+            const fragText = await preprocessShader(await fragRes.text());
+            const program = buildProgram(fragText);
+            engine.layers.push({
+                ...parsed,
+                meta: layerMeta,
+                program,
+                uniforms: {},        // per-layer uniform location cache (mirrors pass.uniforms)
+                outputTex: null,
+                outputFbo: null,
+            });
+        }
+        // Compositor program — inlined source, no #include resolution needed.
+        engine.compositorProgram = buildProgram(COMPOSITOR_FRAG);
+        // Allocate FBOs once layers are compiled.
+        allocLayerEngineTargets(engine);
+    } catch (err) {
+        freeLayerEngine(engine);
+        throw err;
+    }
+    return engine;
+}
+
+function freeLayerEngine(engine) {
+    if (!engine) return;
+    freeLayerEngineTargets(engine);
+    for (const layer of engine.layers) {
+        if (layer.program) gl.deleteProgram(layer.program);
+    }
+    if (engine.compositorProgram) gl.deleteProgram(engine.compositorProgram);
+}
+
+function swapLayerEngine(engine) {
+    freeLayerEngine(currentLayerEngine);
+    if (currentProgram) gl.deleteProgram(currentProgram);
+    if (currentPipeline) freePipeline(currentPipeline);
+    currentProgram = null;
+    currentPipeline = null;
+    currentUniforms = {};
+    currentLayerEngine = engine;
+    // wheel-zoom gate: enable if any layer reads u_zoom
+    programUsesZoom = engine.layers.some(
+        (l) => gl.getUniformLocation(l.program, 'u_zoom') !== null,
+    );
+    startTime = performance.now();
+}
+
+function reallocLayerEngineTargets(engine) {
+    if (!engine) return;
+    freeLayerEngineTargets(engine);
+    allocLayerEngineTargets(engine);
+    startTime = performance.now();
+}
+
+function applyDriverUniform(layer, name, value) {
+    // Driver values are floats in v1 — engine uniforms are predominantly float.
+    // Set on the currently-bound program (assumed to be layer.program).
+    const loc = layer.uniforms[name] ??= gl.getUniformLocation(layer.program, name);
+    if (loc !== null) gl.uniform1f(loc, value);
+}
+
+function applyDrivers(layer, engineSample) {
+    // engineSample is the audio-analysis sample (floats). Plus we expose a
+    // few non-analysis runtime values as drivers.
+    const driverSources = {
+        ...engineSample,
+        u_audio_level: audioBands.level,
+        u_audio_bass:  audioBands.bass,
+        u_audio_mid:   audioBands.mid,
+        u_audio_high:  audioBands.high,
+        u_audio_kick:  audioOnsets.bass.pulse,
+        u_audio_snare: audioOnsets.mid.pulse,
+        u_audio_cymbal: audioOnsets.high.pulse,
+        u_audio_playing: audioPlaying ? 1.0 : 0.0,
+        u_tap_pulse: tapPulse,
+    };
+    for (const [layerUniform, sourceName] of Object.entries(layer.drivers)) {
+        if (!(sourceName in driverSources)) continue;
+        applyDriverUniform(layer, layerUniform, Number(driverSources[sourceName]));
+    }
+}
+
+function applyStaticLayerUniforms(layer) {
+    // Static uniforms set once per piece — but cheap to re-set per frame so
+    // we just always do it. Numeric only in v1.
+    for (const [name, value] of Object.entries(layer.uniforms ?? {})) {
+        if (typeof value === 'number') {
+            applyDriverUniform(layer, name, value);
+        }
+    }
+}
+
+function runLayerEngine(engine, now, audioSample) {
+    const w = engine.width;
+    const h = engine.height;
+
+    // Clear write-side accumulator. (We treat accReadIdx as "where the
+    // already-composited image lives"; the OTHER FBO is the write target.)
+    let writeIdx = 1 - engine.accReadIdx;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, engine.accFbos[writeIdx]);
+    gl.viewport(0, 0, w, h);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    // Make accReadIdx point at the cleared canvas so the first layer reads black for u_below.
+    engine.accReadIdx = writeIdx;
+    // Write side now flips back to the other FBO.
+    writeIdx = 1 - engine.accReadIdx;
+
+    for (const layer of engine.layers) {
+        // (a) render layer to its own FBO
+        gl.bindFramebuffer(gl.FRAMEBUFFER, layer.outputFbo);
+        gl.viewport(0, 0, w, h);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        currentProgram = layer.program;
+        currentUniforms = layer.uniforms;
+        gl.useProgram(layer.program);
+        bindQuadAttrib(layer.program);
+        setStandardUniforms(w, h, now);
+        applyStaticLayerUniforms(layer);
+        applyDrivers(layer, audioSample);
+        // u_below: read-side accumulator (everything beneath this layer)
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, engine.accTextures[engine.accReadIdx]);
+        const belowLoc = layer.uniforms.u_below ??= gl.getUniformLocation(layer.program, 'u_below');
+        if (belowLoc !== null) gl.uniform1i(belowLoc, 0);
+        // u_history: previous frame's final composite
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, engine.historyTex);
+        const histLoc = layer.uniforms.u_history ??= gl.getUniformLocation(layer.program, 'u_history');
+        if (histLoc !== null) gl.uniform1i(histLoc, 1);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+        // (b) run the compositor: write-side acc = blend(read-side acc, layer output)
+        gl.bindFramebuffer(gl.FRAMEBUFFER, engine.accFbos[writeIdx]);
+        gl.viewport(0, 0, w, h);
+        currentProgram = engine.compositorProgram;
+        currentUniforms = engine.compositorUniforms;
+        gl.useProgram(engine.compositorProgram);
+        bindQuadAttrib(engine.compositorProgram);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, engine.accTextures[engine.accReadIdx]);
+        const accLoc = engine.compositorUniforms.u_acc ??= gl.getUniformLocation(engine.compositorProgram, 'u_acc');
+        if (accLoc !== null) gl.uniform1i(accLoc, 0);
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, layer.outputTex);
+        const layerLoc = engine.compositorUniforms.u_layer ??= gl.getUniformLocation(engine.compositorProgram, 'u_layer');
+        if (layerLoc !== null) gl.uniform1i(layerLoc, 1);
+        const modeLoc = engine.compositorUniforms.u_blend_mode ??= gl.getUniformLocation(engine.compositorProgram, 'u_blend_mode');
+        if (modeLoc !== null) gl.uniform1i(modeLoc, layer.blendMode);
+        const alphaLoc = engine.compositorUniforms.u_alpha ??= gl.getUniformLocation(engine.compositorProgram, 'u_alpha');
+        if (alphaLoc !== null) gl.uniform1f(alphaLoc, layer.alpha);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+        // (c) swap accumulator read/write
+        engine.accReadIdx = writeIdx;
+        writeIdx = 1 - engine.accReadIdx;
+    }
+
+    // Final accumulator → screen.
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, engine.accFbos[engine.accReadIdx]);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.blitFramebuffer(0, 0, w, h, 0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight,
+                       gl.COLOR_BUFFER_BIT, gl.LINEAR);
+
+    // Final accumulator → history (for next frame's u_history).
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, engine.accFbos[engine.accReadIdx]);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, engine.historyFbo);
+    gl.blitFramebuffer(0, 0, w, h, 0, 0, w, h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+
+    // Reset bindings.
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+
+// TODO (Phase 2.4 follow-up):
+// - Shared-state publish/consume: layers that publish a named texture (e.g.
+//   `field: vec2`) and layers that consume that texture as a uniform sampler.
+//   Requires multiple-render-targets per layer + explicit publish-target FBOs
+//   + ordering validation (consume must reference an earlier-declared publish).
+// - Soft flash-budget counter: classify driver targets as flash-shaped, count
+//   crossings per bar via u_bar_index, console.warn when > 4/bar.
 
 // ---------- piece loading ----------
 
@@ -858,11 +1224,10 @@ async function fetchCurrentSlug() {
 
 async function loadPiece(slug) {
   try {
-    const [fragRes, metaRes, mtimeRes, analysisRes] = await Promise.all([
+    const [fragRes, metaRes, mtimeRes] = await Promise.all([
       fetch(`/api/pieces/${slug}/shader.frag`),
       fetch(`/api/pieces/${slug}/meta`),
       fetch(`/api/pieces/${slug}/mtime`),
-      fetch(`/api/pieces/${slug}/analysis`),  // 404 = piece has no audio.analysis.json; falls back to FFT-only audio
     ]);
     if (!fragRes.ok || !metaRes.ok || !mtimeRes.ok) {
       throw new Error(`piece ${slug} not found`);
@@ -871,14 +1236,19 @@ async function loadPiece(slug) {
     const meta = await metaRes.json();
     const { mtime } = await mtimeRes.json();
 
-    // Audio analysis is optional. 404 → null; the runtime emits zeroed
-    // song-level uniforms so pieces without analysis JSON still compile.
-    if (analysisRes.ok) {
-      const json = await analysisRes.json().catch(() => null);
-      currentAnalysis = audioAnalysis.parse(json);
-      if (!currentAnalysis) console.warn(`[loadPiece] ${slug} has audio.analysis.json but it failed to parse`);
-    } else {
-      currentAnalysis = null;
+    // Audio analysis is optional. Pieces opt in by declaring `audio_features:`
+    // in meta.yaml; we only fetch the JSON in that case. Avoids spurious 404s
+    // for monolithic pieces that don't use song-level uniforms.
+    currentAnalysis = null;
+    if (Array.isArray(meta?.audio_features) && meta.audio_features.length > 0) {
+      const aRes = await fetch(`/api/pieces/${slug}/analysis`);
+      if (aRes.ok) {
+        const json = await aRes.json().catch(() => null);
+        currentAnalysis = audioAnalysis.parse(json);
+        if (!currentAnalysis) console.warn(`[loadPiece] ${slug}: audio.analysis.json failed to parse`);
+      } else {
+        console.warn(`[loadPiece] ${slug}: audio_features declared but no audio.analysis.json found (run bin/analyze-audio.mjs)`);
+      }
     }
     analysisSampleState = audioAnalysis.createSampleState();
 
@@ -893,7 +1263,10 @@ async function loadPiece(slug) {
     renderScale = (Number.isFinite(rs) && rs > 0 && rs <= 2) ? rs : 1.0;
     resize();
 
-    if (Array.isArray(meta?.passes) && meta.passes.length > 0) {
+    if (Array.isArray(meta?.layers) && meta.layers.length > 0) {
+      const engine = await buildLayerEngine(slug, meta.layers);
+      swapLayerEngine(engine);
+    } else if (Array.isArray(meta?.passes) && meta.passes.length > 0) {
       const pipeline = await buildPipeline(slug, meta.passes);
       swapPipeline(pipeline);
     } else {
@@ -1473,6 +1846,7 @@ function resize() {
   canvas.width  = newW;
   canvas.height = newH;
   if (changed && currentPipeline) reallocPipelineTargets(currentPipeline);
+  if (changed && currentLayerEngine) reallocLayerEngineTargets(currentLayerEngine);
   gestures.setRefSize(Math.min(canvas.clientWidth, canvas.clientHeight) || 1);
 }
 

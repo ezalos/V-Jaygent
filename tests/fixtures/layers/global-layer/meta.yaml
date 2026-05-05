@@ -1,0 +1,7 @@
+name: global-layer
+identity: "fixture layer used by server tests"
+default_blend: normal
+uniforms: {}
+reads: []
+publishes: []
+consumes: []

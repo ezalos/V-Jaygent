@@ -1,0 +1,14 @@
+title: "[engine test] layer compositing"
+slug: layer-engine-test
+notes: |
+  Integration test for the layer engine. Two trivial layers — a warm
+  vertical gradient base + a wave-displacement distort that samples
+  u_below. Smoke-tested by bin/smoke-shaders.mjs. Not artistic; not
+  intended to ship. (No `created:` so it sorts to the bottom of the
+  catalog.)
+duration: 6
+layers:
+  - layer: solid-warm
+    blend: normal
+  - layer: wave-distort
+    blend: replace

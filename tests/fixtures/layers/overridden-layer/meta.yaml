@@ -1,0 +1,3 @@
+name: overridden-layer
+identity: "global version, hidden by piece-local override"
+default_blend: normal

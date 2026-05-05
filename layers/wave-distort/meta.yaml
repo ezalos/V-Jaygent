@@ -1,0 +1,8 @@
+name: wave-distort
+identity: "low-frequency sine displacement of u_below"
+default_blend: replace
+uniforms: {}
+reads:
+  - u_below
+publishes: []
+consumes: []

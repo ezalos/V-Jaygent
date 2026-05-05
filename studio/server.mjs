@@ -10,8 +10,10 @@ import { createStats } from './stats.mjs';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 const LIB_FILE_RE = /^[a-zA-Z0-9_-]+\.glsl$/;
+const LAYER_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
 const STUDIO_DIR = fileURLToPath(new URL('.', import.meta.url));
 const LIB_DIR    = fileURLToPath(new URL('../lib/', import.meta.url));
+const LAYERS_DIR = fileURLToPath(new URL('../layers/', import.meta.url));
 
 const STATIC_MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -36,14 +38,15 @@ const FILE_MIME = {
 
 const FILENAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
-export function createStudioServer({ piecesDir, studioDir = STUDIO_DIR, libDir = LIB_DIR, stats = null, statsToken = null } = {}) {
+export function createStudioServer({ piecesDir, studioDir = STUDIO_DIR, libDir = LIB_DIR, layersDir = LAYERS_DIR, stats = null, statsToken = null } = {}) {
   if (!piecesDir) throw new Error('piecesDir is required');
   const piecesRoot = resolvePath(piecesDir);
   const libRoot    = resolvePath(libDir);
+  const layersRoot = resolvePath(layersDir);
 
   return createServer(async (req, res) => {
     try {
-      await handle(req, res, { piecesRoot, libRoot, studioDir, stats, statsToken });
+      await handle(req, res, { piecesRoot, libRoot, layersRoot, studioDir, stats, statsToken });
     } catch (err) {
       console.error('[studio]', err);
       send(res, 500, 'text/plain', 'internal error');
@@ -51,7 +54,7 @@ export function createStudioServer({ piecesDir, studioDir = STUDIO_DIR, libDir =
   });
 }
 
-async function handle(req, res, { piecesRoot, libRoot, studioDir, stats, statsToken }) {
+async function handle(req, res, { piecesRoot, libRoot, layersRoot, studioDir, stats, statsToken }) {
   if (req.method !== 'GET') return send(res, 405, 'text/plain', 'method not allowed');
 
   const url = new URL(req.url, 'http://localhost');
@@ -67,6 +70,7 @@ async function handle(req, res, { piecesRoot, libRoot, studioDir, stats, statsTo
   // only serves expected files (no directory enumeration via `/<foo>.mjs`).
   if (path === '/billiards.mjs')     return serveStatic(res, studioDir, 'billiards.mjs');
   if (path === '/gestures.mjs')      return serveStatic(res, studioDir, 'gestures.mjs');
+  if (path === '/audio-analysis.mjs') return serveStatic(res, studioDir, 'audio-analysis.mjs');
 
   // `/<slug>` → serve the studio page if <slug> is a valid piece directory.
   // Runtime reads location.pathname to pin the displayed piece.
@@ -122,6 +126,31 @@ async function handle(req, res, { piecesRoot, libRoot, studioDir, stats, statsTo
       return send(res, 404, 'text/plain', 'not found');
     }
     return apiPieceFile(req, res, piecesRoot, slug, name);
+  }
+
+  // Piece-local layer with global fallback. Resolution order:
+  //   pieces/<slug>/layers/<name>/<part>  →  layers/<name>/<part>
+  // <part> is shader.frag or meta.yaml. The runtime always uses this route
+  // when loading a piece's declared layer stack.
+  const pieceLayerMatch = path.match(/^\/api\/pieces\/([^/]+)\/layer\/([^/]+)\/(shader\.frag|meta)$/);
+  if (pieceLayerMatch) {
+    const slug = decodeURIComponent(pieceLayerMatch[1]);
+    const layerName = decodeURIComponent(pieceLayerMatch[2]);
+    const part = pieceLayerMatch[3];
+    if (!SLUG_RE.test(slug) || !LAYER_NAME_RE.test(layerName)) {
+      return send(res, 404, 'text/plain', 'not found');
+    }
+    return apiPieceLayer(res, piecesRoot, layersRoot, slug, layerName, part);
+  }
+
+  // Global layers/<name>/<part>. No piece context, no fallback. Used by the
+  // smoke test and ingestion CLI to exercise layers in isolation.
+  const layerMatch = path.match(/^\/api\/layers\/([^/]+)\/(shader\.frag|meta)$/);
+  if (layerMatch) {
+    const layerName = decodeURIComponent(layerMatch[1]);
+    const part = layerMatch[2];
+    if (!LAYER_NAME_RE.test(layerName)) return send(res, 404, 'text/plain', 'not found');
+    return apiLayer(res, layersRoot, layerName, part);
   }
 
   send(res, 404, 'text/plain', 'not found');
@@ -215,6 +244,41 @@ async function apiLibFile(res, libRoot, name) {
   const body = await readFile(filePath).catch(() => null);
   if (body === null) return send(res, 404, 'text/plain', 'not found');
   send(res, 200, 'text/plain; charset=utf-8', body);
+}
+
+async function readLayerPart(layerDir, part) {
+  // part is shader.frag or meta. Returns body (string) or null.
+  if (part === 'shader.frag') {
+    return await readFile(join(layerDir, 'shader.frag'), 'utf-8').catch(() => null);
+  }
+  if (part === 'meta') {
+    const raw = await readFile(join(layerDir, 'meta.yaml'), 'utf-8').catch(() => null);
+    if (raw === null) return null;
+    try { return JSON.stringify(yaml.load(raw) ?? {}); }
+    catch { return null; }
+  }
+  return null;
+}
+
+async function apiPieceLayer(res, piecesRoot, layersRoot, slug, layerName, part) {
+  // Try piece-local first, then global fallback.
+  const localDir = join(piecesRoot, slug, 'layers', layerName);
+  let body = await readLayerPart(localDir, part);
+  if (body === null) {
+    const globalDir = join(layersRoot, layerName);
+    body = await readLayerPart(globalDir, part);
+  }
+  if (body === null) return send(res, 404, 'text/plain', 'not found');
+  const ct = part === 'shader.frag' ? 'text/plain; charset=utf-8' : 'application/json; charset=utf-8';
+  send(res, 200, ct, body);
+}
+
+async function apiLayer(res, layersRoot, layerName, part) {
+  const layerDir = join(layersRoot, layerName);
+  const body = await readLayerPart(layerDir, part);
+  if (body === null) return send(res, 404, 'text/plain', 'not found');
+  const ct = part === 'shader.frag' ? 'text/plain; charset=utf-8' : 'application/json; charset=utf-8';
+  send(res, 200, ct, body);
 }
 
 async function apiPieceFile(req, res, piecesRoot, slug, name) {

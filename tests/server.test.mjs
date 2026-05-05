@@ -10,6 +10,7 @@ import { createStudioServer } from '../studio/server.mjs';
 let server;
 let baseUrl;
 let piecesDir;
+let layersDir;
 
 before(async () => {
   piecesDir = mkdtempSync(join(tmpdir(), 'vjaygent-test-'));
@@ -20,7 +21,14 @@ before(async () => {
   );
   writeFileSync(join(piecesDir, 'current.txt'), 'test-piece\n');
 
-  server = createStudioServer({ piecesDir });
+  layersDir = mkdtempSync(join(tmpdir(), 'vjaygent-layers-test-'));
+  cpSync(
+    new URL('./fixtures/layers', import.meta.url),
+    layersDir,
+    { recursive: true },
+  );
+
+  server = createStudioServer({ piecesDir, layersDir });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address();
   baseUrl = `http://127.0.0.1:${port}`;
@@ -29,6 +37,7 @@ before(async () => {
 after(async () => {
   await new Promise((resolve) => server.close(resolve));
   rmSync(piecesDir, { recursive: true, force: true });
+  rmSync(layersDir, { recursive: true, force: true });
 });
 
 test('GET / returns the studio html', async () => {
@@ -107,6 +116,67 @@ test('GET /api/pieces/:slug/analysis returns audio.analysis.json when present', 
   assert.equal(body.bpm, 120);
   assert.equal(body.sections.length, 2);
   assert.equal(body.key.tonic, 'A');
+});
+
+test('GET /audio-analysis.mjs serves the runtime audio module', async () => {
+  const res = await fetch(baseUrl + '/audio-analysis.mjs');
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type') ?? '', /javascript/);
+  const body = await res.text();
+  assert.match(body, /export function parse/);
+  assert.match(body, /export function sample/);
+});
+
+test('GET /api/layers/:name/shader.frag returns global layer source', async () => {
+  const res = await fetch(baseUrl + '/api/layers/global-layer/shader.frag');
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type') ?? '', /text\/plain/);
+  const body = await res.text();
+  assert.match(body, /global-layer fixture/);
+});
+
+test('GET /api/layers/:name/meta returns parsed yaml as json', async () => {
+  const res = await fetch(baseUrl + '/api/layers/global-layer/meta');
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type') ?? '', /application\/json/);
+  const body = await res.json();
+  assert.equal(body.name, 'global-layer');
+  assert.equal(body.default_blend, 'normal');
+});
+
+test('GET /api/layers/:name returns 404 for unknown layer', async () => {
+  const res = await fetch(baseUrl + '/api/layers/does-not-exist/shader.frag');
+  assert.equal(res.status, 404);
+});
+
+test('GET /api/layers/:name rejects invalid layer name', async () => {
+  const res = await fetch(baseUrl + '/api/layers/UPPER%20case/shader.frag');
+  assert.equal(res.status, 404);
+});
+
+test('piece-layer route falls back to global when no piece-local override', async () => {
+  const res = await fetch(baseUrl + '/api/pieces/test-piece/layer/global-layer/shader.frag');
+  assert.equal(res.status, 200);
+  const body = await res.text();
+  assert.match(body, /global-layer fixture/);
+});
+
+test('piece-layer route prefers piece-local override over global', async () => {
+  const fragRes = await fetch(baseUrl + '/api/pieces/test-piece/layer/overridden-layer/shader.frag');
+  assert.equal(fragRes.status, 200);
+  const fragBody = await fragRes.text();
+  assert.match(fragBody, /piece-local/i);
+  assert.doesNotMatch(fragBody, /should be hidden/i);
+
+  const metaRes = await fetch(baseUrl + '/api/pieces/test-piece/layer/overridden-layer/meta');
+  assert.equal(metaRes.status, 200);
+  const meta = await metaRes.json();
+  assert.equal(meta.default_blend, 'add');  // piece-local wins; global says 'normal'
+});
+
+test('piece-layer route 404s when neither piece-local nor global exists', async () => {
+  const res = await fetch(baseUrl + '/api/pieces/test-piece/layer/nonexistent/shader.frag');
+  assert.equal(res.status, 404);
 });
 
 test('GET /api/pieces/:slug/analysis returns 404 when piece has no analysis JSON', async () => {
