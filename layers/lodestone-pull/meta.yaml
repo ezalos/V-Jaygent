@@ -1,0 +1,8 @@
+name: lodestone-pull
+identity: "two-mass gravitational force field with visible warm wells"
+default_blend: normal
+uniforms: {}
+reads: []
+publishes:
+  force: vec2
+consumes: []

@@ -1,0 +1,48 @@
+title: tide
+slug: tide
+created: 2026-05-05T22:00:00.000Z
+notes: |
+  Second multi-layer flagship piece (v1). Demonstrates shared-state
+  publish/consume coupling — the b-tier of layered-composition.md.
+
+  Three layers, two coupling edges (u_below distort + force publish/consume):
+
+    solid-warm     (base, no reads, no shared state)
+       ↑
+    lodestone-pull (publishes `force`: 2D field from two slow-orbiting
+                    masses on golden-ratio rates; visible as faint warm
+                    wells where the masses sit)
+       ↑
+    flow-warm      (consumes force as u_force; advects u_below + an
+                    internal warm fbm by the field; light history
+                    feedback for flow trails)
+
+  The two masses are on coprime-irrational orbital rates (0.13 and
+  0.21 cps; ratio ≈ φ⁻¹) so the combined field never repeats. The
+  flow layer's fbm runs on a third clock (0.18) so the texture
+  inside the flow drifts on yet another rhythm — three distinct
+  clocks across three layers (polyrhythm-of-clocks probe).
+
+  v1 status: not yet through /vjay-iterate; the eight layered-
+  composition probes haven't graded it. Likely candidates to
+  inspect on a critic pass: spatial-coupling (✓ flow-warm advects
+  u_below by the published force), eye-distribution (need 4 frames
+  to verify the dominance map shifts as masses orbit), polyrhythm
+  (3 clocks present), order-meaningfulness (✓ swapping flow-warm
+  before lodestone-pull would error at piece-load time, so the DAG
+  is load-bearing).
+duration: 60
+layers:
+  - layer: solid-warm
+    blend: normal
+  - layer: lodestone-pull
+    blend: normal
+    alpha: 0.0           # invisible to the compositor — its rg-encoded force
+                          # texture is what downstream consumes; the visual
+                          # would leak green/cool from the rg encoding.
+    publishes:
+      force: vec2
+  - layer: flow-warm
+    blend: replace
+    consumes:
+      u_force: force

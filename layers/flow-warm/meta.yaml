@@ -1,0 +1,10 @@
+name: flow-warm
+identity: "warm fbm advected by a consumed force field, history trails"
+default_blend: replace
+uniforms: {}
+reads:
+  - u_below
+  - u_history
+publishes: []
+consumes:
+  u_force: vec2
