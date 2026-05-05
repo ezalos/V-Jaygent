@@ -1,8 +1,8 @@
 #version 300 es
-// ABOUTME: Flow-warm layer — consumes a 2D force field (rg-encoded) and uses
-// ABOUTME: it to advect the sample of u_below + an internal warm fbm. The
-// ABOUTME: result reads as a slow viscous flow gathering toward the
-// ABOUTME: published mass points.
+// ABOUTME: Flow-warm — visualises the consumed force field directly via its
+// ABOUTME: divergence/curl, domain-warps u_below by it, and uses u_history for
+// ABOUTME: persistent flow trails. The field drives the look; fbm is texture
+// ABOUTME: only.
 precision highp float;
 
 #include "noise.glsl"
@@ -15,46 +15,59 @@ uniform sampler2D u_history;
 uniform sampler2D u_force;
 out vec4 fragColor;
 
+vec2 decodeForce(vec2 uv) {
+    return texture(u_force, uv).rg * 2.0 - 1.0;
+}
+
 void main() {
     vec2 uv = gl_FragCoord.xy / u_resolution;
 
-    // Decode the published force (signed) and step backward — semi-Lagrangian
-    // advection. Strength modest so the underlying gradient stays readable
-    // through the warp.
-    vec2 force = texture(u_force, uv).rg * 2.0 - 1.0;
-    float strength = 0.05 + 0.03 * u_audio_bass;
-    vec2 q = uv - force * strength;
+    // Sample force at uv + neighbours for divergence + curl. The published
+    // field is over [0,1] UV space; sample with a tighter epsilon than
+    // the screen so we get sub-pixel gradients.
+    vec2 px = 1.0 / u_resolution;
+    float h = 2.5 * px.x;
+    vec2 f   = decodeForce(uv);
+    vec2 fxp = decodeForce(uv + vec2(h, 0.0));
+    vec2 fxm = decodeForce(uv - vec2(h, 0.0));
+    vec2 fyp = decodeForce(uv + vec2(0.0, h));
+    vec2 fym = decodeForce(uv - vec2(0.0, h));
+    float divergence = (fxp.x - fxm.x + fyp.y - fym.y) / (2.0 * h);
+    float curl       = (fxp.y - fxm.y - (fyp.x - fym.x)) / (2.0 * h);
 
-    // Advect u_below — pixels of the layer beneath get carried by the field.
-    vec3 below = texture(u_below, q).rgb;
+    // Iterative domain warp: each fbm sample is warped by the current field
+    // position. The masses' pull regions bend the fbm coordinates strongly,
+    // creating visible vortices and ridges where the field is non-uniform.
+    float warpAmt = 0.55 + 0.20 * u_audio_bass;
+    vec2 q1 = uv + f * warpAmt;
+    float n1 = fbmRot(q1 * 3.5 + vec2(u_time * 0.15, 0.0));
+    vec2 q2 = uv + f * warpAmt + vec2(n1) * 0.35;
+    float n2 = fbmRot(q2 * 8.5 - vec2(0.0, u_time * 0.22));
+    float band = smoothstep(0.40, 0.78, mix(n1, n2, 0.55));
 
-    // Two-scale internal noise — fine churn (high octaves) layered on coarse
-    // structure. fbmRot rotates per-octave to hide the lattice grid that
-    // plain fbm leaks at low scale. The two scales (3.6 and 11.0) drift on
-    // independent rates so the texture never repeats.
-    float n_coarse = fbmRot(q * 3.6 + vec2(u_time * 0.18, 0.0));
-    float n_fine   = fbmRot(q * 11.0 - vec2(0.0, u_time * 0.27));
-    float n = mix(n_coarse, n_fine, 0.45);
-    // Sharpen the bright bands so flow reads as filaments, not haze
-    float swirl = smoothstep(0.42, 0.78, n);
-    vec3 warm = vec3(1.05, 0.62, 0.22) * swirl * 0.65;
+    // Visual contribution from the FIELD itself: convergent zones (divergence
+    // < 0, fluid pulling in to a mass) glow warm; divergent zones go dark.
+    // Curl creates a hue shift along the band to add depth without leaving
+    // the warm family.
+    float convergence = clamp(-divergence * 0.18, 0.0, 1.0);
+    float spin        = clamp(abs(curl) * 0.05, 0.0, 1.0);
+    vec3 fieldGlow = vec3(1.10, 0.50, 0.15) * convergence
+                   + vec3(0.85, 0.30, 0.05) * spin * 0.5;
 
-    // Curl-noise perturbation that shifts the apparent advection direction
-    // pixel-by-pixel — breaks the uniform-sliding feel by giving each region
-    // its own micro-velocity bias on top of the lodestone field.
-    float h_eps = 0.005;
-    float dphi_dx = fbmRot(q * 8.0 + vec2(h_eps, 0.0)) - fbmRot(q * 8.0 - vec2(h_eps, 0.0));
-    float dphi_dy = fbmRot(q * 8.0 + vec2(0.0, h_eps)) - fbmRot(q * 8.0 - vec2(0.0, h_eps));
-    vec2 curl = vec2(-dphi_dy, dphi_dx) / (2.0 * h_eps);
-    vec2 q2 = q - curl * 0.012;
-    vec3 below2 = texture(u_below, q2).rgb;
-    below = mix(below, below2, 0.5);
+    // Advect u_below STRONGLY by the field — the underlying gradient gets
+    // pulled into the masses, contributing the deep wine in convergent areas.
+    vec2 advUv = uv - f * (warpAmt * 0.40);
+    vec3 below = texture(u_below, advUv).rgb;
 
-    // History feedback advected by the same field — flow lines persist a few
-    // frames before fading. Sample at slightly different offset so trails
-    // bend rather than slide rigidly.
-    vec3 hist = texture(u_history, uv - force * (strength * 0.7) - curl * 0.006).rgb * 0.62;
+    // Deepen the wells: where convergence is high, darken the base. Keeps
+    // the eye reading "fluid pulled into something" rather than uniform haze.
+    below *= mix(1.0, 0.35, convergence);
 
-    vec3 col = max(below + warm, hist);
+    // History feedback advected by the field — flow lines persist a few
+    // frames so the eye reads streamlines, not static noise.
+    vec3 hist = texture(u_history, uv - f * (warpAmt * 0.55)).rgb * 0.78;
+
+    vec3 col = below + fieldGlow * band;
+    col = max(col, hist);
     fragColor = vec4(col, 1.0);
 }
