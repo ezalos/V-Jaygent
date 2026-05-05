@@ -1,48 +1,59 @@
 title: "stronger"
 slug: stronger
 created: 2026-05-05T23:55:00.000Z
+keyboard_synth: true
 notes: |
   Daft Punk — *Harder, Better, Faster, Stronger* (Discovery, 2001).
-  v2: rewrote around a kaleidoscope core to land mesmerizing,
-  cursor-interactive, and visibly phase-locked to the music.
+  v3: 4 simultaneous interactive layers — kaleidoscopic-mechanical
+  gear visuals locked to the music, plus playable keyboard a..l
+  driving radial beams that ride over the gear and the central
+  core that swells to chords.
 
-  Move the cursor — the kaleidoscope's centre follows. Let go and
-  it self-plays.
+  ► Press space to play the track. Move the cursor — the gear's
+    centre follows. Hold a..l to play notes through the reverb
+    synth and fire matching radial beams.
 
-  Music coupling (every line is GEOMETRY, not brightness):
-    u_audio_bass         → radial zoom (pull-in on bass)
-    u_audio_kick         → one-frame zoom snap (visible kick anchor)
-    u_bar_phase          → continuous wedge rotation (1 bar = 1 cycle)
-    u_beat_phase         → micro-snap on every beat (rotation jump)
-    u_downbeat           → expanding halo ring (clear bar marker)
-    u_section_id         → fold count cycles 4 → 6 → 8 → 4 ...
-    u_section_progress   → cross-fade between fold counts
-    u_to_section_change  → pre-tension squeeze in last 4 bars
-    u_audio_high         → hi-hat sparkle on the bright ridges
-    u_song_progress      → palette amber → ember → wine across the track
+  Stack (4 layers, each independently interactive):
+    solid-warm     — slow warm gradient base
+    mirror-bloom   — segmented gear + concentric pulse rings.
+                     Cursor → centre. Bass + kick → radial scale.
+                     Bar phase → continuous gear rotation. Beat
+                     phase → tooth-snap on each beat. Downbeat →
+                     expanding ring. Section → palette + tooth
+                     count (8/12/16 cycling). Hi-hat → 16-dot
+                     sparkle ring. Held keys → matching teeth grow
+                     on the outer gear; chord → core inflation.
+    key-rays       — 9 radial beams at fanned angles around the
+                     gear. Held key sustains a soft glow ray;
+                     pressing fires a bright spear that travels
+                     inward from the screen edge to the gear edge.
+                     Per-key warm tint amber → ember → wine left
+                     to right.
+    ember-spark    — sparse warm sparks with u_history trails on
+                     top of the whole composition. Adds depth and
+                     mystery without obscuring the structural read.
 
-  Stack:
-    solid-warm     — warm gradient base
-    mirror-bloom   — kaleidoscope (NEW); reads u_below and u_history,
-                     consumes nothing, publishes nothing.
+  Polyrhythmic clocks: u_time (gear baseline + ember drift),
+  u_bar_phase (gear rotation), u_beat_phase (tooth snap),
+  u_downbeat (concentric pulse), u_section_id (tooth-count cycle),
+  u_song_progress (palette amber → wine), key envelopes (per-key
+  beams).
 
-  This is a 2-layer piece, not 3 — the publish/consume coupling from
-  v1 was over-engineering for what HBFS actually needed (which is
-  hard music coupling + interaction, not invisible physics fields).
-
-  Reverted: lodestone-pull is no longer in the stack (and the layer
-  itself remains in layers/ for future pieces).
+  Three input channels coupled into one composition: cursor moves
+  the centre, keyboard plays beams + chord-swells the core, audio
+  drives the macro structure (rotation rate, scale, palette, ring
+  cadence). Idle (no audio, no keys, no cursor) the gear still
+  turns and the central core glows so the piece is alive on first
+  load.
 duration: 223
 audio: audio.mp3
 audio_features: [beat, sections, key]
-# DELIBERATELY no `time_source: audio` — that pin would freeze u_time
-# whenever audio is paused (idle, before first user gesture, between
-# tracks), making the kaleidoscope appear "broken / frozen". With the
-# default wall-clock u_time, the piece self-plays at idle and the
-# song-level uniforms (u_section_progress, u_downbeat, u_audio_time)
-# still sync via audioEl.currentTime once audio starts.
 layers:
   - layer: solid-warm
     blend: normal
   - layer: mirror-bloom
     blend: replace
+  - layer: key-rays
+    blend: replace
+  - layer: ember-spark
+    blend: max

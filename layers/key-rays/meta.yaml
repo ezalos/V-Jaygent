@@ -1,0 +1,9 @@
+name: key-rays
+identity: "9 radial beams from the keyboard a..l, each with held + pressed states"
+default_blend: replace
+uniforms: {}
+reads:
+  - u_below
+  - u_history
+publishes: []
+consumes: []

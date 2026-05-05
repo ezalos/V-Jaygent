@@ -22,6 +22,8 @@ uniform int   u_section_id;
 uniform float u_section_progress;
 uniform float u_song_progress;
 uniform float u_bpm;
+uniform float u_keys[9];
+uniform float u_key_event[9];
 uniform sampler2D u_below;
 uniform sampler2D u_history;
 out vec4 fragColor;
@@ -95,11 +97,30 @@ void main() {
         col += vec3(1.30, 0.80, 0.40) * edge * 1.2;
     }
 
-    // Central core — bright disc that pulses on bass + always-on glow so
-    // the eye has somewhere to land at idle.
+    // Central core — bright disc that pulses on bass AND on keyboard input
+    // so a held chord visibly inflates the centre.
     {
-        float core = smoothstep(0.06 + 0.04 * u_audio_bass, 0.0, r);
-        col += vec3(1.30, 0.85, 0.50) * core * (0.45 + 0.55 * u_audio_bass);
+        float anyKey = 0.0;
+        for (int i = 0; i < 9; i++) anyKey = max(anyKey, u_keys[i]);
+        float core = smoothstep(0.06 + 0.04 * u_audio_bass + 0.05 * anyKey, 0.0, r);
+        col += vec3(1.30, 0.85, 0.50) * core
+               * (0.45 + 0.55 * u_audio_bass + 0.6 * anyKey);
+    }
+
+    // Per-key spikes on the gear's outer edge — every held key adds a small
+    // bright tooth at its angular position, making the gear visibly grow
+    // teeth when chords play.
+    {
+        for (int i = 0; i < 9; i++) {
+            float fi = float(i);
+            float keyAng = -PI + 0.35 + (fi / 8.0) * (TAU - 0.7);
+            float ang = atan(p.y, p.x);
+            float aD = abs(atan(sin(keyAng - ang), cos(keyAng - ang)));
+            float spike = smoothstep(0.06, 0.0, aD)
+                        * smoothstep(0.018, 0.005, abs(r - 0.36))
+                        * u_keys[i] * 1.4;
+            col += vec3(1.30, 0.80, 0.40) * spike;
+        }
     }
 
     // Hi-hat sparkle — small dots at 16 fixed angles, gated on high band.
