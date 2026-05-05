@@ -35,7 +35,12 @@ notes: |
 duration: 223
 audio: audio.mp3
 audio_features: [beat, sections, key]
-time_source: audio
+# DELIBERATELY no `time_source: audio` — that pin would freeze u_time
+# whenever audio is paused (idle, before first user gesture, between
+# tracks), making the kaleidoscope appear "broken / frozen". With the
+# default wall-clock u_time, the piece self-plays at idle and the
+# song-level uniforms (u_section_progress, u_downbeat, u_audio_time)
+# still sync via audioEl.currentTime once audio starts.
 layers:
   - layer: solid-warm
     blend: normal

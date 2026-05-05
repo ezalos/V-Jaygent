@@ -51,11 +51,13 @@ void main() {
     vec2 mouseW = vjMouseWorldOrZero(u_mouse, u_resolution);
     p -= mouseW * 0.7;
 
-    // Bass-driven radial zoom. Bass present → pull in; quiet → push out.
-    // u_audio_kick adds a one-frame snap on the kick for a visible downbeat
-    // shudder. This is a GEOMETRY driver (bass→position), not a brightness
-    // multiplier — passes the bass→movement probe.
-    float zoom = 1.0
+    // Bass-driven radial zoom + a slow breathing component so the piece
+    // moves at idle. Bass present → pull in; quiet → push out. u_audio_kick
+    // adds a one-frame snap on the kick. This is a GEOMETRY driver
+    // (bass → position), not a brightness multiplier — passes the
+    // bass → movement probe.
+    float zoomIdle = 0.04 * sin(u_time * 0.31);
+    float zoom = 1.0 + zoomIdle
                - 0.18 * u_audio_bass
                - 0.08 * u_audio_kick;
     p *= zoom;
@@ -69,12 +71,15 @@ void main() {
     float xfade       = 1.0 - smoothstep(0.0, 4.0, blendBars);
     float folds       = mix(foldsTarget, foldsPrev, xfade * 0.5);
 
-    // Bar-phase rotation — once around the wedge per bar. Adds a slow
-    // visible turn that's locked to the music.
-    float rot = u_bar_phase * TAU / folds;
+    // Rotation — a continuous slow drift so idle (no audio) still moves,
+    // plus bar-phase locked rotation on top so audio playback adds visible
+    // per-bar turns.
+    float rot = u_time * 0.06
+              + u_bar_phase * TAU / folds;
     // Beat-phase micro-snap — at the very start of each beat (phase < 0.07)
     // the rotation jumps an extra eighth of a wedge then eases back. Reads
-    // as a visible per-beat step.
+    // as a visible per-beat step. Zero contribution when no analysis JSON
+    // is present (u_beat_phase stays 0).
     rot += smoothstep(0.07, 0.0, u_beat_phase) * (TAU / folds * 0.18);
 
     // Apply the kaleidoscope. Output coordinate is the de-folded position

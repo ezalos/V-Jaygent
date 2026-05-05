@@ -485,11 +485,18 @@ function render() {
     fpsEl.textContent = line;
   }
 
-  // If the piece is audio-driven and audio is playing, advance time from the
-  // audio clock so the visual is reproducible against the track's timeline.
+  // If the piece is audio-driven and audio is ACTUALLY PLAYING, advance
+  // u_time from the audio clock so visuals reproduce against the track.
+  // When audio is paused (idle, between tracks, before first user gesture),
+  // fall back to the wall clock so the piece self-plays — pinning u_time
+  // to a paused audioEl.currentTime would freeze the visual entirely.
+  // Song-level uniforms (u_audio_time, u_section_progress, u_downbeat, ...)
+  // still sample from audioEl.currentTime via audio-analysis.mjs, so audio-
+  // event sync is preserved when playback resumes.
   const useAudioTime = currentMeta?.audio
                     && (currentMeta?.time_source ?? 'audio') === 'audio'
-                    && audioEl;
+                    && audioEl
+                    && audioPlaying;
   const now = useAudioTime
     ? audioEl.currentTime
     : (performance.now() - startTime) / 1000;
