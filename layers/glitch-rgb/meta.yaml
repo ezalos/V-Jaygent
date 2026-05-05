@@ -1,0 +1,9 @@
+name: glitch-rgb
+identity: "section-transition glitch — block displacement + RGB shift on u_below"
+default_blend: replace
+uniforms: {}
+reads:
+  - u_below
+  - u_history
+publishes: []
+consumes: []

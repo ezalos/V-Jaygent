@@ -1,0 +1,9 @@
+name: black-holes
+identity: "4 + cursor moving wells gravitationally lens u_below"
+default_blend: replace
+uniforms: {}
+reads:
+  - u_below
+  - u_history
+publishes: []
+consumes: []

@@ -3,74 +3,73 @@ slug: stronger
 created: 2026-05-05T23:55:00.000Z
 keyboard_synth: true
 notes: |
-  Daft Punk — *Harder, Better, Faster, Stronger*. v5: five layers,
-  three input channels, real physics in the middle.
+  Daft Punk — *Harder, Better, Faster, Stronger*. v6: 7 layers,
+  three input channels, real physics + black holes + glitch.
+  Press Shift+H for the full controls panel.
 
-  ► Press space to play. Move the cursor — gear centre follows.
-    Hold a..l (white) and w e t y u o (black) to play notes
-    through the reverb synth and fire matching radial beams. Press
-    z / x to drop / raise the synth one octave.
+  Layer stack (bottom → top), each with its own role + inputs:
 
-  Layer stack (bottom → top), each independently driven:
+  1. solid-warm       slow warm gradient base. no inputs.
+  2. lodestone-pull   3 orbiting masses publishing a vec2 `force`
+                      field. alpha 0 — invisible, only the data
+                      reaches downstream consumers. bass scales.
+  3. flow-particles   consumes `force`, advects sparse particles
+                      via 4-step semi-Lagrangian integration of
+                      u_history. spawns scale with bass + held
+                      keys. downbeat fires a centre burst.
+  4. mirror-bloom     segmented gear + central core. cursor →
+                      centre. bass + kick → scale. bar phase →
+                      rotation. beat phase → tooth-snap. downbeat
+                      → expanding ring. section → tooth count
+                      cycle 8/12/16. white keys grow inner teeth,
+                      black keys grow outer-ring teeth, any key
+                      inflates core. hi-hat sparkle dots. palette
+                      amber → ember → wine across u_song_progress.
+  5. black-holes      4 + cursor gravitational wells lensing
+                      u_below (everything beneath). dark cores
+                      with bright accretion-disc rims. downbeat
+                      pulses inflate the dark zones briefly.
+  6. glitch-rgb       section-transition glitch — first 8% of
+                      each new section breaks the image into
+                      block-displaced rows with per-channel RGB
+                      shift, scan-line tearing, and drop-frame
+                      artifacts. quiet during steady sections.
+                      mild downbeat glitches at 45% intensity.
+  7. key-rays         15 radial beams (9 white + 6 black) on top
+                      of the whole composition. held key sustains
+                      a glow ray; pressing fires an inward spear.
 
-    1. solid-warm       Slow warm gradient base. No inputs.
+  Interactions and couplings:
+    lodestone-pull → flow-particles (publish/consume `force`)
+    flow-particles → u_history (own state for advection)
+    mirror-bloom   → u_below (sees particles beneath); reads
+                     cursor + audio + keys
+    black-holes    → u_below (lenses gear + particles); cursor
+                     drags the 5th well
+    glitch-rgb     → u_below (post-processes everything below
+                     it); fires only on section transitions
+    key-rays       → u_below (sees the lensed/glitched
+                     composition); 15 keys drive
+    All layers share the engine's u_history feedback loop.
 
-    2. lodestone-pull   Three orbiting masses publishing a vec2
-                        force field (alpha 0 — invisible to the
-                        compositor; only the rg-encoded force
-                        reaches downstream consumers). Bass
-                        modulates field strength.
+  Three input channels:
+    cursor    → mirror-bloom centre + black-holes 5th well
+    keyboard  → flow-particles spawn, mirror-bloom teeth + core,
+                key-rays beams. 4 instruments, ±2 octaves, looper.
+    audio     → lodestone-pull strength, flow-particles bass,
+                mirror-bloom rotation/scale/palette/rings,
+                black-holes downbeat pulse, glitch-rgb section
+                transitions
 
-    3. flow-particles   Real physics. Consumes the force, advects
-                        sparse hash-spawned particles via 4-step
-                        semi-Lagrangian integration of u_history.
-                        Each frame: particles get pulled along
-                        the field lines toward the masses; new
-                        ones spawn at hash positions; decay 0.86
-                        per step. Held keys + bass inflate spawn
-                        density. Downbeat fires an expanding
-                        spawn burst from centre.
+  Polyrhythmic clocks: u_time (gear baseline, hole orbits,
+  particle hash drift), u_bar_phase (gear rotation), u_beat_phase
+  (tooth snap), u_downbeat (concentric pulse + particle burst +
+  hole inflation + mild glitch), u_section_progress (glitch
+  intensity gate), u_section_id (tooth-count cycle, palette
+  selector), u_song_progress (palette ramp), per-key envelopes
+  (15 channels of beam + tooth + spawn density).
 
-    4. mirror-bloom     Segmented gear + central core +
-                        concentric pulse rings. Cursor moves
-                        centre. Bass + kick scale. Bar phase
-                        rotates. Beat phase tooth-snaps. Downbeat
-                        rings. Section cycles tooth count
-                        (8/12/16). Held white keys grow teeth on
-                        the inner gear; held black keys grow
-                        teeth on a second outer ring; any key
-                        inflates the core. Hi-hat sparkle dots.
-
-    5. key-rays         15 radial beams (9 white at integer
-                        positions, 6 black at half-positions
-                        between adjacent whites). Held key
-                        sustains a glow ray; pressing fires a
-                        bright spear inward from the screen edge.
-                        Black keys are tighter beams in slightly
-                        cooler tints.
-
-  Coupling:
-    lodestone-pull → flow-particles via publish/consume of `force`
-    flow-particles → u_history (own state) for advection memory
-    mirror-bloom   → reads u_below (sees the particle layer
-                     beneath it); cursor + audio + keys drive it
-    key-rays       → reads u_below (sees the gear); keys drive it
-    All layers share u_history at the top via the engine's final
-    history-feedback texture.
-
-  Input channels:
-    cursor    → mirror-bloom centre
-    keyboard  → flow-particles spawn density, mirror-bloom teeth +
-                core inflation, key-rays beams (15 keys + octave shift)
-    audio     → lodestone-pull strength, flow-particles bass spawn,
-                mirror-bloom rotation/scale/palette/rings, all song-
-                level uniforms
-
-  Polyrhythmic clocks: u_time (gear baseline, particle hash drift),
-  u_bar_phase (gear rotation), u_beat_phase (tooth snap),
-  u_downbeat (concentric pulse + particle burst), u_section_id
-  (tooth-count cycle), u_song_progress (palette), per-key envelopes
-  (15 channels of beam + tooth + spawn).
+  Press Shift+H for the controls panel.
 duration: 223
 audio: audio.mp3
 audio_features: [beat, sections, key]
@@ -88,5 +87,9 @@ layers:
       u_force: force
   - layer: mirror-bloom
     blend: max
+  - layer: black-holes
+    blend: replace
+  - layer: glitch-rgb
+    blend: replace
   - layer: key-rays
     blend: max

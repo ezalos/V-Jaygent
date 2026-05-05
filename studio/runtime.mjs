@@ -339,13 +339,27 @@ window.addEventListener('keydown', (e) => {
   // declares keyboard_synth: true. Lowercase a..l with no modifier keys
   // strikes a note; suppresses the existing h/c single-letter shortcuts
   // (HUD/catalog) for those pieces. Other shortcuts still work.
+  // Shift+H — full controls panel. Highest priority so it works on any piece.
+  if ((e.key === 'H' || (e.key === 'h' && e.shiftKey))) {
+    toggleHelpPanel();
+    e.preventDefault();
+    return;
+  }
+
   if (pieceWantsKeyboardSynth() && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
     const synth = ensureKeyboardSynth();
     if (synth) {
-      // z / x — octave shift down/up by 12 semitones. Discrete events,
-      // ignore OS-repeat (already filtered above by `e.repeat` early-out).
-      if (e.key === 'z') { synth.shiftOctave(-12); e.preventDefault(); return; }
-      if (e.key === 'x') { synth.shiftOctave(+12); e.preventDefault(); return; }
+      // z / x — octave shift down/up by 12 semitones.
+      if (e.key === 'z') { synth.shiftOctave(-12); refreshHelpState(); e.preventDefault(); return; }
+      if (e.key === 'x') { synth.shiftOctave(+12); refreshHelpState(); e.preventDefault(); return; }
+      // 1/2/3/4 — instrument preset.
+      if (e.key === '1') { synth.setInstrument('organ'); refreshHelpState(); e.preventDefault(); return; }
+      if (e.key === '2') { synth.setInstrument('pluck'); refreshHelpState(); e.preventDefault(); return; }
+      if (e.key === '3') { synth.setInstrument('pad');   refreshHelpState(); e.preventDefault(); return; }
+      if (e.key === '4') { synth.setInstrument('bell');  refreshHelpState(); e.preventDefault(); return; }
+      // Looper: [ cycles state, ] clears.
+      if (e.key === '[') { synth.toggleLooper(); refreshHelpState(); e.preventDefault(); return; }
+      if (e.key === ']') { synth.clearLooper();  refreshHelpState(); e.preventDefault(); return; }
       // Note key (white or black).
       if (synth.keyToMidi[e.key] !== undefined) {
         synth.startNote(e.key);
@@ -357,9 +371,9 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight') { cycle(+1); e.preventDefault(); }
   else if (e.key === 'ArrowLeft') { cycle(-1); e.preventDefault(); }
   else if (e.key === 'r' || e.key === 'R') startTime = performance.now();
-  else if (e.key === 'h' || e.key === 'H') toggleHud();
+  else if (e.key === 'h') toggleHud();
   else if (e.key === 'c' || e.key === 'C') toggleCatalog();
-  else if (e.key === 'Escape') closeCatalog();
+  else if (e.key === 'Escape') { closeCatalog(); closeHelpPanel(); }
   else if (e.key === ' ') {
     // Always preventDefault so space never scrolls the page, even during the
     // boot window where audioEl hasn't attached yet. The browser's sticky
@@ -2051,6 +2065,43 @@ function applyHintForModality() {
   } else {
     hintEl.textContent = '← →  next/prev     c  catalog     space  play/pause     drag bottom bar  scrub     r  reset time     h  toggle hud';
     hintEl.classList.remove('hidden');
+  }
+}
+
+// Help panel — Shift+H. Reveals the keyboard-synth row only when the
+// current piece declares keyboard_synth.
+const helpPanelEl  = document.getElementById('help-panel');
+const helpInstrEl  = document.getElementById('help-instr');
+const helpOctEl    = document.getElementById('help-oct');
+const helpLoopEl   = document.getElementById('help-loop');
+const helpKbdSection = document.querySelector('.help-keyboard');
+function toggleHelpPanel() {
+  if (!helpPanelEl) return;
+  const wasHidden = helpPanelEl.classList.contains('hidden');
+  if (wasHidden) {
+    if (helpKbdSection) {
+      helpKbdSection.classList.toggle('hidden', !pieceWantsKeyboardSynth());
+    }
+    refreshHelpState();
+    helpPanelEl.classList.remove('hidden');
+  } else {
+    helpPanelEl.classList.add('hidden');
+  }
+}
+function closeHelpPanel() {
+  helpPanelEl?.classList.add('hidden');
+}
+function refreshHelpState() {
+  if (!helpPanelEl || helpPanelEl.classList.contains('hidden')) return;
+  if (!keyboardSynth) return;
+  if (helpInstrEl) helpInstrEl.textContent = keyboardSynth.getInstrument();
+  if (helpOctEl)   helpOctEl.textContent   = String(keyboardSynth.getOctaveOffset() / 12);
+  if (helpLoopEl) {
+    const state = keyboardSynth.getLooperState();
+    const len = keyboardSynth.getLooperLength();
+    helpLoopEl.textContent = state === 'empty' ? 'empty'
+                          : state === 'recording' ? 'recording...'
+                          : `${state} (${len.toFixed(1)}s)`;
   }
 }
 

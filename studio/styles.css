@@ -100,6 +100,87 @@ body.active .overlay:not(.hidden) { opacity: 1; }
 
 .hidden { display: none !important; }
 
+/* Help panel — Shift+H toggle. Centred, semi-opaque, monospace. Styled to
+   stay legible over busy pieces while not hijacking the eye. */
+.help-panel {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(8, 4, 2, 0.92);
+    color: rgba(255, 230, 200, 0.95);
+    padding: 22px 28px;
+    border: 1px solid rgba(255, 200, 130, 0.25);
+    border-radius: 8px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    max-width: 680px;
+    box-shadow: 0 12px 60px rgba(0, 0, 0, 0.55);
+    pointer-events: auto;
+    z-index: 200;
+    opacity: 1;
+}
+.help-panel .help-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: rgba(255, 200, 130, 0.95);
+    margin-bottom: 12px;
+    letter-spacing: 0.04em;
+}
+.help-panel .help-section {
+    margin-bottom: 14px;
+}
+.help-panel .help-h {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: rgba(255, 180, 110, 0.7);
+    margin-bottom: 6px;
+}
+.help-panel .help-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 3px 0;
+}
+.help-panel .help-row span {
+    color: rgba(255, 230, 200, 0.7);
+    margin-left: 8px;
+}
+.help-panel kbd {
+    display: inline-block;
+    min-width: 22px;
+    padding: 2px 6px;
+    background: rgba(255, 200, 130, 0.15);
+    border: 1px solid rgba(255, 200, 130, 0.30);
+    border-radius: 3px;
+    font-size: 12px;
+    text-align: center;
+    color: rgba(255, 230, 200, 1);
+}
+.help-panel .help-state {
+    display: flex;
+    gap: 18px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(255, 200, 130, 0.20);
+    font-size: 12px;
+    color: rgba(255, 200, 130, 0.85);
+}
+.help-panel .help-state b {
+    color: rgba(255, 240, 220, 1);
+    font-weight: 600;
+}
+.help-panel .help-foot {
+    font-size: 11px;
+    color: rgba(255, 200, 130, 0.45);
+    text-align: right;
+    margin-top: 8px;
+}
+/* Don't hide help-panel when user toggles HUD off — Shift+H is the
+   explicit gesture. */
+body.hud-off .help-panel:not(.hidden) { display: block; }
+
 body.hud-off .overlay:not(#error) { display: none; }
 body.hud-off .fps { display: none; }
 

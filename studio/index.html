@@ -22,7 +22,36 @@
   </div>
 
   <div id="hint" class="overlay hint">
-    ← →  next/prev     c  catalog     space  play/pause     drag bottom bar  scrub     r  reset time     h  toggle hud
+    ← →  next/prev     c  catalog     space  play/pause     drag bottom bar  scrub     r  reset time     h  hud     <b>Shift+H</b>  controls
+  </div>
+
+  <div id="help-panel" class="overlay help-panel hidden">
+    <div class="help-title">controls</div>
+    <div class="help-section">
+      <div class="help-h">studio</div>
+      <div class="help-row"><kbd>←</kbd> <kbd>→</kbd><span>previous / next piece</span></div>
+      <div class="help-row"><kbd>c</kbd><span>catalog</span></div>
+      <div class="help-row"><kbd>space</kbd><span>play / pause audio</span></div>
+      <div class="help-row"><kbd>r</kbd><span>reset time</span></div>
+      <div class="help-row"><kbd>h</kbd><span>toggle HUD (fps + audio bar)</span></div>
+      <div class="help-row"><kbd>Shift+H</kbd><span>this panel</span></div>
+      <div class="help-row"><kbd>Esc</kbd><span>close panel / catalog</span></div>
+    </div>
+    <div class="help-section help-keyboard hidden">
+      <div class="help-h">keyboard synth (this piece)</div>
+      <div class="help-row"><kbd>a</kbd><kbd>s</kbd><kbd>d</kbd><kbd>f</kbd><kbd>g</kbd><kbd>h</kbd><kbd>j</kbd><kbd>k</kbd><kbd>l</kbd><span>white keys C4 → D5</span></div>
+      <div class="help-row"><kbd>w</kbd><kbd>e</kbd><kbd>t</kbd><kbd>y</kbd><kbd>u</kbd><kbd>o</kbd><span>black keys C♯ D♯ F♯ G♯ A♯ C♯</span></div>
+      <div class="help-row"><kbd>z</kbd> <kbd>x</kbd><span>octave down / up (±2)</span></div>
+      <div class="help-row"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd><span>instrument: organ / pluck / pad / bell</span></div>
+      <div class="help-row"><kbd>[</kbd><span>looper: record → overdub → play (cycle)</span></div>
+      <div class="help-row"><kbd>]</kbd><span>looper: clear</span></div>
+      <div class="help-state"><span>instr: <b id="help-instr">organ</b></span><span>oct: <b id="help-oct">0</b></span><span>loop: <b id="help-loop">empty</b></span></div>
+    </div>
+    <div class="help-section">
+      <div class="help-h">cursor</div>
+      <div class="help-row"><span>moves piece-specific control (kaleidoscope centre, attractor, ...)</span></div>
+    </div>
+    <div class="help-foot">Shift+H or Esc to close</div>
   </div>
 
   <div id="audio-ui" class="audio-ui hidden">
