@@ -4,8 +4,13 @@
 // ABOUTME: half-life ~140ms (0.92/frame) per TouchDesigner empirical norm.
 precision highp float;
 
-#include "math.glsl"
-#include "noise.glsl"
+// hash21 inlined to dodge a layer-engine compile path issue with #include
+// resolution when 3+ layers stack (root cause TBD).
+float hash21(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+}
 
 uniform vec2  u_resolution;
 uniform float u_time;

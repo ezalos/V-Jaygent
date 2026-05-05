@@ -60,7 +60,16 @@ tbNextEl?.addEventListener('click',    () => { userOverride = true; cycle(+1); }
 tbCatalogEl?.addEventListener('click', () => toggleCatalog());
 tbPlayEl?.addEventListener('click',    () => { if (audioEl) toggleAudio(); });
 
-const gl = canvas.getContext('webgl2', { preserveDrawingBuffer: true, antialias: true });
+// antialias: false because the layer engine renders the final composite via
+// a fullscreen-quad copy from a single-sample FBO; multisampling on the
+// default framebuffer causes blitFramebuffer restrictions and (anecdotally)
+// driver instability on 3+ layer loads.
+const gl = canvas.getContext('webgl2', { preserveDrawingBuffer: true, antialias: false });
+// Force driver init before any shader compile. On a cold-tab load (first GL
+// page in the browser session) chromium sometimes races the first compile
+// against GPU init, producing context loss + null info logs. A trivial
+// gl.getParameter forces the driver to settle before we do real work.
+if (gl) gl.getParameter(gl.MAX_TEXTURE_SIZE);
 if (!gl) {
   showFatal('WebGL2 required.');
   throw new Error('no webgl2');
@@ -81,6 +90,18 @@ let libCache = new Map();
 // Off-screen target formats — resolved lazily per-allocation so `gl.RGBA8` etc.
 // aren't dereferenced before the WebGL2 context exists. Must exist before
 // buildPipeline runs on the first piece load.
+// Layer-engine copy-to-screen source — fullscreen-quad pass that copies a
+// single texture to whatever's currently bound. Replaces blitFramebuffer when
+// the destination is the default framebuffer (which is multisampled with
+// `antialias: true`, and has restrictions on blit operations).
+const LAYER_COPY_FRAG = `#version 300 es
+precision highp float;
+uniform sampler2D u_src;
+out vec4 fragColor;
+void main() {
+    fragColor = texture(u_src, gl_FragCoord.xy / vec2(textureSize(u_src, 0)));
+}`;
+
 // Layer-engine compositor source — used by buildLayerEngine. Lives up here
 // because `await loadCurrent` below runs before the layer-engine section.
 const COMPOSITOR_FRAG = `#version 300 es
@@ -528,8 +549,12 @@ function compileShader(type, source) {
   gl.compileShader(s);
   if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
     const log = gl.getShaderInfoLog(s);
+    // Log the offending source to console as a diagnostic aid — info logs are
+    // sometimes empty when context is lost or the driver chokes silently.
+    console.error('[compileShader] shader source that failed:\n' + source.split('\n').map((l, i) => `${i + 1}: ${l}`).join('\n'));
+    console.error('[compileShader] info log:', JSON.stringify(log));
     gl.deleteShader(s);
-    throw new Error(log || 'shader compile failed');
+    throw new Error(log || 'shader compile failed (empty info log; check console for source)');
   }
   return s;
 }
@@ -1068,6 +1093,8 @@ async function buildLayerEngine(slug, layerSpecs) {
             }
         }
         engine.compositorProgram = buildProgram(COMPOSITOR_FRAG);
+        engine.copyProgram = buildProgram(LAYER_COPY_FRAG);
+        engine.copyUniforms = {};
         allocLayerEngineTargets(engine);
     } catch (err) {
         freeLayerEngine(engine);
@@ -1083,6 +1110,7 @@ function freeLayerEngine(engine) {
         if (layer.program) gl.deleteProgram(layer.program);
     }
     if (engine.compositorProgram) gl.deleteProgram(engine.compositorProgram);
+    if (engine.copyProgram) gl.deleteProgram(engine.copyProgram);
 }
 
 function swapLayerEngine(engine) {
@@ -1280,15 +1308,25 @@ function runLayerEngine(engine, now, audioSample) {
         writeIdx = 1 - engine.accReadIdx;
     }
 
-    // Final accumulator → screen.
-    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, engine.accFbos[engine.accReadIdx]);
-    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    // Final accumulator → screen via fullscreen-quad copy. Avoids
+    // blitFramebuffer's restrictions when the default framebuffer is
+    // multisampled (antialias: true on the canvas).
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.blitFramebuffer(0, 0, w, h, 0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight,
-                       gl.COLOR_BUFFER_BIT, gl.LINEAR);
+    currentProgram = engine.copyProgram;
+    currentUniforms = engine.copyUniforms;
+    gl.useProgram(engine.copyProgram);
+    bindQuadAttrib(engine.copyProgram);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, engine.accTextures[engine.accReadIdx]);
+    const srcLoc = engine.copyUniforms.u_src ??= gl.getUniformLocation(engine.copyProgram, 'u_src');
+    if (srcLoc !== null) gl.uniform1i(srcLoc, 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-    // Final accumulator → history (for next frame's u_history).
+    // Final accumulator → history (single-sample → single-sample, so blit is
+    // safe and the cheapest copy).
     gl.bindFramebuffer(gl.READ_FRAMEBUFFER, engine.accFbos[engine.accReadIdx]);
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, engine.historyFbo);
     gl.blitFramebuffer(0, 0, w, h, 0, 0, w, h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
