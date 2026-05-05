@@ -1,0 +1,57 @@
+title: "stronger"
+slug: stronger
+created: 2026-05-05T23:55:00.000Z
+notes: |
+  Daft Punk — *Harder, Better, Faster, Stronger* (Discovery, 2001).
+  V-Jaygent's first piece taking all the new architecture learnings
+  in one place: layer engine, song-level uniforms (BPM, sections,
+  downbeats, song progress), shared-state coupling, history
+  feedback, polyrhythmic clocks, field-driven visuals.
+
+  Thesis: vocoder filaments rise and fall on a strict bar grid, with
+  a gravitational warm field bending the underlying gradient. The
+  song's mechanical four-on-the-floor + repeated robotic chant maps
+  to vertical streaks that scan the screen on each bar; the song's
+  vocoder maps to the streaks themselves; the song's structural arc
+  (intro → build → drop → repeat) drives density (sparse → dense
+  across u_song_progress) and palette (amber → ember → wine across
+  sections).
+
+  Coupling: 3 layers; lodestone-pull publishes a force field, but
+  it's not directly consumed here — vocoder-streaks reads u_below
+  (the warm gradient already gradient-warped by lodestone-pull's
+  invisible-but-data-rich output) and u_history for streak
+  persistence. The vocoder-streaks layer leans heavily on song-level
+  uniforms (u_bar_phase, u_beat_phase, u_section_progress, u_downbeat,
+  u_to_section_change, u_song_progress) for composition, not just
+  reaction.
+
+  Polyrhythmic clocks across layers:
+    solid-warm:       u_time (slow drift)
+    lodestone-pull:   3 orbital rates (0.13, 0.21, 0.31 cps)
+    vocoder-streaks:  u_bar_phase (1× bar), u_beat_phase (4× bar),
+                      u_song_progress (cross-track density ramp)
+
+  Pre-tension: vocoder-streaks reads u_to_section_change and squeezes
+  vertically (vstretch 1.0 → 2.4 over the last 8 bars before each
+  section boundary), snapping back on the downbeat of the new section.
+  Section colour shifts amber → ember → wine across u_section_id.
+
+  v1 status: not yet through /vjay-iterate. Likely candidates to
+  inspect: section-readability probe (5 frames at section centres),
+  pre-tension probe (30s + 8s before a known drop), long-arc probe
+  (12 evenly-spaced frames should show a density arc).
+duration: 223
+audio: audio.mp3
+audio_features: [beat, sections, key]
+time_source: audio
+layers:
+  - layer: solid-warm
+    blend: normal
+  - layer: lodestone-pull
+    blend: normal
+    alpha: 0.0
+    publishes:
+      force: vec2
+  - layer: vocoder-streaks
+    blend: replace

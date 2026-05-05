@@ -1,0 +1,9 @@
+name: vocoder-streaks
+identity: "vertical filaments synced to bar phase + section state"
+default_blend: replace
+uniforms: {}
+reads:
+  - u_below
+  - u_history
+publishes: []
+consumes: []
