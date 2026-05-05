@@ -3,44 +3,35 @@ slug: stronger
 created: 2026-05-05T23:55:00.000Z
 notes: |
   Daft Punk — *Harder, Better, Faster, Stronger* (Discovery, 2001).
-  V-Jaygent's first piece taking all the new architecture learnings
-  in one place: layer engine, song-level uniforms (BPM, sections,
-  downbeats, song progress), shared-state coupling, history
-  feedback, polyrhythmic clocks, field-driven visuals.
+  v2: rewrote around a kaleidoscope core to land mesmerizing,
+  cursor-interactive, and visibly phase-locked to the music.
 
-  Thesis: vocoder filaments rise and fall on a strict bar grid, with
-  a gravitational warm field bending the underlying gradient. The
-  song's mechanical four-on-the-floor + repeated robotic chant maps
-  to vertical streaks that scan the screen on each bar; the song's
-  vocoder maps to the streaks themselves; the song's structural arc
-  (intro → build → drop → repeat) drives density (sparse → dense
-  across u_song_progress) and palette (amber → ember → wine across
-  sections).
+  Move the cursor — the kaleidoscope's centre follows. Let go and
+  it self-plays.
 
-  Coupling: 3 layers; lodestone-pull publishes a force field, but
-  it's not directly consumed here — vocoder-streaks reads u_below
-  (the warm gradient already gradient-warped by lodestone-pull's
-  invisible-but-data-rich output) and u_history for streak
-  persistence. The vocoder-streaks layer leans heavily on song-level
-  uniforms (u_bar_phase, u_beat_phase, u_section_progress, u_downbeat,
-  u_to_section_change, u_song_progress) for composition, not just
-  reaction.
+  Music coupling (every line is GEOMETRY, not brightness):
+    u_audio_bass         → radial zoom (pull-in on bass)
+    u_audio_kick         → one-frame zoom snap (visible kick anchor)
+    u_bar_phase          → continuous wedge rotation (1 bar = 1 cycle)
+    u_beat_phase         → micro-snap on every beat (rotation jump)
+    u_downbeat           → expanding halo ring (clear bar marker)
+    u_section_id         → fold count cycles 4 → 6 → 8 → 4 ...
+    u_section_progress   → cross-fade between fold counts
+    u_to_section_change  → pre-tension squeeze in last 4 bars
+    u_audio_high         → hi-hat sparkle on the bright ridges
+    u_song_progress      → palette amber → ember → wine across the track
 
-  Polyrhythmic clocks across layers:
-    solid-warm:       u_time (slow drift)
-    lodestone-pull:   3 orbital rates (0.13, 0.21, 0.31 cps)
-    vocoder-streaks:  u_bar_phase (1× bar), u_beat_phase (4× bar),
-                      u_song_progress (cross-track density ramp)
+  Stack:
+    solid-warm     — warm gradient base
+    mirror-bloom   — kaleidoscope (NEW); reads u_below and u_history,
+                     consumes nothing, publishes nothing.
 
-  Pre-tension: vocoder-streaks reads u_to_section_change and squeezes
-  vertically (vstretch 1.0 → 2.4 over the last 8 bars before each
-  section boundary), snapping back on the downbeat of the new section.
-  Section colour shifts amber → ember → wine across u_section_id.
+  This is a 2-layer piece, not 3 — the publish/consume coupling from
+  v1 was over-engineering for what HBFS actually needed (which is
+  hard music coupling + interaction, not invisible physics fields).
 
-  v1 status: not yet through /vjay-iterate. Likely candidates to
-  inspect: section-readability probe (5 frames at section centres),
-  pre-tension probe (30s + 8s before a known drop), long-arc probe
-  (12 evenly-spaced frames should show a density arc).
+  Reverted: lodestone-pull is no longer in the stack (and the layer
+  itself remains in layers/ for future pieces).
 duration: 223
 audio: audio.mp3
 audio_features: [beat, sections, key]
@@ -48,10 +39,5 @@ time_source: audio
 layers:
   - layer: solid-warm
     blend: normal
-  - layer: lodestone-pull
-    blend: normal
-    alpha: 0.0
-    publishes:
-      force: vec2
-  - layer: vocoder-streaks
+  - layer: mirror-bloom
     blend: replace

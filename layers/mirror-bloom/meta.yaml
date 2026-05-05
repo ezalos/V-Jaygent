@@ -1,0 +1,9 @@
+name: mirror-bloom
+identity: "kaleidoscope locked to bar/beat with cursor-driven centre"
+default_blend: replace
+uniforms: {}
+reads:
+  - u_below
+  - u_history
+publishes: []
+consumes: []
