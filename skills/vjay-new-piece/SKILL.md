@@ -45,6 +45,24 @@ brief).
   Include via `#include "<name>.glsl"` — the runtime resolves from `lib/`.
   `ls lib/` at the start of a run if this list looks stale.
 
+- **`layers/` — reusable visual components** (the fourth tier).
+  Each subdirectory is a layer (one fragment shader + one
+  `meta.yaml`) that pieces compose via a `layers:` array in their
+  own meta. `ls layers/` to see what's available — currently:
+  `solid-warm` (warm vertical gradient base), `wave-distort` (sine-
+  displaces `u_below`), `force-source` (publishes a 2D force
+  field), `follow-force` (consumes the force, displaces a warm
+  grid). Read `layers/README.md` for the authoring contract before
+  writing a new layer; read
+  `brainstorming/techniques/layered-composition.md` for the
+  aesthetic principles (coupling not stacking, strata of grain,
+  polyrhythmic clocks).
+
+- **`brainstorming/techniques/using-lib.md` — the engine contract**
+  for layers + the `audio.analysis.json` schema. Read when writing
+  a multi-layer piece or one that uses song-level uniforms
+  (`u_section_*`, `u_downbeat`, `u_audio_*_stem`, `u_key_*`).
+
 Don't skip these. They shape every decision that follows.
 
 ## Observability
@@ -201,6 +219,37 @@ If torn between two forms, pick the one that teaches more (harder
 technique, new territory) — the brainstorming stub still captures
 the road-not-taken for future pieces.
 
+**Architecture choice — monolithic vs layer-stack.** Part of the
+decision: is this piece one shader or a stack of layers? Defaults:
+
+- **Monolithic (single `shader.frag`)** when the piece's identity is
+  ONE coherent field (a Julia set, a curl-noise flow, a kaleidoscope).
+  Simpler. Most existing V-Jaygent pieces are this.
+- **Layer-stack (`layers:` in meta.yaml)** when the piece's identity
+  is *coupling between distinct elements* — a refraction layer
+  distorting a base, a force-field driving particles, a mask-reveal
+  gating a generative ground. 2-4 layers is the sweet spot. See
+  `brainstorming/techniques/layered-composition.md` for the 8 critic
+  probes the piece will be graded against. Pick this when "what makes
+  it mesmerizing" is the *interaction*, not any single element.
+
+If layer-stack: list candidate layers in the brainstorm stub —
+which from `layers/` reuse, which need to be authored fresh
+(piece-local at `pieces/<slug>/layers/<name>/` if one-off, global at
+`layers/<name>/` if reusable). The stub should also declare the
+coupling DAG: which layers read `u_below`, which `publish`, which
+`consume`.
+
+**Audio mode — reactive vs composed.** Same fork. If the piece has
+an audio track AND wants song-level structure (sections, downbeats,
+pre-tension, recapitulation), declare `audio_features:` in
+meta.yaml and run `node bin/analyze-audio.mjs pieces/<slug>/audio.mp3`
+to produce the analysis JSON. The runtime then exposes 18 song-level
+uniforms (`u_section_*`, `u_downbeat`, `u_audio_*_stem`, etc.). See
+`brainstorming/techniques/music-composition.md` for the 6 song-level
+critic probes. Without `audio_features:`, the piece runs on the
+existing FFT-only audio path (no song-level uniforms).
+
 ### 5. Audio
 
 If there's a track:
@@ -274,6 +323,68 @@ If the piece needs state (RD, particle accumulation, trails), scaffold
 with `node bin/new-piece.mjs <slug> --sim` — produces a `sim.frag`
 ping-pong pair plus display shader, with `lib/diffusion.glsl` and
 `lib/noise.glsl` already included.
+
+#### 7-layer. If this is a layer-stack piece
+
+When the decision in step 4 was layer-stack, step 7 splits in two:
+
+**(a) The fallback `shader.frag`** still gets written — a minimal
+shader that displays a clear "broken" tell (e.g. solid red field).
+The runtime uses it only if the layer engine fails to load. It is
+NOT the piece's actual visuals.
+
+**(b) The layer stack itself.** Two sub-cases:
+
+- *Reusing global layers* — list them in `meta.yaml`'s `layers:`
+  array with `blend:` per layer plus optional `uniforms:` /
+  `drivers:` / `publishes:` / `consumes:`. No new shaders authored.
+  Worked example: `pieces/layer-engine-test/` (solid-warm +
+  wave-distort).
+- *Authoring new layers* — for each new layer:
+  - **Piece-local** at `pieces/<slug>/layers/<name>/{shader.frag,meta.yaml}`
+    when one-off, not reusable.
+  - **Global** at `layers/<name>/{shader.frag,meta.yaml}` when ≥2
+    pieces would use it (the same rule as `lib/` extraction —
+    don't pre-generalize).
+  - Read `layers/README.md` for the authoring contract: required
+    behaviours (frame-0 fallback, no-`u_below`-beneath fallback,
+    idle-cell self-play), engine-provided uniforms, blend-mode
+    selection guide.
+  - The layer's GLSL receives `u_below` (composited buffer of
+    layers beneath; clear color at bottom of stack), `u_history`
+    (last frame's final composite; clear color on frame 0), all
+    `u_audio_*` uniforms, and any `consumes:` samplers bound to
+    upstream layers' outputs.
+
+The piece's `meta.yaml` declares the layer stack:
+
+```yaml
+title: <descriptive>
+slug: <slug>
+audio: audio.mp3
+audio_features: [beat, sections, stems.bass, stems.vocals]   # opt in to song-level uniforms
+duration: 240
+layers:
+  - layer: <name>          # global or piece-local
+    blend: normal          # normal | add | screen | multiply | max | replace
+    uniforms: { foo: 0.5 } # static per-piece values (override layer's defaults)
+    drivers: { foo: u_audio_bass_stem }   # bind layer uniform to engine value
+    publishes: { force: vec2 }            # if this layer publishes shared state
+    consumes: { u_force: force }          # if this layer reads upstream's shared state
+```
+
+Validation runs at piece-load time:
+- Every `consumes:` reference must point to a `publishes:` from an
+  EARLIER layer. Forward references are an engine error.
+- Every layer name must resolve to either
+  `pieces/<slug>/layers/<name>/` (piece-local, wins) or
+  `layers/<name>/` (global fallback). Missing → engine error.
+
+Critic probes that gate this piece's verdict (taste.md §"Layered
+coupling"; threshold 6/8 to claim "layered composition"):
+spatial-coupling, polyrhythm-of-clocks, eye-distribution,
+quiet-survives, order-meaningfulness, blend-saturation,
+coupling-cost, brightness-strobe.
 
 ### 7b. Mobile / touch sanity
 
