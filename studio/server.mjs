@@ -84,7 +84,7 @@ async function handle(req, res, { piecesRoot, libRoot, studioDir, stats, statsTo
   if (path === '/api/catalog')       return apiCatalog(res, piecesRoot);
   if (path === '/api/current')       return apiCurrent(res, piecesRoot);
 
-  const pieceMatch = path.match(/^\/api\/pieces\/([^/]+)\/(shader\.frag|meta|mtime)$/);
+  const pieceMatch = path.match(/^\/api\/pieces\/([^/]+)\/(shader\.frag|meta|mtime|analysis)$/);
   if (pieceMatch) {
     const slug = decodeURIComponent(pieceMatch[1]);
     const part = pieceMatch[2];
@@ -188,6 +188,14 @@ async function apiPiecePart(res, piecesRoot, libRoot, slug, part) {
     const mtime = await pieceMtime(pieceDir, libRoot);
     if (mtime === null) return send(res, 404, 'text/plain', 'not found');
     return sendJson(res, 200, { mtime });
+  }
+
+  if (part === 'analysis') {
+    // audio.analysis.json — produced by bin/analyze-audio.mjs. Optional;
+    // 404 if missing means the runtime falls back to FFT-only audio.
+    const body = await readFile(join(pieceDir, 'audio.analysis.json')).catch(() => null);
+    if (body === null) return send(res, 404, 'text/plain', 'not found');
+    return send(res, 200, 'application/json; charset=utf-8', body);
   }
 }
 

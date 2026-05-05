@@ -3,6 +3,7 @@
 
 import { createBilliards } from './billiards.mjs';
 import { createGestureTracker } from './gestures.mjs';
+import * as audioAnalysis from './audio-analysis.mjs';
 
 const VERT = `#version 300 es
 in vec2 a_pos;
@@ -92,6 +93,11 @@ let currentPipeline = null;
 let currentSlug = null;
 let currentMeta = null;
 let currentMtime = 0;
+// Song-level audio analysis (audio.analysis.json). null = piece has no
+// analysis; runtime falls back to FFT-only audio. Replaced on piece load.
+let currentAnalysis = null;
+let analysisSampleState = audioAnalysis.createSampleState();
+let lastAnalysisSampleT = performance.now();
 let startTime = performance.now();
 let frameCount = 0;
 let mouse = [0, 0];
@@ -783,10 +789,36 @@ function setStandardUniforms(vw, vh, now) {
                                            audioOnsets.mid.pulse,
                                            audioOnsets.high.pulse));
   setUniform1f('u_audio_playing', audioPlaying ? 1.0 : 0.0);
-  setUniform1f('u_audio_time',
-    audioEl ? audioEl.currentTime :
-    liveStream ? now :
-    0.0);
+  const audioT = audioEl ? audioEl.currentTime :
+                 liveStream ? now :
+                 0.0;
+  setUniform1f('u_audio_time', audioT);
+
+  // Song-level uniforms from audio.analysis.json. Zeroed when no analysis
+  // is loaded, so monolithic-FFT pieces stay backward-compatible.
+  const nowMs = performance.now();
+  const dtAnalysis = Math.max(0, (nowMs - lastAnalysisSampleT) / 1000);
+  lastAnalysisSampleT = nowMs;
+  const aSample = audioAnalysis.sample(currentAnalysis, audioT, analysisSampleState, dtAnalysis);
+  setUniform1f('u_bpm',                aSample.u_bpm);
+  setUniform1f('u_beat_phase',         aSample.u_beat_phase);
+  setUniform1f('u_bar_phase',          aSample.u_bar_phase);
+  setUniform1i('u_beat_index',         aSample.u_beat_index);
+  setUniform1i('u_bar_index',          aSample.u_bar_index);
+  setUniform1f('u_downbeat',           aSample.u_downbeat);
+  setUniform1i('u_section_id',         aSample.u_section_id);
+  setUniform1i('u_section_label',      aSample.u_section_label);
+  setUniform1f('u_section_progress',   aSample.u_section_progress);
+  setUniform1f('u_to_section_change',  aSample.u_to_section_change);
+  setUniform1f('u_song_progress',      aSample.u_song_progress);
+  setUniform1f('u_energy_smooth',      aSample.u_energy_smooth);
+  setUniform1f('u_audio_bass_stem',    aSample.u_audio_bass_stem);
+  setUniform1f('u_audio_drums_stem',   aSample.u_audio_drums_stem);
+  setUniform1f('u_audio_other_stem',   aSample.u_audio_other_stem);
+  setUniform1f('u_audio_vocals_stem',  aSample.u_audio_vocals_stem);
+  setUniform1i('u_key_tonic',          aSample.u_key_tonic);
+  setUniform1i('u_key_mode',           aSample.u_key_mode);
+
   setUniform1f('u_zoom',      gestures.getZoom());
   const _pan = gestures.getPan();
   setUniform2f('u_pan',       _pan[0], _pan[1]);
@@ -826,10 +858,11 @@ async function fetchCurrentSlug() {
 
 async function loadPiece(slug) {
   try {
-    const [fragRes, metaRes, mtimeRes] = await Promise.all([
+    const [fragRes, metaRes, mtimeRes, analysisRes] = await Promise.all([
       fetch(`/api/pieces/${slug}/shader.frag`),
       fetch(`/api/pieces/${slug}/meta`),
       fetch(`/api/pieces/${slug}/mtime`),
+      fetch(`/api/pieces/${slug}/analysis`),  // 404 = piece has no audio.analysis.json; falls back to FFT-only audio
     ]);
     if (!fragRes.ok || !metaRes.ok || !mtimeRes.ok) {
       throw new Error(`piece ${slug} not found`);
@@ -837,6 +870,17 @@ async function loadPiece(slug) {
     const frag = await fragRes.text();
     const meta = await metaRes.json();
     const { mtime } = await mtimeRes.json();
+
+    // Audio analysis is optional. 404 → null; the runtime emits zeroed
+    // song-level uniforms so pieces without analysis JSON still compile.
+    if (analysisRes.ok) {
+      const json = await analysisRes.json().catch(() => null);
+      currentAnalysis = audioAnalysis.parse(json);
+      if (!currentAnalysis) console.warn(`[loadPiece] ${slug} has audio.analysis.json but it failed to parse`);
+    } else {
+      currentAnalysis = null;
+    }
+    analysisSampleState = audioAnalysis.createSampleState();
 
     // Drop any cached lib sources so edits to lib/*.glsl propagate. The cache
     // persists within a single compile (dedupes repeated #include of the same
