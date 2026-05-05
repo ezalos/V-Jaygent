@@ -36,6 +36,11 @@ brief).
     `vjMouseWorldOrZero`, `vjRadialZoom`, `vjCursorHeat` (canonical
     cursor handling — prefer these over re-deriving the aspect-
     corrected world-mouse calculation or a bespoke idle check)
+  - `lib/blend.glsl` — `blend_normal`, `blend_add`, `blend_screen`,
+    `blend_multiply`, `blend_max`, `blend_replace` (canonical
+    Photoshop-family blend modes for layered pieces compositing onto
+    `u_below`; see `brainstorming/techniques/layered-composition.md`
+    for warm-palette behaviour analysis)
 
   Include via `#include "<name>.glsl"` — the runtime resolves from `lib/`.
   `ls lib/` at the start of a run if this list looks stale.

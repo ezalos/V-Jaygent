@@ -269,6 +269,67 @@ Check the shader for whether `iTime` is scaled differently in
 different terms, or whether one animation drives all channels.
 Touches Motion and Depth.
 
+**Layered coupling.** When a piece declares `layers:` in its
+`meta.yaml`, layers must *interact*, not just stack. The failure
+mode: three warm fbm fields blended together — same content as a
+single shader, just three times the cost. Layered composition is
+non-alignment in space, time, and reading-rate, plus enough coupling
+that the next two seconds aren't predictable. Touches Composition,
+Motion, and Depth.
+
+*Layered-composition probes (from
+`brainstorming/techniques/layered-composition.md`). Run on pieces
+that declare a layer stack — `meta.yaml` has a `layers:` array. A
+piece must pass 6/8 to claim "layered composition"; 4/8 or fewer
+and the layer-stack architecture isn't doing work the piece couldn't
+do in a single shader.*
+
+1. **Spatial-coupling probe.** Read the layer manifest. Does at
+   least one layer declare `u_below` or a `consume:` channel, AND
+   use the consumed value in a coordinate / UV / position (geometric
+   use), not just a colour multiplier (decorative)? Mental
+   visualisation: zero out that layer's `u_below` term — would
+   pixels beneath move to a different place? *Fail if no, pass if
+   yes.* Shader-verdict.
+2. **Polyrhythm-of-clocks probe.** Count distinct clock sources
+   across the stack from `{u_time, u_beat_phase, u_bar_phase,
+   u_section_progress, u_audio_bass, u_audio_mid, u_audio_high,
+   u_audio_*_stem, u_downbeat, u_mouse}`. *Fail if all layers share
+   one clock; weak if 2; pass if ≥ 3 distinct clocks across ≤ 4
+   layers.* Shader-verdict.
+3. **Eye-distribution probe.** From the captured frames, estimate
+   the dominance map per pixel. *Fail if 1 region (one layer
+   dominates) or 8+ small regions (chaotic); pass if 2-4 regions
+   per frame, ideally migrating across captured frames.* Frame-
+   verdict.
+4. **Quiet-survives probe.** Mentally zero out the loudest single
+   layer for ~10s. Do remaining layers still pass eye-landing and
+   prediction? *Fail if removing the lead leaves a flat substrate
+   (monolithic-with-a-flash); pass if the rest still composes.*
+   Shader-verdict on the layer manifest.
+5. **Order-meaningfulness probe.** Mentally swap declaration order
+   of two non-adjacent layers. Would the composite change
+   meaningfully? *Fail if near-identical (z-order chaos); pass if
+   visibly broken.* Shader-verdict.
+6. **Blend-saturation probe.** From a peak-energy frame, sample
+   mean luminance and per-channel range. *Fail if mean L > 0.7 AND
+   max-min channel range < 0.1 (cream soup); pass if luminance
+   contrast ≥ 0.3 within frame.* Frame-verdict.
+7. **Coupling-cost probe.** Count edges in the coupling DAG (each
+   `u_below` read = 1; each `consume` = 1; each `u_history` self-
+   loop = 0.5). *Pass if 1.0 ≤ edges/N ≤ 1.5 (sparsely meaningful);
+   fail if 0 (independent stack) or ≥ 2N (over-coupled).* Manifest-
+   verdict.
+8. **Brightness-strobe probe.** Grep layer shaders for audio-on-
+   brightness expressions (FAIL shapes from Music probe 1). *Fail
+   if ≥ 2 of N layers have brightness-shaped audio bindings (per-
+   layer blink); pass if ≤ 1 layer does.* Shader-verdict.
+
+See `brainstorming/techniques/layered-composition.md` for the
+artists, coupling recipes (refraction, advection, force-field,
+mask-reveal, feedback, SDF intersection), blend-mode analysis on
+warm palettes, polyrhythmic clocks, and the 9 anti-patterns.
+
 ## Dimensions
 
 ### 1. Palette cohesion

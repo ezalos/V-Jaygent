@@ -198,11 +198,21 @@ the eye, not the checklist.
    Grounds the four Music probes (see taste.md §"VJ lenses /
    Interaction agency / Music probes"). Skip it for silent pieces.
 
-9. Each of the 4 frames at
-   /home/ezalos/42/V-Jaygent/pieces/<slug>/inspect/frame-*.png
-   Actually look. Your observations must cite specific frame numbers.
+9. /home/ezalos/42/V-Jaygent/brainstorming/techniques/layered-composition.md
+   READ THIS if the piece declares a layer stack (`meta.yaml` has a
+   `layers:` array). It holds the eight Layered-composition probes,
+   the coupling recipes (refraction, advection, force-field, mask-
+   reveal, feedback, SDF intersection), the blend-mode analysis for
+   warm palettes, polyrhythmic clocks across layers, and the nine
+   anti-patterns. Grounds the Layered-composition probes (see
+   taste.md §"VJ lenses / Layered coupling"). Skip it for monolithic
+   single-shader pieces.
 
-10. Any previous critique at
+10. Each of the 4 frames at
+    /home/ezalos/42/V-Jaygent/pieces/<slug>/inspect/frame-*.png
+    Actually look. Your observations must cite specific frame numbers.
+
+11. Any previous critique at
     /home/ezalos/42/V-Jaygent/brainstorming/critiques/<slug>-v*.md
     So you know what has already been tried and don't re-propose it.
 
@@ -343,6 +353,55 @@ A shader with `pulseSpeed = 0.70 + 0.55*bass`, `rimR = 1.05 -
 Bass→movement — each replaces bass with a constant and shapes
 visibly shift.
 
+## Layered composition probes
+
+**Run this section only if the piece declares a layer stack** (a
+`layers:` array in `meta.yaml`). Otherwise, write "Not applicable —
+piece is a single-shader monolithic piece" and skip to Claim check.
+
+The eight probes live in `taste.md` §"VJ lenses / Layered coupling"
+and `brainstorming/techniques/layered-composition.md` — read those
+first so your verdicts reference the same criteria the author will.
+
+Probes 1, 2, 4, 5, 7, 8 are primarily shader/manifest-structure
+checks — read each layer's `meta.yaml` block and `.frag`, walk the
+coupling DAG. Cite the specific layer name, line, or driver
+binding. Mark `shader-pass` / `shader-fail` / `shader-unclear`.
+Probes 3 and 6 are frame-driven — judge from the captured frames.
+
+| Probe                  | Verdict                                 | Why                                                       |
+|------------------------|-----------------------------------------|-----------------------------------------------------------|
+| Spatial-coupling       | pass/fail/weak/shader-*                 | ≥1 layer reads `u_below`/`consume` and uses it geometrically |
+| Polyrhythm-of-clocks   | pass/fail/weak/shader-*                 | ≥3 distinct clock sources across ≤4 layers               |
+| Eye-distribution       | pass/fail/weak                          | 2-4 dominance regions per frame, migrating across frames |
+| Quiet-survives         | pass/fail/weak/shader-*                 | muting the loudest layer leaves a piece that still composes |
+| Order-meaningfulness   | pass/fail/weak/shader-*                 | swapping two layers produces a visibly different composite |
+| Blend-saturation       | pass/fail/weak                          | peak frame avoids cream-soup (mean L > 0.7 ∧ range < 0.1) |
+| Coupling-cost          | pass/fail/weak/shader-*                 | 1.0 ≤ edges/N ≤ 1.5 (sparsely meaningfully coupled)      |
+| Brightness-strobe      | pass/fail/weak/shader-*                 | ≤1 of N layers binds audio to brightness (no per-layer blink) |
+
+Count passes (counting `shader-pass` as pass). Record
+`layered_passes: N/8` in the YAML tail. 4/8 or fewer and the layer-
+stack architecture isn't doing work the piece couldn't do in a
+single shader — `top_fix` must address layer coupling, regardless
+of other probe results, unless the piece can simply drop the layer
+declaration and consolidate into a monolithic shader.
+
+Critical reading-order for the manifest: dependencies are declared
+top-down in `meta.yaml` but render bottom-up. A layer's `consume:`
+binding MUST refer to a `publish:` from a layer earlier in the
+declaration order. If you find a forward reference, that's an
+engine-level error the piece can't possibly run with — flag it as
+`shader-fail` on Order-meaningfulness with the specific layers cited.
+
+The "decorative coupling" failure mode (anti-pattern 5) is the
+hardest to catch: a layer reads `u_below` but the read is colour-
+only (`fragColor.rgb = u_below.rgb * 0.9 + ownColor`). That's not
+spatial coupling. Spatial coupling means `u_below` is sampled at
+*displaced UVs* — `texture(u_below, vUv + warp)` — and the
+displacement is non-trivial (driven by the layer's own field, not
+just by `u_time`).
+
 ## Claim check
 
 Pass or fail. One paragraph. Does the piece deliver what it claimed
@@ -381,8 +440,10 @@ Number 1 is the most important fix. Priority order:
    reactivity) → interaction fix is #1.
 4. Else, 2/4 or fewer music probes (if piece claims audio
    reactivity) → music fix is #1.
-5. Else, dimension scores below 3 → #1 raises the lowest.
-6. Else, polish toward chef d'oeuvre.
+5. Else, 4/8 or fewer layered-composition probes (if piece declares
+   a layer stack) → layer-coupling fix is #1.
+6. Else, dimension scores below 3 → #1 raises the lowest.
+7. Else, polish toward chef d'oeuvre.
 
 ## Verdict
 
@@ -436,6 +497,16 @@ music_probes:                             # omit entirely if n/a
   bass_movement:         <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
   rhythm_in_stills:      <pass|fail|weak>
   quiet_reads_quiet:     <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+layered_passes: <0-8 or "n/a">            # n/a if piece is monolithic (no `layers:` in meta.yaml)
+layered_probes:                           # omit entirely if n/a
+  spatial_coupling:      <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+  polyrhythm_of_clocks:  <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+  eye_distribution:      <pass|fail|weak>
+  quiet_survives:        <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+  order_meaningfulness:  <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+  blend_saturation:      <pass|fail|weak>
+  coupling_cost:         <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+  brightness_strobe:     <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
 scores:
   palette_cohesion: <1-5>
   composition: <1-5>
