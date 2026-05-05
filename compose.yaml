@@ -25,6 +25,10 @@ services:
       # needing an image rebuild. See brainstorming/techniques/using-lib.md
       # and skills/vjay-study/SKILL.md §"lib extraction".
       - ./lib:/app/lib
+      # Layer components (4th tier, added 2026-05 alongside the layer
+      # engine). Bind-mounted so adding a global layer doesn't need a
+      # rebuild, mirroring lib/.
+      - ./layers:/app/layers
       # Stats persist across container restarts.
       - ./data:/app/data
 

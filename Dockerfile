@@ -15,9 +15,11 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY package.json package-lock.json ./
 COPY studio ./studio
 COPY lib    ./lib
+COPY layers ./layers
 
-# pieces/ and data/ are bind-mounted at runtime (compose.yaml).
-RUN mkdir -p /app/pieces /app/data && chown -R node:node /app
+# pieces/, layers/, lib/, and data/ are bind-mounted at runtime (compose.yaml).
+# COPY above gives the image a sane default in case the bind mount is missing.
+RUN mkdir -p /app/pieces /app/layers /app/data && chown -R node:node /app
 USER node
 
 ENV NODE_ENV=production \
