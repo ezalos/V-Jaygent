@@ -1,0 +1,7 @@
+name: caustics
+identity: "chladni summed-sin filaments tinted turquoise, axis-snapped per bar"
+default_blend: screen
+uniforms: {}
+reads: []
+publishes: []
+consumes: []

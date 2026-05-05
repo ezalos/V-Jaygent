@@ -1,0 +1,8 @@
+name: godrays
+identity: "vertical light cones from above, refracted by surface ripples"
+default_blend: add
+uniforms: {}
+reads:
+  - u_below
+publishes: []
+consumes: []

@@ -1,0 +1,7 @@
+name: surface-ripples
+identity: "cursor-stirred + key-driven ripple field with visible wavefronts"
+default_blend: screen
+uniforms: {}
+reads: []
+publishes: []
+consumes: []

@@ -1,0 +1,33 @@
+title: "Ocean — John Butler (2012 Studio)"
+slug: ocean-john-butler-2012-studio-version
+created: 2026-05-05T19:26:25.902Z
+notes: |
+  A four-layer dive for John Butler's "Ocean" (2012 studio, 12:04,
+  BPM 99.4, E major, 8 sections, solo 12-string instrumental).
+
+  Looking down through water from above. Cursor stirs the surface.
+  Keyboard drops stones. Section transitions move the viewer up and
+  down through the water column. Section 5 (the percussive climax,
+  ~9:01–10:47) is when the wave breaks.
+
+  Phase-lock receipts: bar-phase rotates the caustics axis, downbeats
+  emit a centre ripple via u_bar_phase, section transitions pre-tense
+  the horizon glow via u_to_section_change, and the climax fires a
+  one-shot shockwave ring through the abyss layer.
+
+  Design spec: docs/superpowers/specs/2026-05-05-ocean-design.md
+duration: 725
+audio: audio.mp3
+audio_features: [beat, sections, key]
+keyboard_synth: true
+default_instrument: pluck
+time_source: audio
+layers:
+  - layer: abyss
+    blend: normal
+  - layer: caustics
+    blend: screen
+  - layer: surface-ripples
+    blend: screen
+  - layer: godrays
+    blend: add

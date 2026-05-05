@@ -1,0 +1,7 @@
+name: abyss
+identity: "depth gradient that swells deeper as sections progress"
+default_blend: normal
+uniforms: {}
+reads: []
+publishes: []
+consumes: []
