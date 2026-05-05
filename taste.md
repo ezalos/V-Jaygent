@@ -254,7 +254,49 @@ it; 2/4 or fewer and the audio is decoration.*
 See `brainstorming/techniques/music-to-shader.md` for the
 "In Seven" learnings (band→parameter mapping, section state
 machines, beat-snap vs beat-follow, multiplicative vs additive
-flashes).
+flashes), the beat-grid uniform rules (clocks vs amplitudes), the
+flash-budget philosophy, and per-stem binding etiquette.
+
+*Song-level composition probes (from
+`brainstorming/techniques/music-composition.md`). Run on pieces
+that have an `audio.analysis.json` and reference any of the song-
+level uniforms (`u_section_*`, `u_downbeat`, `u_to_section_change`,
+`u_song_progress`, `u_audio_*_stem`, `u_key_*`). These probes
+ride on top of the per-frame probes above — the per-frame
+probes ask if the piece reacts well; these ask if it composes
+well. A piece must pass 4/6 to claim "song-aware composition";
+2/6 or fewer means the piece is reactive only.*
+
+1. **Section-readability probe (frame-verdict).** Render 5+ frames
+   at `u_song_progress` ∈ {0.05, 0.25, 0.45, 0.65, 0.85} — one per
+   section centre. Without seeing the timeline, can a viewer guess
+   which section each frame is from? *Pass if 3/5 are unambiguously
+   distinct. Fail if all five look interchangeable.*
+2. **Downbeat-anchored probe (shader-verdict).** List the
+   structural events in the shader (palette flip, layer reveal,
+   mode toggle). Are they keyed to `u_downbeat` / `u_bar_index` /
+   `u_section_id` (composition) or to `u_audio_bass` /
+   `u_audio_kick` (reaction)? *Pass if ≥2 structural events use
+   composition uniforms. Fail if every "big change" is amplitude-
+   triggered.*
+3. **Pre-tension probe (shader + frame).** Shader: does the piece
+   reference `u_to_section_change` or `u_section_progress`? Frame:
+   render at 30s and 8s before a known drop — visibly different
+   (squeeze, desaturation, withholding)? *Pass if both. Fail if
+   `u_to_section_change` is unused.*
+4. **Per-stem-discrimination probe (shader-verdict).** Read the
+   audio bindings. Are at least two distinct `u_audio_*_stem`
+   uniforms used, and bound to *visually different roles* (not both
+   modulating brightness)? *Pass if yes. Fail if all four bound, or
+   if all bound to the same parameter family.*
+5. **Long-arc probe (frame-verdict).** Render 12 frames at evenly
+   spaced `u_song_progress`. Is there a visible peak/trough
+   structure? *Pass if the density/contrast curve has a clear
+   maximum and a clear quiet moment. Fail if flat.*
+6. **Recapitulation probe (frame-verdict).** Compare frame at
+   `u_song_progress = 0.05` (intro) with `u_song_progress = 0.95`
+   (outro). Recognisably related, with one visible delta? *Pass if
+   related-with-delta. Fail if completely unrelated, or identical.*
 
 **Silence as form.** Quiet passages aren't failed loud passages.
 Real dark, sparse activity, low luminance — these are part of the

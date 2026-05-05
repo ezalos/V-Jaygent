@@ -194,25 +194,40 @@ the eye, not the checklist.
    references `u_audio_*`, `meta.time_source: audio`, or meta.yaml
    describes music behaviour). It holds the band→parameter rules
    ("don't bind visuals to u_audio_* naively"), the section-state
-   and beat-snap patterns, and the open question on onset detection.
-   Grounds the four Music probes (see taste.md §"VJ lenses /
-   Interaction agency / Music probes"). Skip it for silent pieces.
+   and beat-snap patterns, the beat-grid uniform rules (clocks vs
+   amplitudes), the flash-budget philosophy, and per-stem binding
+   etiquette. Grounds the four per-frame Music probes (see taste.md
+   §"VJ lenses / Interaction agency / Music probes"). Skip for
+   silent pieces.
 
-9. /home/ezalos/42/V-Jaygent/brainstorming/techniques/layered-composition.md
-   READ THIS if the piece declares a layer stack (`meta.yaml` has a
-   `layers:` array). It holds the eight Layered-composition probes,
-   the coupling recipes (refraction, advection, force-field, mask-
-   reveal, feedback, SDF intersection), the blend-mode analysis for
-   warm palettes, polyrhythmic clocks across layers, and the nine
-   anti-patterns. Grounds the Layered-composition probes (see
-   taste.md §"VJ lenses / Layered coupling"). Skip it for monolithic
-   single-shader pieces.
+9. /home/ezalos/42/V-Jaygent/brainstorming/techniques/music-composition.md
+   READ THIS if the piece dir contains `audio.analysis.json` AND
+   the shader references any song-level uniform (`u_section_*`,
+   `u_downbeat`, `u_to_section_change`, `u_song_progress`,
+   `u_audio_*_stem`, `u_key_*`). It holds the song-level rules:
+   downbeat anchoring, section-state machines, pre-tension and
+   knowing-the-future, per-stem voice assignment, key/chord
+   palette modulation, and recapitulation. Grounds the six
+   Song-level Music probes (see taste.md §"VJ lenses / Interaction
+   agency / Music probes / Song-level composition probes"). Skip
+   for pieces without analysis JSON or without song-level uniform
+   references.
 
-10. Each of the 4 frames at
+10. /home/ezalos/42/V-Jaygent/brainstorming/techniques/layered-composition.md
+    READ THIS if the piece declares a layer stack (`meta.yaml` has a
+    `layers:` array). It holds the eight Layered-composition probes,
+    the coupling recipes (refraction, advection, force-field, mask-
+    reveal, feedback, SDF intersection), the blend-mode analysis for
+    warm palettes, polyrhythmic clocks across layers, and the nine
+    anti-patterns. Grounds the Layered-composition probes (see
+    taste.md §"VJ lenses / Layered coupling"). Skip for monolithic
+    single-shader pieces.
+
+11. Each of the 4 frames at
     /home/ezalos/42/V-Jaygent/pieces/<slug>/inspect/frame-*.png
     Actually look. Your observations must cite specific frame numbers.
 
-11. Any previous critique at
+12. Any previous critique at
     /home/ezalos/42/V-Jaygent/brainstorming/critiques/<slug>-v*.md
     So you know what has already been tried and don't re-propose it.
 
@@ -353,6 +368,52 @@ A shader with `pulseSpeed = 0.70 + 0.55*bass`, `rimR = 1.05 -
 Bass→movement — each replaces bass with a constant and shapes
 visibly shift.
 
+## Song-level composition probes
+
+**Run this section only if the piece dir contains
+`audio.analysis.json` AND the shader references any song-level
+uniform** (`u_section_*`, `u_downbeat`, `u_to_section_change`,
+`u_song_progress`, `u_audio_*_stem`, `u_key_*`). Otherwise, write
+"Not applicable — piece is reactive only, no song-level uniforms"
+and skip to Layered composition probes.
+
+The six probes live in `taste.md` §"VJ lenses / Interaction agency /
+Music probes / Song-level composition probes" and
+`brainstorming/techniques/music-composition.md` — read those first.
+These probes ride ON TOP of the per-frame Music probes above; the
+per-frame probes ask if the piece reacts well, these ask if it also
+*composes*.
+
+Probes 2 and 4 are shader-structure checks — read where song-level
+uniforms feed in, decide whether they shape composition or are
+ornamental. Probes 1, 3, 5, 6 are frame-driven and require frames
+captured at specific `u_song_progress` values; if the existing
+inspect frames aren't well-distributed across the song, mark the
+relevant probe `frame-unclear` and recommend re-rendering.
+
+| Probe                  | Verdict                       | Why                                                       |
+|------------------------|-------------------------------|-----------------------------------------------------------|
+| Section-readability    | pass/fail/weak/frame-unclear  | 5 frames at section centres are unambiguously distinct   |
+| Downbeat-anchored      | pass/fail/weak/shader-*       | structural events keyed to composition uniforms          |
+| Pre-tension            | pass/fail/weak/shader-*       | piece references `u_to_section_change` and visibly anticipates |
+| Per-stem-discrimination| pass/fail/weak/shader-*       | ≥2 stems bound to visually different roles               |
+| Long-arc               | pass/fail/weak/frame-unclear  | density curve has clear peak/trough across the song      |
+| Recapitulation         | pass/fail/weak/frame-unclear  | intro and outro frames recognisably related, with delta  |
+
+Count passes (counting `shader-pass` as pass). Record
+`song_level_passes: N/6` in the YAML tail. 2/6 or fewer and the
+piece is reactive only — `top_fix` must address song-level
+composition (use `u_section_*`, anchor structural changes to
+`u_downbeat`, add per-stem voice assignment, design pre-tension)
+unless the piece is short enough that song-level composition
+doesn't apply.
+
+The replace-with-constant test from the per-frame probes has a
+song-level analogue: for each song-level uniform usage, ask "if I
+froze this uniform at its mean value, would the visual still know
+what part of the song it's in?" If yes for every usage, the uniform
+is decorative.
+
 ## Layered composition probes
 
 **Run this section only if the piece declares a layer stack** (a
@@ -440,10 +501,13 @@ Number 1 is the most important fix. Priority order:
    reactivity) → interaction fix is #1.
 4. Else, 2/4 or fewer music probes (if piece claims audio
    reactivity) → music fix is #1.
-5. Else, 4/8 or fewer layered-composition probes (if piece declares
+5. Else, 2/6 or fewer song-level composition probes (if piece has
+   `audio.analysis.json` and references song-level uniforms) →
+   song-level composition fix is #1.
+6. Else, 4/8 or fewer layered-composition probes (if piece declares
    a layer stack) → layer-coupling fix is #1.
-6. Else, dimension scores below 3 → #1 raises the lowest.
-7. Else, polish toward chef d'oeuvre.
+7. Else, dimension scores below 3 → #1 raises the lowest.
+8. Else, polish toward chef d'oeuvre.
 
 ## Verdict
 
@@ -497,6 +561,14 @@ music_probes:                             # omit entirely if n/a
   bass_movement:         <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
   rhythm_in_stills:      <pass|fail|weak>
   quiet_reads_quiet:     <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+song_level_passes: <0-6 or "n/a">         # n/a if no audio.analysis.json or no song-level uniforms
+song_level_probes:                        # omit entirely if n/a
+  section_readability:    <pass|fail|weak|frame-unclear>
+  downbeat_anchored:      <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+  pre_tension:            <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+  per_stem_discrimination:<pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+  long_arc:               <pass|fail|weak|frame-unclear>
+  recapitulation:         <pass|fail|weak|frame-unclear>
 layered_passes: <0-8 or "n/a">            # n/a if piece is monolithic (no `layers:` in meta.yaml)
 layered_probes:                           # omit entirely if n/a
   spatial_coupling:      <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
