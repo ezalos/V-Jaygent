@@ -63,6 +63,14 @@ brief).
   a multi-layer piece or one that uses song-level uniforms
   (`u_section_*`, `u_downbeat`, `u_audio_*_stem`, `u_key_*`).
 
+- **`brainstorming/techniques/keyboard-synth.md` — keyboard-synth
+  contract** (15-key piano-on-QWERTY, octave shift, instruments,
+  looper, Shift+H help overlay, `u_keys[15]` / `u_key_event[15]`
+  uniforms). Read when the piece declares `keyboard_synth: true`
+  in its `meta.yaml`. The runtime feeds the uniforms regardless,
+  but the synth audio + key-press uniforms only fire when the
+  flag is set.
+
 Don't skip these. They shape every decision that follows.
 
 ## Observability
@@ -147,6 +155,10 @@ same payload shape as /vjay-iterate uses — scores + top_fix), `commit`.
          ┌──── 13. current ───┐── echo <slug> > pieces/current.txt
          └─────────┬──────────┘
                    ▼
+         ┌──── 14. wrap-up ────┐── invoke /wrap-up via Skill tool —
+         │ automatic           │   capture lessons from corrections
+         └─────────┬───────────┘   in this run, update memory entries,
+                   ▼                surface unresolved threads. Mandatory.
               DONE — piece at https://vjaygent.develle.fr/<slug>
 ```
 
@@ -219,19 +231,28 @@ If torn between two forms, pick the one that teaches more (harder
 technique, new territory) — the brainstorming stub still captures
 the road-not-taken for future pieces.
 
-**Architecture choice — monolithic vs layer-stack.** Part of the
-decision: is this piece one shader or a stack of layers? Defaults:
+**Architecture choice — monolithic vs layer-stack.** As of 2026-05-05
+the default for new pieces is **layer-stack with multi-input
+coupling** (`pieces/stronger` is the canonical example: 7 layers,
+cursor + keyboard + audio coupled in). Single-shader monolithic
+pieces feel boring next to the multi-layer ones — Louis explicitly
+rejects them as "boring" / "only one layer". See the memory entry
+"Multi-layer + multi-input default" for context.
 
-- **Monolithic (single `shader.frag`)** when the piece's identity is
-  ONE coherent field (a Julia set, a curl-noise flow, a kaleidoscope).
-  Simpler. Most existing V-Jaygent pieces are this.
-- **Layer-stack (`layers:` in meta.yaml)** when the piece's identity
-  is *coupling between distinct elements* — a refraction layer
-  distorting a base, a force-field driving particles, a mask-reveal
-  gating a generative ground. 2-4 layers is the sweet spot. See
-  `brainstorming/techniques/layered-composition.md` for the 8 critic
-  probes the piece will be graded against. Pick this when "what makes
-  it mesmerizing" is the *interaction*, not any single element.
+Default branches:
+
+- **Layer-stack (`layers:` in meta.yaml) — DEFAULT for new flagship
+  pieces.** Aim for 3-7 layers each with a distinct role (base /
+  publisher / consumer / focal element / post-process / UI overlay).
+  Pair with multi-input: `keyboard_synth: true`, cursor reactivity,
+  song-level audio uniforms. See
+  `brainstorming/techniques/layered-composition.md` for the 8
+  critic probes; `keyboard-synth.md` for the keyboard contract.
+- **Monolithic (single `shader.frag`)** — exception, not default.
+  Acceptable when the thesis genuinely IS "one coherent field"
+  (a Julia set, a curl-noise flow, a single kaleidoscope study).
+  But the bar is high; "I want one focused shader" is rarely the
+  same as "this piece will mesmerize".
 
 If layer-stack: list candidate layers in the brainstorm stub —
 which from `layers/` reuse, which need to be authored fresh
@@ -509,6 +530,24 @@ node bin/runs.mjs end $RUN_ID --status shipped
 node bin/runs.mjs rollup <slug>
 git add brainstorming/runs/<slug>.md && git commit --amend --no-edit   # fold into step 12's commit
 ```
+
+### 14. Wrap up — automatic, mandatory
+
+After commit, invoke the `wrap-up` skill via the Skill tool. This
+captures lessons from any user corrections during the run, updates
+the V-Jaygent memory entries with new patterns surfaced this
+session, and notes unresolved threads (e.g. things the user wanted
+that didn't ship). The wrap-up step is what kept earlier sessions
+from accumulating useful context — Louis explicitly asked it to
+become automatic on 2026-05-05.
+
+```
+[Skill tool] wrap-up
+```
+
+If wrap-up surfaces routine memory updates (correction patterns,
+new doc references), apply them. Ambiguous placements get
+flagged for review rather than auto-applied.
 
 Then tell the user:
 - Public URL: `https://vjaygent.develle.fr/<slug>`

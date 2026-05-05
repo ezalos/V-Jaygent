@@ -416,10 +416,47 @@ do in a single shader.*
    if ≥ 2 of N layers have brightness-shaped audio bindings (per-
    layer blink); pass if ≤ 1 layer does.* Shader-verdict.
 
+*Multi-input + layer-distinctness probes (added 2026-05-05 from
+the `stronger` build). Run on pieces that aim to be flagship /
+mesmerizing.*
+
+9. **Layer-distinctness probe (frame-verdict).** Mentally solo
+   each layer in turn — imagine the piece without it. In a piece
+   with N layers, can you name ≥ N-1 distinct visual contributions?
+   *Fail if removing any layer leaves a near-identical frame
+   ("only one layer" — Louis's feedback on `stronger v3`); pass if
+   each layer's removal changes the composition meaningfully.*
+   The Quayola strata principle made operational.
+
+10. **Multi-input coupling probe (shader-verdict).** Read each
+    layer's shader. Across the whole stack, are at least TWO of
+    {cursor `u_mouse`, keyboard `u_keys[]`, audio `u_audio_*` /
+    `u_section_*` / `u_downbeat`} driving visible change?
+    *Fail if only one input channel reaches the shaders; pass if
+    ≥ 2 are coupled.* Pieces declaring `keyboard_synth: true`
+    should additionally pass per-key-distinctness — pressing
+    different keys produces different effects, not the same effect
+    triggered by any key.
+
+11. **Visible phase-lock probe (frame + shader).** When audio
+    plays and analysis JSON is loaded, does the visual visibly
+    snap to the music's phase, or does it drift? Look for: a bar
+    rotation that completes one revolution per bar, a per-beat
+    discrete event (rotation jump, tooth advance, scale pulse),
+    an expanding ring on each downbeat, a section-transition
+    glitch / palette flip. *Fail if the only audio coupling is
+    amplitude multipliers; pass if at least 3 song-level uniforms
+    drive geometry on at least one layer.* Louis's "no phase
+    detection" feedback caught pieces failing this even though
+    they passed the per-frame Music probes.
+
 See `brainstorming/techniques/layered-composition.md` for the
 artists, coupling recipes (refraction, advection, force-field,
 mask-reveal, feedback, SDF intersection), blend-mode analysis on
-warm palettes, polyrhythmic clocks, and the 9 anti-patterns.
+warm palettes, polyrhythmic clocks, and the 9 anti-patterns. See
+`brainstorming/techniques/keyboard-synth.md` for the per-key
+contract a piece needs to satisfy when claiming keyboard
+interactivity.
 
 ## Dimensions
 

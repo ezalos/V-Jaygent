@@ -301,3 +301,17 @@ If the brainstorming/techniques/ dir accumulates files that never
 inform a piece, they're worth deleting (VISION.md §"Cultivate this"
 calls for it). A technique file justifies itself by being read when
 a piece is being built.
+
+## Wrap up — automatic, mandatory
+
+After the bundled study commit lands (step 8), invoke the `wrap-up`
+skill via the Skill tool. The study itself is one form of memory
+update, but wrap-up captures any meta-lessons from this run
+(corrections from the user, patterns about how the study should
+have been framed) and surfaces them in V-Jaygent memory. Louis
+asked on 2026-05-05 for this to be automatic at end of every
+skill session.
+
+```
+[Skill tool] wrap-up
+```

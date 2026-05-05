@@ -172,3 +172,16 @@ an explicit error if `--no-draft` is passed.
   rules the analysis JSON unlocks.
 - `brainstorming/techniques/using-lib.md` §"audio analysis JSON
   contract" — the schema the analyzer produces.
+
+## Wrap up — automatic, mandatory
+
+After the scaffold completes (or after the autonomous flow ships,
+once that mode lands), invoke the `wrap-up` skill via the Skill
+tool. Captures lessons from this run, updates V-Jaygent memory
+with anything new (e.g. a yt-dlp option that helped, a new analyzer
+edge case). Auto-runs without an explicit "wrap up" phrase — Louis's
+2026-05-05 instruction.
+
+```
+[Skill tool] wrap-up
+```

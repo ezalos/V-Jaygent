@@ -587,6 +587,102 @@ in a single shader; the piece is monolithic with extra steps. Same
 threshold-and-citation pattern as `interactivity.md`'s 5/7 cursor
 probes; the critic agent treats this section the same way.
 
+## Patterns from the 2026-05-05 piece builds
+
+Three patterns surfaced while building `kindling`, `tide`, and
+`stronger` that didn't fit cleanly into the original §"Coupling
+patterns" but are now part of how V-Jaygent layered pieces work.
+
+### Alpha-0 publish: data without visual leak
+
+A layer that publishes a vec2 force in the rg channels of its
+fragColor visibly leaks green/red into the warm palette when its
+output is composited. v1 of the layer engine has no MRT, so a
+layer can't easily output (visible RGBA) AND (data RG) separately.
+
+**Pattern:** Set `alpha: 0` on the publishing layer in the piece's
+`meta.yaml`. The layer's outputTex still carries the rg-encoded
+data for downstream consumers (the consumer reads from outputTex
+directly via `consumes:`); the compositor's blend skips the visual
+contribution because `above.a * u_alpha == 0`. Used in
+`pieces/stronger/meta.yaml` for `lodestone-pull`.
+
+```yaml
+- layer: lodestone-pull
+  blend: normal
+  alpha: 0.0           # data-only — invisible visual contribution
+  publishes:
+    force: vec2
+```
+
+### Field-driven dominance, not field-decoration
+
+When a layer consumes a force field, the consumed signal must
+DOMINATE the visual, not modulate a 5% offset on top of an
+internal fbm. v1 of `tide` had `flow-warm` advecting `u_below` by
+`force * 0.05` (decorative) on top of a noisy fbm at warpAmt 0.55
+(the actual visual). Result: the field looked uncoupled because
+the fbm was carrying the visual weight. v3 inverted the ratios:
+
+```glsl
+// Bad: field decorates fbm
+vec2 q = uv - force * 0.05;
+float n = fbm(q * 3.6 + u_time);    // dominant
+// ...
+
+// Good: field drives, fbm textures
+vec2 q1 = uv + force * 0.55;        // field warps the sample coord
+float n1 = fbm(q1 * 3.5);
+vec2 q2 = uv + force * 0.55 + n1 * 0.35;
+float n2 = fbm(q2 * 8.5);            // texture INSIDE the warped field
+```
+
+Plus visualise the field's structure directly — divergence /
+curl at each pixel, with convergent zones glowing warm. The
+consumer should make the field's topology readable.
+
+### Post-process layer (top-of-stack `u_below` filter)
+
+A layer that reads `u_below` (the composite of everything beneath)
+and outputs a transformed version is a post-process. Place it at
+the top of the stack to filter the entire composition. Pattern
+used by `glitch-rgb` (section-transition glitch) and `black-holes`
+(gravitational lensing of everything beneath).
+
+```yaml
+layers:
+  - layer: solid-warm
+  - layer: mirror-bloom
+  - layer: black-holes      # lenses mirror-bloom + solid-warm
+  - layer: glitch-rgb       # filters everything beneath on section transitions
+  - layer: key-rays         # over the whole post-processed composition
+```
+
+The post-process layer should gate its intensity on a clear
+signal so it's quiet when not wanted — `glitch-rgb` only fires
+when `u_section_progress < 0.05` (i.e. just after a section
+boundary), staying near-transparent the rest of the time. Don't
+post-process every frame at full intensity; the eye fatigues.
+
+### Multi-input coupling (cursor + keyboard + audio)
+
+The layer-engine's input contract isn't just audio. With
+`keyboard_synth: true` in meta, layers also receive `u_keys[15]`
+and `u_key_event[15]`. Plus the always-on `u_mouse`. Pieces that
+compose well use AT LEAST TWO of {cursor, keyboard, audio} as
+visible drivers across the stack.
+
+`stronger` couples all three:
+- cursor → mirror-bloom centre + black-holes 5th well
+- keyboard → flow-particles spawn density + mirror-bloom teeth +
+  key-rays beams + core inflation
+- audio → lodestone-pull strength + flow-particles bass + mirror-
+  bloom rotation/scale/palette/rings + black-holes downbeat
+  pulse + glitch-rgb section transitions
+
+The Multi-input coupling probe (probe 10 in `taste.md` §"VJ
+lenses / Layered coupling") makes this binding.
+
 ## How to apply in V-Jaygent
 
 **What the critic checks (added to `/vjay-iterate`):**

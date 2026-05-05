@@ -517,6 +517,30 @@ spatial coupling. Spatial coupling means `u_below` is sampled at
 displacement is non-trivial (driven by the layer's own field, not
 just by `u_time`).
 
+Three probes added 2026-05-05 (from the `stronger` build) — see
+`taste.md` probes 9, 10, 11. They live alongside the original 8
+in the "VJ lenses / Layered coupling" section. The threshold for
+"layered composition" stays at 6/8 of the original probes; 9-11
+are advisory but should be raised in the critique if the piece
+claims flagship / mesmerizing status.
+
+- **Layer-distinctness** — solo-each-layer mental test; piece
+  fails if any layer's removal leaves a near-identical frame
+- **Multi-input coupling** — at least 2 of {cursor, keyboard,
+  audio} drive visible change across the stack
+- **Visible phase-lock** — when audio plays + analysis JSON is
+  loaded, ≥ 3 song-level uniforms drive geometry (rotation,
+  snap, ring, palette flip, glitch); amplitude→brightness alone
+  doesn't count
+
+When iterating on a "broken" piece (Louis says "still broken",
+"frozen", "boring"), capture a TIME-SERIES probe before
+proposing a fix — single screenshots miss frozen rendering, and
+audio-driven pieces look static in headless because audio
+doesn't autoplay. See the memory entry "Time-series probes when
+iterating" for the playwright pattern (frames at t=1.5/3.5/6/12s,
+pixel delta between consecutive frames).
+
 ## Claim check
 
 Pass or fail. One paragraph. Does the piece deliver what it claimed
@@ -845,3 +869,16 @@ noise.
   end so the git history shows the run as one unit.
 - Don't skip writing `brainstorming/critiques/<slug>-vN.md`. The
   history is the cultivation loop; losing it loses the learning.
+
+## Wrap up — automatic, mandatory
+
+After the bundled commit lands, invoke the `wrap-up` skill via the
+Skill tool. Captures lessons from corrections during the iterate
+run, updates V-Jaygent memory entries with patterns surfaced this
+session, surfaces unresolved threads. Auto-runs without an explicit
+"wrap up" phrase from Louis — that was his explicit request on
+2026-05-05.
+
+```
+[Skill tool] wrap-up
+```
