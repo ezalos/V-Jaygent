@@ -298,6 +298,55 @@ well. A piece must pass 4/6 to claim "song-aware composition";
    (outro). Recognisably related, with one visible delta? *Pass if
    related-with-delta. Fail if completely unrelated, or identical.*
 
+*Dual-input probes (from
+`brainstorming/techniques/audio-cursor-together.md`). Run on pieces
+that declare BOTH cursor reactivity (shader references `u_mouse`)
+AND audio reactivity (shader references `u_audio_*`). These probes
+ask whether the two instruments are properly coordinated. A piece
+must pass 5/7 to claim "two hands on the instrument".*
+
+1. **Dual-channel readability probe (frame + interaction).** Within
+   5s of moving the cursor while music plays, can a viewer perceive
+   that BOTH channels are driving the piece? *Pass if yes. Fail if
+   one channel dominates and the other reads as decoration.*
+2. **Channel-non-overlap probe (shader-verdict).** List parameters
+   driven by `u_audio_*` and parameters driven by `u_mouse`. Are
+   they DISJOINT (Pattern B), or floor-and-ceiling multiplicative
+   (Pattern A), or *additive* (arms race)? *Pass if disjoint or
+   floor-ceiling. Fail if additive on the same parameter.*
+3. **Music-without-cursor probe (shader + 30s capture).** Hold
+   `u_mouse == (0,0)` for 30s with track playing. Does the piece
+   still pass all music-side probes (per-frame + song-level)?
+   *Pass if yes. Fail if cursor was load-bearing for music
+   reactivity.*
+4. **Cursor-without-music probe (shader + 30s capture).** With
+   audio silent, does the piece still pass the cursor-side probes?
+   *Pass if yes. Fail if music was load-bearing for cursor
+   reactivity.*
+5. **Conflict-resolution probe (shader-verdict).** For each
+   parameter touched by both channels, is the relationship floor-
+   and-ceiling, disjoint with a mediator, or additive? *Additive
+   fails.*
+6. **Authority-during-build probe (frame + interaction).** During
+   a build (`u_section_progress > 0.7` heading into
+   `u_to_section_change`), cursor motion must still produce
+   visible response within ~100ms. Reduced amplitude is fine, zero
+   is not. *Pass if responsive. Fail if cursor input is masked
+   during loud sections.*
+7. **Idle-cell probe (4× 30s capture).** Run the piece in each of
+   the four idle-matrix cells (both, music-only, cursor-only,
+   neither). None should freeze, go black, or look broken; the
+   neither-cell must self-play with synthesised drivers. *Pass if
+   all four cells survive. Fail if any cell dies.*
+
+See `brainstorming/techniques/audio-cursor-together.md` for the
+artists, role-assignment defaults (music structures + cursor
+modulates), conflict-resolution patterns (floor-ceiling vs disjoint),
+the 5 coupling recipes (cursor-modulated section transitions, music-
+gated cursor strength, cursor as 5th stem, cursor focus + music
+ground, hybrid silence), the idle-behaviour matrix, and the 5
+anti-patterns.
+
 **Silence as form.** Quiet passages aren't failed loud passages.
 Real dark, sparse activity, low luminance — these are part of the
 piece, not absence. Grade the quiet on its own terms, not against

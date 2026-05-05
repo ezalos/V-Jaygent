@@ -127,7 +127,8 @@ one that never moves.
 curves, motion signatures, the handful of lines a piece uses to say what it
 sounds like. Each piece diverges there and should. But `hash(p) = fract(sin(dot(p,
 vec2(127.1, 311.7))) * 43758.5453)` has one right answer, and re-deriving it
-per piece is absurd. Infrastructure couples; taste diverges. Three tiers:
+per piece is absurd. Infrastructure couples; taste diverges. Four tiers
+(grew to four 2026-05; the components tier was added with the layer engine):
 
 1. **`studio/runtime.mjs`** — the instrument. Multi-pass pipeline, ping-pong
    framebuffers, `#include` preprocessor, audio/mouse/recording plumbing. Grows
@@ -135,10 +136,17 @@ per piece is absurd. Infrastructure couples; taste diverges. Three tiers:
    `ferment`; Jacobi Poisson solver when lightning arrives; transform feedback
    when the N-body piece arrives). Every piece shares the engine.
 2. **`lib/*.glsl`** — shared math kernels, `#include`'d from shaders. `noise`,
-   `sdf`, `tonemap`, `diffusion`, and whatever the next piece forces into
-   existence. One right answer per function; a change here ripples through
+   `sdf`, `tonemap`, `diffusion`, `blend`, and whatever the next piece forces
+   into existence. One right answer per function; a change here ripples through
    every piece that includes it, which is the point.
-3. **`brainstorming/snippets/*`** — artistic phrases copy-pasted (not
+3. **`layers/*`** — reusable, stateful, blend-aware visual elements. Each
+   layer is one fragment shader + `meta.yaml`, declaring its blend mode, what
+   it `publish`es, what it `consume`s. A piece composes 2-4 layers via its
+   `meta.yaml` `layers:` array. Read `layers/README.md` for the authoring
+   contract. The layer engine grew out of `strata` (which simulated layering
+   inside one shader); now layers are first-class. Multi-layer pieces are the
+   default for the next generation.
+4. **`brainstorming/snippets/*`** — artistic phrases copy-pasted (not
    included). `warmCycle`, `ember`, `iqCosine` are canonical reference
    versions; each piece copies and is free to diverge. The anti-calcification
    rule: if a tweaked palette feels general, open a *new* snippet — never
@@ -191,9 +199,14 @@ what my ambition is becoming.
 
 ## Open questions (for future pieces)
 
-- **Audio + mouse together.** Haven't combined both input channels yet. A piece
-  where the music drives the structure and the cursor drives a detail — two
-  hands on the instrument.
+- ~~**Audio + mouse together.**~~ Resolved 2026-05-05. Default
+  pattern: music structures, cursor modulates. Conflict resolution
+  via floor-and-ceiling or disjoint parameters; never additive on
+  the same parameter. See `brainstorming/techniques/audio-cursor-together.md`
+  for the role-assignment defaults, 5 coupling recipes, idle matrix,
+  and 7 critic probes. First retrofit candidates: `aperture`,
+  `lodestone`, `well` (already cursor-driven; add a music layer per
+  the music-as-floor pattern).
 - **Ferrofluid under a moving dipole.** Cursor as a magnetic source, surface
   thickness evolving on a ping-pong texture, Rosensweig-like spikes where the
   field gradient crosses threshold. Needs a `lib/dipole.glsl` kernel — next

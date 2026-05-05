@@ -223,11 +223,21 @@ the eye, not the checklist.
     taste.md §"VJ lenses / Layered coupling"). Skip for monolithic
     single-shader pieces.
 
-11. Each of the 4 frames at
+11. /home/ezalos/42/V-Jaygent/brainstorming/techniques/audio-cursor-together.md
+    READ THIS if the piece declares BOTH cursor reactivity AND
+    audio reactivity (shader references `u_mouse` AND any
+    `u_audio_*`). It holds the role-assignment default (music
+    structures, cursor modulates), the conflict-resolution patterns
+    (floor-and-ceiling vs disjoint), the 5 coupling recipes, the
+    idle-behaviour matrix, and the 7 dual-input probes. Grounds the
+    Dual-input probes (see taste.md §"VJ lenses / Interaction
+    agency / Dual-input probes"). Skip for single-channel pieces.
+
+12. Each of the 4 frames at
     /home/ezalos/42/V-Jaygent/pieces/<slug>/inspect/frame-*.png
     Actually look. Your observations must cite specific frame numbers.
 
-12. Any previous critique at
+13. Any previous critique at
     /home/ezalos/42/V-Jaygent/brainstorming/critiques/<slug>-v*.md
     So you know what has already been tried and don't re-propose it.
 
@@ -414,6 +424,50 @@ froze this uniform at its mean value, would the visual still know
 what part of the song it's in?" If yes for every usage, the uniform
 is decorative.
 
+## Dual-input probes
+
+**Run this section only if the piece declares BOTH cursor and
+audio reactivity** (shader references `u_mouse` AND any
+`u_audio_*`). Otherwise, write "Not applicable — piece is single-
+channel" and skip to Layered composition probes.
+
+The seven probes live in `taste.md` §"VJ lenses / Interaction
+agency / Dual-input probes" and
+`brainstorming/techniques/audio-cursor-together.md`. These probes
+ride ON TOP of the cursor probes and music probes; they ask whether
+the two instruments are properly coordinated, not whether each
+instrument is good in isolation.
+
+Probes 2 and 5 are shader-structure checks — read each parameter
+the shader computes, classify what drives it (audio uniform,
+mouse uniform, both). Probes 3 and 4 require holding one channel
+at idle and re-running the per-channel probes. Probes 1 and 6
+require live interaction and aren't fully testable from stills
+alone — mark `interaction-unclear` if not testable from the
+captured frames and recommend live testing.
+
+| Probe                 | Verdict                                  | Why                                                    |
+|-----------------------|------------------------------------------|--------------------------------------------------------|
+| Dual-channel readability | pass/fail/weak/interaction-unclear    | both channels visibly drive the piece within 5s        |
+| Channel-non-overlap   | pass/fail/weak/shader-*                  | parameters disjoint, or floor-and-ceiling multiplicative |
+| Music-without-cursor  | pass/fail/weak/shader-*                  | music probes still pass with `u_mouse == (0,0)`        |
+| Cursor-without-music  | pass/fail/weak/shader-*                  | cursor probes still pass with audio silent             |
+| Conflict-resolution   | pass/fail/weak/shader-*                  | shared parameters use floor-ceiling or mediator (not additive) |
+| Authority-during-build| pass/fail/weak/interaction-unclear       | cursor motion produces visible response during builds  |
+| Idle-cell             | pass/fail/weak/interaction-unclear       | all 4 idle cells (both/music/cursor/neither) survive   |
+
+Count passes (counting `shader-pass` as pass). Record
+`dual_input_passes: N/7` in the YAML tail. 3/7 or fewer and the
+two channels aren't actually composing together — `top_fix` must
+address dual-input coordination (pick one of the conflict-
+resolution patterns; assign disjoint parameter ownership) unless
+the piece can simply drop one channel from its claim.
+
+The "additive on the same parameter" failure (Channel-non-overlap
+fail) is the dual-input arms race anti-pattern — when both
+channels add into the same parameter, neither can ever fully
+control it. Cite specific shader lines where both contribute.
+
 ## Layered composition probes
 
 **Run this section only if the piece declares a layer stack** (a
@@ -504,10 +558,12 @@ Number 1 is the most important fix. Priority order:
 5. Else, 2/6 or fewer song-level composition probes (if piece has
    `audio.analysis.json` and references song-level uniforms) →
    song-level composition fix is #1.
-6. Else, 4/8 or fewer layered-composition probes (if piece declares
+6. Else, 3/7 or fewer dual-input probes (if piece declares both
+   cursor and audio reactivity) → dual-input coordination fix is #1.
+7. Else, 4/8 or fewer layered-composition probes (if piece declares
    a layer stack) → layer-coupling fix is #1.
-7. Else, dimension scores below 3 → #1 raises the lowest.
-8. Else, polish toward chef d'oeuvre.
+8. Else, dimension scores below 3 → #1 raises the lowest.
+9. Else, polish toward chef d'oeuvre.
 
 ## Verdict
 
@@ -569,6 +625,15 @@ song_level_probes:                        # omit entirely if n/a
   per_stem_discrimination:<pass|fail|weak|shader-pass|shader-fail|shader-unclear>
   long_arc:               <pass|fail|weak|frame-unclear>
   recapitulation:         <pass|fail|weak|frame-unclear>
+dual_input_passes: <0-7 or "n/a">         # n/a if piece is single-channel (cursor-only or audio-only)
+dual_input_probes:                        # omit entirely if n/a
+  dual_channel_readability: <pass|fail|weak|interaction-unclear>
+  channel_non_overlap:      <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+  music_without_cursor:     <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+  cursor_without_music:     <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+  conflict_resolution:      <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
+  authority_during_build:   <pass|fail|weak|interaction-unclear>
+  idle_cell:                <pass|fail|weak|interaction-unclear>
 layered_passes: <0-8 or "n/a">            # n/a if piece is monolithic (no `layers:` in meta.yaml)
 layered_probes:                           # omit entirely if n/a
   spatial_coupling:      <pass|fail|weak|shader-pass|shader-fail|shader-unclear>
