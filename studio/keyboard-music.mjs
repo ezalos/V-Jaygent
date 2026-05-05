@@ -69,8 +69,19 @@ const INSTRUMENTS = {
         attack: 0.001, decayTo: 0.0, decayT: 0.50, releaseT: 0.35,
         peak: 0.40, reverbAmt: 0.65,
     },
+    chip: {
+        // 8-bit videogame voice — square + pulse-y square, no reverb send,
+        // sharp attack and a quick AD that gives every press the
+        // staccato bite of a NES square channel.
+        name: 'chip',
+        types: ['square', 'square'],
+        detune: [0, +12],     // octave-stacked second voice for chiptune lead
+        filterFreq: 6800, filterQ: 0.4,
+        attack: 0.001, decayTo: 0.22, decayT: 0.12, releaseT: 0.10,
+        peak: 0.36, reverbAmt: 0.05,
+    },
 };
-const INSTRUMENT_ORDER = ['organ', 'pluck', 'pad', 'bell'];
+const INSTRUMENT_ORDER = ['organ', 'pluck', 'pad', 'bell', 'chip'];
 
 function makeReverbImpulse(audioCtx, durationSec = 2.4, decay = 2.0) {
     const sr = audioCtx.sampleRate;
@@ -111,8 +122,9 @@ export function createKeyboardSynth(audioCtx) {
     wetGain.connect(masterGain);
 
     const activeVoices = new Map();   // key → { osc1, osc2, env, filter }
-    const envelopes = new Float32Array(KEY_ORDER.length);  // 0..1 per key, 15 entries
-    const events    = new Float32Array(KEY_ORDER.length);  // pulse on press, decays
+    const envelopes       = new Float32Array(KEY_ORDER.length);  // 0..1 per key, 15 entries — short decay, mirrors the audio voice
+    const visualEnvelopes = new Float32Array(KEY_ORDER.length);  // 0..1 per key — long decay, for visual lingering after release
+    const events          = new Float32Array(KEY_ORDER.length);  // pulse on press, decays
     let lastTickT = audioCtx.currentTime;
     let octaveOffset = 0;
     let currentInstrument = 'organ';
@@ -244,15 +256,25 @@ export function createKeyboardSynth(audioCtx) {
             }
         }
 
-        // Envelope mirror for shader uniforms.
+        // Envelope mirror for shader uniforms. Two parallel envelopes:
+        //   envelopes        — fast, mirrors the audible voice (decays to
+        //                      0.001 over ~0.55s — half-life ~55ms).
+        //   visualEnvelopes  — slow, for visuals that should linger after
+        //                      release. Half-life 2.5s → still ~25% at 5s,
+        //                      ~6% at 8s. Pieces that want twitchy visual
+        //                      response keep using u_keys; pieces that want
+        //                      fauna/glow to fade gradually read u_keys_visual.
         for (let i = 0; i < KEY_ORDER.length; i++) {
             const key = KEY_ORDER[i];
             const stillActive = activeVoices.has(key);
             if (stillActive) {
-                envelopes[i] = Math.min(1.0, envelopes[i] + dt * 7);
+                envelopes[i]       = Math.min(1.0, envelopes[i]       + dt * 7);
+                visualEnvelopes[i] = Math.min(1.0, visualEnvelopes[i] + dt * 7);
             } else {
-                envelopes[i] *= Math.pow(0.001, dt / 0.55);
-                if (envelopes[i] < 1e-4) envelopes[i] = 0;
+                envelopes[i]       *= Math.pow(0.001, dt / 0.55);
+                visualEnvelopes[i] *= Math.pow(0.5,   dt / 2.50);
+                if (envelopes[i]       < 1e-4) envelopes[i]       = 0;
+                if (visualEnvelopes[i] < 1e-3) visualEnvelopes[i] = 0;
             }
             events[i] *= 0.86;
             if (events[i] < 1e-3) events[i] = 0;
@@ -336,6 +358,7 @@ export function createKeyboardSynth(audioCtx) {
         keyToMidi: KEY_TO_MIDI,
         instrumentOrder: INSTRUMENT_ORDER,
         envelopes,
+        visualEnvelopes,
         events,
         startNote,
         releaseNote,

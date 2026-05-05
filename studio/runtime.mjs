@@ -330,6 +330,11 @@ function ensureKeyboardSynth() {
   }
   if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
   keyboardSynth = createKeyboardSynth(audioCtx);
+  // Honour meta.yaml's `default_instrument` (organ | pluck | pad | bell | chip)
+  // so a piece can boot in a voice that suits its mood without the player
+  // having to press 1..5 first.
+  const wantedInstrument = currentMeta?.default_instrument;
+  if (wantedInstrument) keyboardSynth.setInstrument(wantedInstrument);
   return keyboardSynth;
 }
 
@@ -357,6 +362,7 @@ window.addEventListener('keydown', (e) => {
       if (e.key === '2') { synth.setInstrument('pluck'); refreshHelpState(); e.preventDefault(); return; }
       if (e.key === '3') { synth.setInstrument('pad');   refreshHelpState(); e.preventDefault(); return; }
       if (e.key === '4') { synth.setInstrument('bell');  refreshHelpState(); e.preventDefault(); return; }
+      if (e.key === '5') { synth.setInstrument('chip');  refreshHelpState(); e.preventDefault(); return; }
       // Looper: [ cycles state, ] clears.
       if (e.key === '[') { synth.toggleLooper(); refreshHelpState(); e.preventDefault(); return; }
       if (e.key === ']') { synth.clearLooper();  refreshHelpState(); e.preventDefault(); return; }
@@ -989,11 +995,13 @@ function setStandardUniforms(vw, vh, now) {
   // keyboard pieces still see well-defined arrays.
   if (keyboardSynth) {
     keyboardSynth.update();
-    setUniform1fv('u_keys',      keyboardSynth.envelopes);
-    setUniform1fv('u_key_event', keyboardSynth.events);
+    setUniform1fv('u_keys',        keyboardSynth.envelopes);
+    setUniform1fv('u_keys_visual', keyboardSynth.visualEnvelopes);
+    setUniform1fv('u_key_event',   keyboardSynth.events);
   } else {
-    setUniform1fv('u_keys',      ZERO_KEYS);
-    setUniform1fv('u_key_event', ZERO_KEYS);
+    setUniform1fv('u_keys',        ZERO_KEYS);
+    setUniform1fv('u_keys_visual', ZERO_KEYS);
+    setUniform1fv('u_key_event',   ZERO_KEYS);
   }
 
   setUniform1f('u_zoom',      gestures.getZoom());
