@@ -111,6 +111,21 @@ const BLEND_MODE_TO_INT = {
     normal: 0, add: 1, screen: 2, multiply: 3, max: 4, replace: 5,
 };
 
+// Flash-budget tracking — see brainstorming/techniques/music-to-shader.md
+// §"Flash budget". Pieces should not exceed 4 luminance flashes per bar
+// across all layers. Classify a driver-bound uniform as flash-shaped if its
+// name matches the regex OR if the layer's meta.yaml declares { flash: true }
+// for that uniform. Per frame: detect rising-edge crossings of
+// FLASH_RISING_THRESHOLD; accumulate per bar; warn on rollover when total >
+// FLASH_BUDGET_PER_BAR. Only active when audio.analysis.json is loaded
+// (otherwise no real bar grid).
+const FLASH_NAME_RE = /(flash|strobe|brightness|exposure|bloom)/i;
+const FLASH_RISING_THRESHOLD = 0.5;
+const FLASH_BUDGET_PER_BAR = 4;
+let flashBudgetBar = -1;
+const flashBudgetCounts = new Map();   // key: "layer.uniform" → count this bar
+const flashBudgetPrev   = new Map();   // key: "layer.uniform" → prev frame value
+
 const FORMAT_MAP = {
   rgba8:   () => ({ iFormat: gl.RGBA8,   format: gl.RGBA, type: gl.UNSIGNED_BYTE }),
   rgba16f: () => ({ iFormat: gl.RGBA16F, format: gl.RGBA, type: gl.HALF_FLOAT }),
@@ -1099,6 +1114,51 @@ function applyDriverUniform(layer, name, value) {
     if (loc !== null) gl.uniform1f(loc, value);
 }
 
+// Flash-budget constants and state are declared near the top of the module
+// (alongside other module state) because top-level `await loadCurrent` reaches
+// `resetFlashBudget()` before this section is otherwise initialized. See the
+// matching note on COMPOSITOR_FRAG / BLEND_MODE_TO_INT.
+
+function resetFlashBudget() {
+    flashBudgetBar = -1;
+    flashBudgetCounts.clear();
+    flashBudgetPrev.clear();
+}
+
+function isFlashUniform(name, layer) {
+    if (layer.meta?.uniforms?.[name]?.flash === true) return true;
+    return FLASH_NAME_RE.test(name);
+}
+
+function trackFlashBudget(layer, uniformName, value, barIndex) {
+    // Bar rollover — emit warning if previous bar overran, then reset.
+    if (barIndex !== flashBudgetBar) {
+        if (flashBudgetBar >= 0 && flashBudgetCounts.size > 0) {
+            let total = 0;
+            for (const c of flashBudgetCounts.values()) total += c;
+            if (total > FLASH_BUDGET_PER_BAR) {
+                const culprits = [...flashBudgetCounts.entries()]
+                    .filter(([, c]) => c > 0)
+                    .map(([k, c]) => `${k}=${c}`)
+                    .join(', ');
+                console.warn(
+                    `[layer-engine] flash budget exceeded in bar ${flashBudgetBar}: ` +
+                    `${total}/${FLASH_BUDGET_PER_BAR} flashes (${culprits}). ` +
+                    `See brainstorming/techniques/music-to-shader.md §"Flash budget".`
+                );
+            }
+        }
+        flashBudgetCounts.clear();
+        flashBudgetBar = barIndex;
+    }
+    const key = `${layer.name}.${uniformName}`;
+    const prev = flashBudgetPrev.get(key) ?? 0;
+    if (prev < FLASH_RISING_THRESHOLD && value >= FLASH_RISING_THRESHOLD) {
+        flashBudgetCounts.set(key, (flashBudgetCounts.get(key) ?? 0) + 1);
+    }
+    flashBudgetPrev.set(key, value);
+}
+
 function applyDrivers(layer, engineSample) {
     // engineSample is the audio-analysis sample (floats). Plus we expose a
     // few non-analysis runtime values as drivers.
@@ -1116,7 +1176,14 @@ function applyDrivers(layer, engineSample) {
     };
     for (const [layerUniform, sourceName] of Object.entries(layer.drivers)) {
         if (!(sourceName in driverSources)) continue;
-        applyDriverUniform(layer, layerUniform, Number(driverSources[sourceName]));
+        const value = Number(driverSources[sourceName]);
+        applyDriverUniform(layer, layerUniform, value);
+        // Soft flash-budget enforcement: only when an analysis JSON is loaded
+        // (so we have a real bar grid). Without analysis the warning is
+        // meaningless.
+        if (currentAnalysis && isFlashUniform(layerUniform, layer)) {
+            trackFlashBudget(layer, layerUniform, value, engineSample.u_bar_index);
+        }
     }
 }
 
@@ -1232,13 +1299,13 @@ function runLayerEngine(engine, now, audioSample) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 }
 
-// TODO (Phase 2.4 follow-up):
-// - Shared-state publish/consume: layers that publish a named texture (e.g.
-//   `field: vec2`) and layers that consume that texture as a uniform sampler.
-//   Requires multiple-render-targets per layer + explicit publish-target FBOs
-//   + ordering validation (consume must reference an earlier-declared publish).
-// - Soft flash-budget counter: classify driver targets as flash-shaped, count
-//   crossings per bar via u_bar_index, console.warn when > 4/bar.
+// Future-extension notes:
+// - Multi-publish per layer (multiple render targets). v1 uses the layer's
+//   single outputTex as the published texture; pieces wanting separate
+//   visual + data buffers will need MRT support added to the layer FBO.
+// - Flash-budget regex is name-only (matches `flash`, `strobe`, `brightness`,
+//   `exposure`, `bloom`). Layer authors who want stricter classification can
+//   add `{ flash: true }` to a uniform's meta.yaml entry.
 
 // ---------- piece loading ----------
 
@@ -1296,6 +1363,7 @@ async function loadPiece(slug) {
       }
     }
     analysisSampleState = audioAnalysis.createSampleState();
+    resetFlashBudget();
 
     // Drop any cached lib sources so edits to lib/*.glsl propagate. The cache
     // persists within a single compile (dedupes repeated #include of the same
