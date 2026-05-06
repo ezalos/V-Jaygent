@@ -1,0 +1,8 @@
+name: motes
+identity: "bioluminescent specks vortex toward cursor, burst from keys"
+default_blend: screen
+uniforms: {}
+reads:
+  - u_history
+publishes: []
+consumes: []

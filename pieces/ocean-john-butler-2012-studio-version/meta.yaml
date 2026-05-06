@@ -31,3 +31,5 @@ layers:
     blend: screen
   - layer: godrays
     blend: add
+  - layer: motes
+    blend: screen
