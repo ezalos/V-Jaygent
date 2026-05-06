@@ -1,0 +1,64 @@
+title: "So Hollow / Let Babylon Burn"
+slug: so-hollow-let-babylon-burn
+created: 2026-05-06T05:45:55.107Z
+notes: |
+  Apocalyptic skyline of N upright pillars (a hollow Babylon), fire
+  bleeding through horizontal cracks like brick courses splitting open.
+  We stand on low ground in front of a row of leaning monoliths while
+  embers rise behind/around them and the whole composition shudders to
+  a 152 BPM drive.
+
+  6:18 / 152 BPM / C major / 8 sections.
+  Energy curve (0..7): 0.14 / 0.31 / 0.45 / 0.26 / 0.46 / 0.35 / 0.22 / 0.21
+  Tower count rides this: 6/8/10/8/12/10/8/7. Section 4 is the tallest
+  fire (longest sustained climax, ~182–286s).
+
+  Three input channels:
+    cursor   → blows heat into the pillar nearest in x; cursor's vertical
+               position scales the boost. Visible per-pillar reaction.
+    keyboard → 15 keys each strike one pillar (fresh press = bright
+               vertical spine streak; held key = wider/hotter cracks)
+               AND fire a radial beam (key-rays).
+    audio    → bass widens pillars + sways the row + brightens fire +
+               fattens ember spawn; mid + section progress widen cracks
+               slightly; high/cymbal sparkles crack edges; downbeat →
+               base flash on every pillar + horizon flash; section
+               transitions modulate tower count + pre-tension the
+               horizon ember rim.
+
+  Polyrhythmic clocks across the stack:
+    - burning-sky:  u_time smoke drift + u_song_progress horizon Y +
+                    u_to_section_change horizon flash
+    - ember-spark:  u_history feedback + u_audio_bass density
+    - babylon:      u_bar_phase + u_beat_phase sway, u_section_id tower
+                    count, u_audio_bass + u_energy_smooth + key envelopes,
+                    u_downbeat base flash
+    - key-rays:     u_keys + u_key_event impulses + u_history trails
+
+  Coupling DAG (sparse, load-bearing):
+    burning-sky    ──► babylon (u_below — sky shows behind / between
+                                pillars; pillars occlude with silhouette
+                                or fire depending on crack mask)
+    ember-spark    ──► babylon (u_below — embers visible BEHIND silhouettes
+                                but pillarMask occludes them inside the
+                                tower body, so they read "behind the city")
+    babylon        ──► key-rays (u_below — beams cross/lensing the
+                                composition; key-rays' u_history feedback
+                                holds fire-trails that fade gracefully)
+    Order is load-bearing: ember-spark before babylon → embers behind
+    pillars; key-rays after babylon → strikes draw across everything.
+duration: 378
+audio: audio.mp3
+audio_features: [beat, sections, key]
+keyboard_synth: true
+default_instrument: pluck
+time_source: audio
+layers:
+  - layer: burning-sky
+    blend: normal
+  - layer: ember-spark
+    blend: max
+  - layer: babylon
+    blend: normal
+  - layer: key-rays
+    blend: max

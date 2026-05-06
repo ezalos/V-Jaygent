@@ -1,0 +1,7 @@
+name: burning-sky
+identity: "the smoking horizon"
+default_blend: normal
+uniforms: {}
+reads: []
+publishes: []
+consumes: []

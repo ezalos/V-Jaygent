@@ -1,0 +1,8 @@
+name: babylon
+identity: "the hollow towers"
+default_blend: normal
+uniforms: {}
+reads:
+  - u_below
+publishes: []
+consumes: []
