@@ -1,0 +1,104 @@
+title: Break On Through (To the Other Side)
+slug: break-on-through-to-the-other-side
+created: 2026-05-06T05:41:24.904Z
+keyboard_synth: true
+notes: |
+  The Doors — *Break On Through (To the Other Side)*. 1967.
+  184.6 BPM, A major, 147s, 7 sections.
+
+  Thesis: "break on through" rendered as a permeable phase-boundary
+  membrane. Three coupled physics push a chaotic activator field
+  past its saddle point. Every beat / key / cursor gesture is a
+  kick across the threshold.
+
+  Three INTERACTING physics:
+
+  1. Gray-Scott reaction-diffusion (sim_rd, half-res rgba16f
+     ping-pong, 4 sub-steps/frame). Chaos zone: F=0.034, K=0.057.
+     Spots barely cohere; spirals form briefly; annihilations are
+     frequent.
+  2. Wave-equation FDTD (sim_wave, half-res rgba16f ping-pong).
+     Sources from kick (centred ring), snare (random-position),
+     cymbal (3 small pings), held keys (sustained), cursor
+     (continuous track).
+  3. Curl-noise advection (computed inside sim_rd each frame).
+     Divergence-free 2D flow at audio-coupled scale stirs the
+     RD species. The wave-gradient ADDS to this curl velocity
+     so beats literally push fluid lines.
+
+  Bidirectional couplings:
+    wave gradient → advection in RD (waves stir species)
+    RD activator  → wave damping  (spirals become standing
+                                   waves; v-rich regions absorb
+                                   ripples)
+    both          → display palette + chromatic dispersion
+
+  Display strata of grain (composed inside one shader):
+    coarsest: kaleido mirror around cursor with section-coupled
+              fold count (8 / 6 / 12 / 6 / 6 across sections 2-6)
+    coarse:   two-pole psychedelic palette
+              v-pole magenta → violet → cyan (activator)
+              u-pole gold → ember → cream    (substrate)
+              section 6 outro: polarity flips twice
+    medium:   wave height displaces UV; wave gradient drives
+              per-channel prismatic dispersion (the membrane)
+    fine:     hash-jittered motes flow; downbeat = expanding
+              ring of motes from centre; key glow rays
+              (amber whites + violet sharps)
+
+  Multi-input bindings:
+    cursor   → drips activator into RD; drops continuous wave
+               source; positions kaleido axis; warm halo
+    keyboard → 15-key piano. White keys (a..l) drip activator at
+               key.x; black keys (w/e/t/y/u/o) replenish substrate
+               at key.x. All keys drop a wave source. Press fires
+               an impulse (much stronger than held).
+    audio    → bass: RD feed-rate
+               mid:  curl-noise advection magnitude
+               high: motes density + nudges K toward chaos
+               kick: centred ring + RD feed spike
+               snare: random-position wave impulse
+               cymbal: 3 small pings + motes burst
+               downbeat: centred RD activator pulse
+               section_id: kaleido fold count
+               section_progress: kaleido strength ramp
+               song_progress: slow palette anchor shift
+
+  Press Shift+H for the keyboard controls panel.
+duration: 147
+render_scale: 1
+audio: audio.mp3
+audio_features:
+  - beat
+  - sections
+  - key
+time_source: audio
+published_at: null
+passes:
+  - name: simulate_wave
+    shader: sim_wave.frag
+    target:
+      format: rgba16f
+      ping_pong: true
+      scale: 0.5
+    inputs:
+      u_state: simulate_wave
+      u_rd_state: simulate_rd
+    iterations: 1
+  - name: simulate_rd
+    shader: sim_rd.frag
+    target:
+      format: rgba16f
+      ping_pong: true
+      scale: 0.5
+    inputs:
+      u_state: simulate_rd
+      u_wave_state: simulate_wave
+    iterations: 4
+  - name: display
+    shader: shader.frag
+    target: screen
+    inputs:
+      u_rd_state: simulate_rd
+      u_wave_state: simulate_wave
+rendered_at: '2026-05-06T06:06:55.068Z'
