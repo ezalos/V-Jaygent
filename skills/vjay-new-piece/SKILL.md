@@ -231,15 +231,16 @@ If torn between two forms, pick the one that teaches more (harder
 technique, new territory) — the brainstorming stub still captures
 the road-not-taken for future pieces.
 
-**Architecture choice — monolithic vs layer-stack.** As of 2026-05-05
-the default for new pieces is **layer-stack with multi-input
-coupling** (`pieces/stronger` is the canonical example: 7 layers,
-cursor + keyboard + audio coupled in). Single-shader monolithic
-pieces feel boring next to the multi-layer ones — Louis explicitly
-rejects them as "boring" / "only one layer". See the memory entry
-"Multi-layer + multi-input default" for context.
+**Architecture choice — three branches.** As of 2026-05-05 the
+default for new pieces is **layer-stack with multi-input coupling**
+(`pieces/stronger` is the canonical example: 7 layers, cursor +
+keyboard + audio coupled in). Single-shader monolithic pieces feel
+boring next to the multi-layer ones — Louis explicitly rejects them
+as "boring" / "only one layer". See the memory entry "Multi-layer +
+multi-input default" for context.
 
-Default branches:
+`layers:` and `passes:` are MUTUALLY EXCLUSIVE in the runtime. Pick
+one:
 
 - **Layer-stack (`layers:` in meta.yaml) — DEFAULT for new flagship
   pieces.** Aim for 3-7 layers each with a distinct role (base /
@@ -248,6 +249,23 @@ Default branches:
   song-level audio uniforms. See
   `brainstorming/techniques/layered-composition.md` for the 8
   critic probes; `keyboard-synth.md` for the keyboard contract.
+  **Caveat:** layer-engine v1 has no per-layer persistent publish —
+  cross-frame self-feedback rides on `u_history` (rgba8 final
+  composite, polluted by upper layers). Fine for advection, trails,
+  cursor reactivity. NOT clean enough for ping-pong RD / wave-
+  equation / fluid-pressure simulations.
+- **Multi-pass with ping-pong (`passes:`) — for state-bearing
+  physics.** When the piece needs ≥1 simulation with rgba16f state
+  across frames (Gray-Scott RD, wave equation, Stam fluid, heat
+  diffusion), use `passes:`. Cross-pass `inputs:` allow forward
+  references (yields previous-frame state for bidirectional
+  coupling). `iterations: N` for sub-stepping. Canonical examples:
+  `pieces/ferment` (RD), `pieces/breath` (heat),
+  `pieces/break-on-through-to-the-other-side` (3 coupled physics).
+  This is NOT "boring single-shader" — multi-pass with multi-input
+  richness (cursor + keyboard + audio + section state) and layered
+  composition strata inside the display shader is fully on-brief.
+  See the memory entry "passes vs layers architectures".
 - **Monolithic (single `shader.frag`)** — exception, not default.
   Acceptable when the thesis genuinely IS "one coherent field"
   (a Julia set, a curl-noise flow, a single kaleidoscope study).
