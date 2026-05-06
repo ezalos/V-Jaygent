@@ -1,0 +1,8 @@
+name: heat-shimmer
+identity: "the trembling air"
+default_blend: replace
+uniforms: {}
+reads:
+  - u_below
+publishes: []
+consumes: []

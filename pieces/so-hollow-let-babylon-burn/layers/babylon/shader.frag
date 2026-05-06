@@ -102,14 +102,22 @@ void main() {
 
     // ----- Camera transform -----
     // Bar phase rocks the world; downbeat thumps it; cursor pans horizontally.
+    // Plus a slow "journey" drift over the song: zoom in toward the city,
+    // then pull back during cooldown.
+    float journeyT = u_song_progress;
+    // Bell curve peaks ~0.55 (just past peak 2), pull back at end.
+    float journeyZoom = 1.0 - 0.18 * exp(-pow((journeyT - 0.55) * 3.5, 2.0));
+    float journeyY    = 0.04 * sin(journeyT * PI);   // up at peak, then back
+
     float camTilt = 0.04 * sin(u_bar_phase * 2.0 * PI) * swayMul
                   + 0.06 * u_downbeat * leanDir
-                  + 0.04 * (chaos - 0.3);
+                  + 0.04 * (chaos - 0.3)
+                  + 0.02 * sin(journeyT * 6.28 * 1.5);    // slow continuous tilt
     float camPanX = mIdle ? 0.0 : -mp.x * 0.18;
 
     vec2  p = p0;
-    p.y    -= camY;
-    p     *= zoom;
+    p.y    -= (camY + journeyY);
+    p     *= (zoom * journeyZoom);
     p.x   += camPanX;
 
     // Tilt rotation

@@ -83,11 +83,39 @@ void main() {
 
     float yt = uv.y;
 
-    vec3 cTop    = vec3(0.020, 0.012, 0.018);   // smoky black
-    vec3 cMidA   = vec3(0.085, 0.025, 0.018);   // wine-ash
-    vec3 cMidB   = vec3(0.190, 0.055, 0.020);   // wine-ember
-    vec3 cHor    = vec3(0.95,  0.40,  0.10);    // ember-orange peak at horizon
-    vec3 cGround = vec3(0.55,  0.18,  0.04);    // hot ground glow
+    // Per-section palette tilt within the warm family. Saturation/brightness
+    // ride the energy curve; never breaks warm-only palette.
+    // Sections (intro→outro):
+    //   0: dim deep wine + faint ember (cold mood, lots of black)
+    //   1: warming wine + stronger ember (build)
+    //   2: full ember + bright orange (peak 1)
+    //   3: ash grey + dim ember (dip — most muted section)
+    //   4: WHITE-HOT yellow + bright ember (peak 2 — hottest)
+    //   5: orange + smoky wine (cool)
+    //   6: dim wine + faint horizon (low)
+    //   7: deep night wine + glow remnant (outro)
+    float topMul[8]    = float[8](0.7, 0.9, 1.1, 0.6, 1.4, 1.1, 0.8, 0.6);
+    float midAMul[8]   = float[8](0.7, 0.9, 1.1, 0.6, 1.5, 1.1, 0.8, 0.6);
+    float midBMul[8]   = float[8](0.6, 0.9, 1.2, 0.5, 1.7, 1.2, 0.7, 0.5);
+    float horMul[8]    = float[8](0.55, 0.85, 1.10, 0.55, 1.55, 1.10, 0.70, 0.45);
+    float groundMul[8] = float[8](0.55, 0.85, 1.10, 0.55, 1.65, 1.15, 0.70, 0.45);
+    float horYellow[8] = float[8](0.0,  0.05, 0.18, 0.0,  0.55, 0.18, 0.05, 0.0);
+    int   sidP = clamp(u_section_id, 0, 7);
+    int   nidP = clamp(sidP + 1, 0, 7);
+    float spP  = smoothstep(0.0, 1.0, u_section_progress);
+    float topM = mix(topMul[sidP], topMul[nidP], spP);
+    float midAM = mix(midAMul[sidP], midAMul[nidP], spP);
+    float midBM = mix(midBMul[sidP], midBMul[nidP], spP);
+    float horM = mix(horMul[sidP], horMul[nidP], spP);
+    float grndM = mix(groundMul[sidP], groundMul[nidP], spP);
+    float yelM = mix(horYellow[sidP], horYellow[nidP], spP);
+
+    vec3 cTop    = vec3(0.020, 0.012, 0.018) * topM;
+    vec3 cMidA   = vec3(0.085, 0.025, 0.018) * midAM;
+    vec3 cMidB   = vec3(0.190, 0.055, 0.020) * midBM;
+    // Horizon shifts toward white-hot yellow at peak 2 (yelM bumps green).
+    vec3 cHor    = vec3(0.95,  0.40 + yelM,  0.10 + yelM * 0.3) * horM;
+    vec3 cGround = vec3(0.55,  0.18 + yelM * 0.6,  0.04 + yelM * 0.2) * grndM;
 
     // Build the gradient piecewise around the LOCAL (per-x) horizon — gives
     // the horizon a slight tilt + wave so it never reads as a hard flat line.

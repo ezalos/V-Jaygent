@@ -1,0 +1,8 @@
+name: fire-core
+identity: "the burning eye"
+default_blend: screen
+uniforms: {}
+reads:
+  - u_history
+publishes: []
+consumes: []
