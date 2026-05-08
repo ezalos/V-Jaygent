@@ -55,11 +55,16 @@ void main() {
     // Per-section well strength + count: calm sections have 0–1 wells,
     // peaks have all 4. The single largest factor in making sections look
     // visually different.
-    float secStr[8]   = float[8](0.20, 0.55, 0.95, 0.40, 1.40, 0.85, 0.30, 0.0);
-    float secCount[8] = float[8](1.0,  2.0,  3.0,  1.5,  4.0,  3.0,  1.0,  0.0);
+    // Tier-based: only vortex sections (2, 4, 5) get active wells. Intimate
+    // and architectural sections (0, 1, 3, 6, 7) early-out — pillars stay
+    // un-lensed, the eye gets a break from the warp.
+    float secStr[8]   = float[8](0.0, 0.0, 1.05, 0.0, 1.55, 0.90, 0.0, 0.0);
+    float secCount[8] = float[8](0.0, 0.0, 3.0,  0.0, 4.0,  3.0,  0.0, 0.0);
     int   sid         = clamp(u_section_id, 0, 7);
     int   nid         = clamp(sid + 1, 0, 7);
-    float spS         = smoothstep(0.0, 1.0, u_section_progress);
+    // Late-ramp transition: section keeps its tier character for ~70% then
+    // transitions. Prevents intimate sections from ramping into vortex.
+    float spS         = smoothstep(0.70, 0.95, u_section_progress);
     float secMul      = mix(secStr[sid],   secStr[nid],   spS);
     float wellCountF  = mix(secCount[sid], secCount[nid], spS);
 

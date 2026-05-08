@@ -58,14 +58,14 @@ time_source: audio
 layers:
   - layer: burning-sky
     blend: normal
-  - layer: fire-core
-    blend: screen
   - layer: ember-spark
     blend: max
   - layer: babylon
     blend: normal
-  - layer: fire-eyes
-    blend: replace
+  - layer: fire-columns
+    blend: screen
+  - layer: falling-debris
+    blend: max
   - layer: key-rays
     blend: max
   - layer: heat-shimmer

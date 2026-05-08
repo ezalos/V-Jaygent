@@ -59,13 +59,16 @@ void main() {
     float mid     = mix(0.20 + 0.15 * sin(u_time * 1.27 + 1.7), u_audio_mid,  playing);
     float high    = mix(0.0,                                 u_audio_high, playing);
 
-    // Per-section shimmer mass — peak sections shimmer hard, low quiet.
-    // Tuned so the hottest section displaces by ≲ 1.5% of UV — heat haze
-    // visible in motion without melting the architecture.
-    float secMass[8] = float[8](0.20, 0.30, 0.50, 0.25, 0.70, 0.45, 0.30, 0.20);
+    // Per-section shimmer mass — tier-based. Vortex sections (2, 4, 5)
+    // tremble hard; intimate / architectural sections stay still so the
+    // pillars and embers can be read clearly. Section 4 (apocalypse) is
+    // the only one that pushes past 0.5.
+    float secMass[8] = float[8](0.10, 0.10, 0.50, 0.08, 0.85, 0.45, 0.10, 0.05);
     int   sid        = clamp(u_section_id, 0, 7);
     int   nid        = clamp(sid + 1, 0, 7);
-    float mass       = mix(secMass[sid], secMass[nid], smoothstep(0.0, 1.0, u_section_progress));
+    // Late-ramp transition (matches fire-core / fire-eyes) so intimate
+    // sections stay still until they're about to flip into vortex.
+    float mass       = mix(secMass[sid], secMass[nid], smoothstep(0.70, 0.95, u_section_progress));
     mass            *= 0.55 + 0.30 * u_energy_smooth + 0.20 * bass;
 
     // ----- Curl-noise displacement -----

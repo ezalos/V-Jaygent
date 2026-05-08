@@ -1,0 +1,8 @@
+name: fire-columns
+identity: "the climbing flames"
+default_blend: screen
+uniforms: {}
+reads:
+  - u_history
+publishes: []
+consumes: []

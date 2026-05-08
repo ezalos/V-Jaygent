@@ -64,10 +64,13 @@ void main() {
     float kick    = mix(0.0,                                 u_audio_kick, playing);
 
     // ----- Per-section transformation -----
-    // Scale: wheel is small/distant in calm sections, fills the frame at
-    // peak 2, and goes silent in the outro. This is the single largest
-    // factor in making each section read as a different stage.
-    float secScale[8]  = float[8](0.45, 0.75, 1.05, 0.50, 1.55, 1.05, 0.40, 0.0);
+    // Tier-based scale: forces categorical distinction between intimate
+    // sections (1, 3, 6 = small wheel) and vortex sections (2, 4, 5 = big
+    // wheel). Sections 0, 7 are architectural mode (no wheel — early-out).
+    //   0 = architectural (off)    1 = intimate    2 = vortex
+    //   3 = intimate (smallest)    4 = APOCALYPSE  5 = vortex
+    //   6 = intimate (fading)      7 = architectural (off)
+    float secScale[8]  = float[8](0.0,  0.42, 1.10, 0.35, 1.70, 1.05, 0.28, 0.0);
     // Centre offset per section so the wheel is never in the same spot.
     vec2  secCenter[8] = vec2[8](
         vec2( 0.10,  0.02),
@@ -81,7 +84,10 @@ void main() {
     );
     int   sid       = clamp(u_section_id, 0, 7);
     int   nid       = clamp(sid + 1, 0, 7);
-    float spS       = smoothstep(0.0, 1.0, u_section_progress);
+    // Late-ramp transition: each section keeps its tier character for ~70%
+    // of its duration, transitions in the final 25%. Prevents intimate
+    // sections from ramping into vortex over their full length.
+    float spS       = smoothstep(0.70, 0.95, u_section_progress);
     float wheelScl  = mix(secScale[sid],  secScale[nid],  spS);
     vec2  wheelOff  = mix(secCenter[sid], secCenter[nid], spS);
 
@@ -217,7 +223,7 @@ void main() {
     // Per-section intensity envelope (already applied via wheelScl above
     // for spatial; this re-applies on brightness too so the wheel both
     // shrinks AND dims in calm sections.)
-    float secInt[8] = float[8](0.40, 0.70, 1.00, 0.50, 1.40, 0.95, 0.40, 0.0);
+    float secInt[8] = float[8](0.0, 0.50, 1.05, 0.30, 1.50, 1.00, 0.30, 0.0);
     float brightMul = mix(secInt[sid], secInt[nid], spS);
     col *= brightMul;
 

@@ -1,0 +1,8 @@
+name: falling-debris
+identity: "the burning rain"
+default_blend: max
+uniforms: {}
+reads:
+  - u_history
+publishes: []
+consumes: []
