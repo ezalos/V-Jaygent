@@ -1,0 +1,62 @@
+title: "atoll"
+slug: atoll
+created: 2026-05-05T17:10:54.636Z
+audio: audio.mp3
+keyboard_synth: true
+default_instrument: chip
+notes: |
+  Pixel-art tropical beach with Nujabes' *aruarian dance* as the
+  backing track — play chiptune over the lo-fi.
+
+  **Keyboard is the ecosystem.**
+    - White keys **a s d f g h j k l** — each owns a column of sky.
+      Press one and birds appear in that column; held longer, more
+      birds. The whole row at once = a flock.
+    - Black keys **w e t y u o** — each owns a stretch of shore.
+      Press them and crabs scuttle out onto the sand at that
+      column; the same envelope drives small fish in the shallows.
+    - Total envelope across all 15 keys = wildlife density. Silence
+      = an empty beach. A held chord = a teeming one.
+
+  **Cursor is the camera.**
+    - Move horizontally → pan the horizon (sun and palms slide).
+    - Move vertically → tilt the horizon (more sky / more sand).
+
+  **Sound — chiptune by default.** The piece boots in the new
+  `chip` instrument: square + octave-stacked square, near-zero
+  reverb, sharp staccato. Press 1/2/3/4 for organ/pluck/pad/bell
+  if you want a different voice; `5` to come back to chip. `z`/`x`
+  octave shift, `[` records a loop, `]` clears it.
+
+  Construction notes:
+    - The whole scene is rendered through a single fragment shader
+      onto a quantised 220×132 pixel grid. Sky and sea bands use
+      Bayer 4×4 dithering then floor-quantisation to 4–5 luminance
+      steps so the gradients read as flat retro bands.
+    - The waterline is `surf(x, t) = horizon * 0.62 + 0.04 +
+      Σ aᵢ sin(kᵢ x + ωᵢ t)` — three superposed sines. Foam sits
+      `0.018` above the surf, hashed-noisy on its own grid.
+    - Sun glitter is just frame-jittered hash21 thresholded above
+      a tight band under the sun column.
+    - Five procedural palms — three smaller mid-ground (planted
+      higher up the beach with cooler/darker tints for atmospheric
+      perspective) and two larger foreground palms with coconuts.
+      Trunk = abs(x − quadratic-curl(y)) < 1px with `mod(y, 5) < 1`
+      ring carve. Fronds are six radial line walks from the crown
+      with quadratic sag.
+    - Sprite functions return typed pixel codes so each part is
+      coloured separately:
+        * Seagull (8 px, 5 tall) — body + head pixel + 3-segment
+          wings whose tips lift/drop with the flap phase.
+        * Fiddler crab (5×3) — shell, two white eye dots, big
+          right claw + small left claw, side legs.
+        * Tropical fish (5×3) — tapered body, V-tail, eye dot,
+          hue cycled (orange / yellow / cyan) per fish seed.
+      Each key's envelope decides how many spawn in its column.
+
+  This piece breaks V-Jaygent's warm-only palette rule on purpose —
+  a tropical beach without sea-blue and frond-green is dishonest
+  to the form.
+duration: 250
+uniforms: []
+published_at: null
