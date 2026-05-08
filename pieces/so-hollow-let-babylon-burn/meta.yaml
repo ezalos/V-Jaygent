@@ -64,6 +64,8 @@ layers:
     blend: max
   - layer: babylon
     blend: normal
+  - layer: fire-eyes
+    blend: replace
   - layer: key-rays
     blend: max
   - layer: heat-shimmer

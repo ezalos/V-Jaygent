@@ -1,0 +1,9 @@
+name: fire-eyes
+identity: "the watching wells"
+default_blend: replace
+uniforms: {}
+reads:
+  - u_below
+  - u_history
+publishes: []
+consumes: []
