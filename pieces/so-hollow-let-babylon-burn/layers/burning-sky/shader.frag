@@ -94,12 +94,13 @@ void main() {
     //   5: orange + smoky wine (cool)
     //   6: dim wine + faint horizon (low)
     //   7: deep night wine + glow remnant (outro)
-    float topMul[8]    = float[8](0.7, 0.9, 1.1, 0.6, 1.4, 1.1, 0.8, 0.6);
-    float midAMul[8]   = float[8](0.7, 0.9, 1.1, 0.6, 1.5, 1.1, 0.8, 0.6);
-    float midBMul[8]   = float[8](0.6, 0.9, 1.2, 0.5, 1.7, 1.2, 0.7, 0.5);
-    float horMul[8]    = float[8](0.55, 0.85, 1.10, 0.55, 1.55, 1.10, 0.70, 0.45);
-    float groundMul[8] = float[8](0.55, 0.85, 1.10, 0.55, 1.65, 1.15, 0.70, 0.45);
-    float horYellow[8] = float[8](0.0,  0.05, 0.18, 0.0,  0.55, 0.18, 0.05, 0.0);
+    // Palette swing extremes: peak 2 is brightest, dip + outro go near-black.
+    float topMul[8]    = float[8](0.50, 0.80, 1.10, 0.40, 1.55, 1.05, 0.30, 0.10);
+    float midAMul[8]   = float[8](0.50, 0.80, 1.10, 0.40, 1.65, 1.05, 0.30, 0.10);
+    float midBMul[8]   = float[8](0.45, 0.85, 1.20, 0.35, 1.85, 1.15, 0.25, 0.08);
+    float horMul[8]    = float[8](0.45, 0.85, 1.15, 0.40, 1.75, 1.10, 0.25, 0.10);
+    float groundMul[8] = float[8](0.45, 0.85, 1.15, 0.40, 1.85, 1.20, 0.25, 0.08);
+    float horYellow[8] = float[8](0.0,  0.05, 0.20, 0.0,  0.65, 0.20, 0.0,  0.0);
     int   sidP = clamp(u_section_id, 0, 7);
     int   nidP = clamp(sidP + 1, 0, 7);
     float spP  = smoothstep(0.0, 1.0, u_section_progress);

@@ -52,11 +52,24 @@ void main() {
     float mid     = mix(0.20, u_audio_mid, playing);
     float high    = mix(0.0, u_audio_high, playing);
 
-    // Per-section well strength: peaks have much stronger lensing
-    float secStr[8] = float[8](0.40, 0.65, 0.95, 0.55, 1.30, 0.95, 0.55, 0.35);
-    int   sid       = clamp(u_section_id, 0, 7);
-    int   nid       = clamp(sid + 1, 0, 7);
-    float secMul    = mix(secStr[sid], secStr[nid], smoothstep(0.0, 1.0, u_section_progress));
+    // Per-section well strength + count: calm sections have 0–1 wells,
+    // peaks have all 4. The single largest factor in making sections look
+    // visually different.
+    float secStr[8]   = float[8](0.20, 0.55, 0.95, 0.40, 1.40, 0.85, 0.30, 0.0);
+    float secCount[8] = float[8](1.0,  2.0,  3.0,  1.5,  4.0,  3.0,  1.0,  0.0);
+    int   sid         = clamp(u_section_id, 0, 7);
+    int   nid         = clamp(sid + 1, 0, 7);
+    float spS         = smoothstep(0.0, 1.0, u_section_progress);
+    float secMul      = mix(secStr[sid],   secStr[nid],   spS);
+    float wellCountF  = mix(secCount[sid], secCount[nid], spS);
+
+    // Early-out for outro/calm sections — pass through u_below + history fade
+    if (secMul < 0.05) {
+        vec3 below = texture(u_below, uv).rgb;
+        vec3 hist  = texture(u_history, uv).rgb * 0.84;
+        fragColor = vec4(max(below, hist), 1.0);
+        return;
+    }
 
     // Four wells on coprime slow orbits
     float t = u_time * 0.45;
@@ -65,31 +78,36 @@ void main() {
     holes[1] = 0.36 * vec2(cos(t * 0.31 + 1.7), sin(t * 0.21 + 0.9));
     holes[2] = 0.28 * vec2(cos(t * 0.13 + 3.1), sin(t * 0.31 + 2.2));
     holes[3] = 0.50 * vec2(cos(t * 0.07 + 5.0), sin(t * 0.11 + 1.4));
-    // Keep the wells in the upper half (above the horizon mostly) so they
-    // don't churn the ground glow.
     for (int i = 0; i < N_HOLES; i++) holes[i].y += 0.08;
-    holes[4] = mp;   // cursor well (zero when idle)
+    holes[4] = mp;
+
+    // Per-well activation: well i is active if its index < wellCountF, with
+    // fade-in for the fractional part. So as wellCountF crosses 2 → 3,
+    // the third well fades in.
+    float wellActive[N_HOLES];
+    for (int i = 0; i < N_HOLES; i++) {
+        wellActive[i] = clamp(wellCountF - float(i), 0.0, 1.0);
+    }
 
     // Aggregate UV displacement
     float strength = (0.020 + 0.022 * bass) * secMul;
     vec2 disp = vec2(0.0);
     for (int i = 0; i < N_HOLES; i++) {
-        disp += holePull(p, holes[i], strength);
+        disp += holePull(p, holes[i], strength * wellActive[i]);
     }
     if (!mIdle) disp += holePull(p, holes[4], strength * 1.6);
 
-    // Downbeat: lensing strength briefly DOUBLES (visible warp pulse)
+    // Downbeat: lensing strength briefly DOUBLES
     disp *= 1.0 + u_downbeat * 1.2;
 
     // Sample u_below at lensed UV
     vec3 col = texture(u_below, uv + disp).rgb;
 
-    // Bright fire core at each well — warm, NOT dark like black-holes.
-    // The well is the source of fire, not its sink.
+    // Bright fire core at each ACTIVE well — warm, not dark.
     float coreAcc = 0.0;
     for (int i = 0; i < N_HOLES; i++) {
         float r = length(p - holes[i]);
-        coreAcc = max(coreAcc, smoothstep(0.06, 0.0, r));
+        coreAcc = max(coreAcc, smoothstep(0.06, 0.0, r) * wellActive[i]);
     }
     if (!mIdle) {
         float r = length(p - holes[4]);
@@ -97,24 +115,24 @@ void main() {
     }
     col += vec3(1.40, 0.85, 0.45) * coreAcc * (0.55 + 0.55 * bass) * secMul;
 
-    // Bright accretion-disc rim around each well
+    // Bright accretion-disc rim around each ACTIVE well
     for (int i = 0; i < N_HOLES; i++) {
         float r = length(p - holes[i]);
         float rim = 1.0 - smoothstep(0.0, 0.012, abs(r - 0.075));
-        col += vec3(1.10, 0.45, 0.10) * rim * 0.55 * (0.4 + 0.55 * mid) * secMul;
+        col += vec3(1.10, 0.45, 0.10) * rim * 0.55 * (0.4 + 0.55 * mid)
+             * secMul * wellActive[i];
     }
-    // Cursor well rim
     if (!mIdle) {
         float r = length(p - holes[4]);
         float rim = 1.0 - smoothstep(0.0, 0.014, abs(r - 0.080));
         col += vec3(1.30, 0.65, 0.20) * rim * 0.85;
     }
 
-    // Pulse on each downbeat — wells visibly inflate the bright rim
+    // Pulse on each downbeat — only on ACTIVE wells
     if (u_downbeat > 0.05) {
         for (int i = 0; i < N_HOLES; i++) {
             float r = length(p - holes[i]);
-            float pulse = u_downbeat * smoothstep(0.20, 0.05, r);
+            float pulse = u_downbeat * smoothstep(0.20, 0.05, r) * wellActive[i];
             col += vec3(0.85, 0.35, 0.10) * pulse * 0.55;
         }
     }

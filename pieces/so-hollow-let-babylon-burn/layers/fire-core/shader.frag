@@ -63,9 +63,41 @@ void main() {
     float high    = mix(0.0,                                 u_audio_high, playing);
     float kick    = mix(0.0,                                 u_audio_kick, playing);
 
-    // Bass + idle-breath radial scale: bass pulls in (wheel grows), idle
-    // breath gives slow continuous motion when audio is paused.
-    float scale = 1.0 + 0.05 * sin(u_time * 0.41) - 0.20 * bass - 0.10 * kick;
+    // ----- Per-section transformation -----
+    // Scale: wheel is small/distant in calm sections, fills the frame at
+    // peak 2, and goes silent in the outro. This is the single largest
+    // factor in making each section read as a different stage.
+    float secScale[8]  = float[8](0.45, 0.75, 1.05, 0.50, 1.55, 1.05, 0.40, 0.0);
+    // Centre offset per section so the wheel is never in the same spot.
+    vec2  secCenter[8] = vec2[8](
+        vec2( 0.10,  0.02),
+        vec2(-0.18,  0.05),
+        vec2( 0.05, -0.06),
+        vec2( 0.22,  0.10),
+        vec2( 0.00,  0.00),     // peak — dead centre
+        vec2(-0.12, -0.04),
+        vec2( 0.18,  0.08),
+        vec2( 0.00,  0.20)
+    );
+    int   sid       = clamp(u_section_id, 0, 7);
+    int   nid       = clamp(sid + 1, 0, 7);
+    float spS       = smoothstep(0.0, 1.0, u_section_progress);
+    float wheelScl  = mix(secScale[sid],  secScale[nid],  spS);
+    vec2  wheelOff  = mix(secCenter[sid], secCenter[nid], spS);
+
+    // Early-out for outro section — no wheel at all in the final fade
+    if (wheelScl < 0.05) {
+        // Pass-through: keep history-only contribution so trails fade
+        vec3 hist = texture(u_history, uv).rgb * 0.78;
+        fragColor = vec4(hist, max(hist.r, max(hist.g, hist.b)));
+        return;
+    }
+
+    // Apply section transform: shift then scale-into-pixel-space.
+    p -= wheelOff;
+    // Bass + idle-breath radial scale, modulated by per-section size.
+    float liveScale = 1.0 + 0.05 * sin(u_time * 0.41) - 0.20 * bass - 0.10 * kick;
+    float scale = liveScale / max(wheelScl, 0.05);
     p /= scale;
 
     float r   = length(p);
@@ -182,12 +214,12 @@ void main() {
         col += vec3(1.40, 0.85, 0.45) * exp(-r * r * 12.0) * boundary * 0.50;
     }
 
-    // Per-section intensity envelope (wheel hottest at peaks, dim at low)
-    float secInt[8] = float[8](0.50, 0.75, 1.00, 0.60, 1.30, 0.95, 0.55, 0.40);
-    int   sid       = clamp(u_section_id, 0, 7);
-    int   nid       = clamp(sid + 1, 0, 7);
-    float secMul    = mix(secInt[sid], secInt[nid], smoothstep(0.0, 1.0, u_section_progress));
-    col *= secMul;
+    // Per-section intensity envelope (already applied via wheelScl above
+    // for spatial; this re-applies on brightness too so the wheel both
+    // shrinks AND dims in calm sections.)
+    float secInt[8] = float[8](0.40, 0.70, 1.00, 0.50, 1.40, 0.95, 0.40, 0.0);
+    float brightMul = mix(secInt[sid], secInt[nid], spS);
+    col *= brightMul;
 
     // History feedback — rotational ghost so the rotation reads continuously
     vec3 hist = texture(u_history, uv).rgb * 0.78;
