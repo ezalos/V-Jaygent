@@ -55,17 +55,25 @@ vec3 kodamaState(int sec, float prog) {
     return vec3(0.26, 0.0, 0.0);                                                // glassy
 }
 
-// Procedural spike rim — pow-sharpened sin lattice in θ-space with cheap
-// hash jitter so spikes wobble organically rather than ringing like teeth.
-// θ phase is offset by the cursor direction so spikes "lean toward the
-// magnet" — the brief's defining interaction.
+// Procedural spike rim — pow-sharpened sin lattice in θ-space, fbm-perturbed
+// in phase AND amplitude so the lattice never sits in a perfect ring.
+// Defects drift, heights vary, the surface is alive at every glance length.
 float spikeProfile(float theta, float spikePhase, float spikeCount,
                    vec2 worldP, float jitterAmt) {
+    // Phase perturbation — slow fbm wobble so spikes drift between
+    // positions rather than locking to fixed θ. This is the "controlled
+    // chaos" move that defeats the cog-wheel reading.
+    float phasePerturb = 0.55 * fbm(vec2(theta * 0.55 + u_time * 0.13, 1.7));
+    // Cheap pixel-scale hash adds micro-jitter at the rim.
     float jit = (hash21(worldP * 6.0 + vec2(u_time * 0.3, 0.0)) - 0.5) * jitterAmt;
-    float lattice = sin(theta * spikeCount + spikePhase + jit * 2.0);
+    float lattice = sin(theta * spikeCount + spikePhase + phasePerturb + jit * 2.0);
     lattice = max(0.0, lattice);
     lattice = pow(lattice, 3.5);  // crisp triangular peaks
-    return lattice;
+    // Per-spike height jitter — slow fbm modulation along θ so some spikes
+    // are 2.5× taller than their neighbours. Drifts over seconds, not
+    // metronomic.
+    float heightJit = 0.35 + 1.30 * fbm(vec2(theta * 2.1 + u_time * 0.31, 4.3));
+    return lattice * heightJit;
 }
 
 void main() {
@@ -122,18 +130,31 @@ void main() {
     vec2 dipoleAxis = mouseActive ? normalize(cw - bodyC + vec2(1e-6))
                                   : vec2(cos(t * 0.13), sin(t * 0.17));
 
-    // === Body SDF with procedural spike profile in θ-space ===
+    // === Body SDF — asymmetric body + procedural spike profile in θ-space ===
     vec2 dC = p - bodyC;
     float r = length(dC);
     float theta = atan(dC.y, dC.x);
+
+    // Asymmetric body lobes — fbm-modulated R so the silhouette is NOT a
+    // perfect circle. Body has 2-3 slowly drifting lobes that read as
+    // "ferrofluid pulled by inhomogeneous field" rather than "geometric blob".
+    float bodyLobe = 0.12 * (fbm(vec2(theta * 1.3 + t * 0.09, 7.7)) - 0.5);
+    float Rasym = R * (1.0 + bodyLobe);
+
     float profile = spikeProfile(theta, spikePhase, spikeCount, p, ampNow * 6.0);
     // Pole bias factor — more spikes on the cursor-facing side.
     vec2 rimDir = vec2(cos(theta), sin(theta));
-    float poleBias = 0.55 + 0.65 * pow(max(0.0, dot(rimDir, dipoleAxis)), 2.0);
+    float poleBias = 0.55 + 0.85 * pow(max(0.0, dot(rimDir, dipoleAxis)), 2.0);
     profile *= poleBias;
 
+    // Capillary chop on rim — pixel-scale jitter that intensifies with
+    // hi-hat. Hi-hat hits → scintillation, not bumps.
+    float chopAmp = 0.006 + 0.014 * u_audio_high;
+    float chop = chopAmp * (fbm(vec2(theta * 26.0 + t * 6.0, 11.3)) - 0.5);
+
     // Effective rim displacement and SDF.
-    float Reff = R + profile * ampNow + capChop * sin(theta * 22.0 + t * 6.0);
+    float Reff = Rasym + profile * ampNow + capChop * sin(theta * 22.0 + t * 6.0)
+                 + chop;
     float d    = r - Reff;
 
     // Section-3 special: body collapses toward a small droplet then reforms
@@ -155,14 +176,30 @@ void main() {
         // gradient so the piece doesn't feel like a black void.
         float distC = length(p - bodyC);
         col += vec3(0.022, 0.014, 0.010) * (1.0 - 0.6 * smoothstep(0.30, 1.0, distC));
-        // Faint warm bloom keyed to local field magnitude. Reads as a
-        // halo of "magnetic presence" without crossing into fire-sun
-        // territory because amplitude stays tiny and it's gated by phi.
-        float phiHere = texture(u_field_state, uv).r;
+        // Faint warm bloom keyed to local field magnitude.
+        vec4 fHere = texture(u_field_state, uv);
+        float phiHere = fHere.r;
         col += vec3(0.42, 0.20, 0.07)
              * pow(saturate(abs(phiHere) * 0.55), 1.6)
              * 0.34
-             * smoothstep(0.40, 0.18, distC);  // fade with distance
+             * smoothstep(0.40, 0.18, distC);
+
+        // Substrate field streamers — fbm-warped warm streaks in the band
+        // just outside the body, oriented loosely along the field gradient.
+        // Reads as "the magnetic field has texture, you're seeing it leak".
+        // Gated to a narrow halo band and to active-field regions only so
+        // it never overwhelms the body silhouette.
+        if (distC < 0.55 && distC > Rasym * 0.95) {
+            vec2 fGrad = fHere.gb;
+            float gAng = atan(fGrad.y, fGrad.x + 1e-6);
+            vec2 along = rot2d(-gAng) * ((p - bodyC) * 5.0);
+            float streamer = fbm(along + vec2(t * 0.18, 0.0));
+            streamer = pow(saturate(streamer * 1.5 - 0.55), 1.8);
+            float bandFade = smoothstep(0.55, Rasym * 0.95, distC)
+                           * (1.0 - smoothstep(0.60, 0.95, distC / 0.55));
+            float fStr = pow(saturate(abs(phiHere) * 0.7), 1.4);
+            col += vec3(0.85, 0.45, 0.16) * streamer * fStr * bandFade * 0.55;
+        }
     } else {
         // ----- INSIDE BODY — Kodama discipline -----
         // Body base: matte black with hint of warm bias. NO fire, NO inner
