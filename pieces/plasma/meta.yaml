@@ -1,0 +1,58 @@
+title: "plasma"
+slug: plasma
+created: 2026-05-10T00:00:00.000Z
+notes: |
+  Interactive plasma — the canonical demoscene effect (sin-field
+  domain warps mapped through a hue palette) with touch + keyboard
+  input. Mobile-friendly: u_touches is the primary input (works on
+  desktop click+drag AND mobile touch); keyboard is a desktop-only
+  bonus, never required.
+
+  Layer stack (bottom → top):
+
+  1. plasma-base   Canonical 4-term sin plasma (cartesian + diagonal
+                   + radial + orbiting-radial), iqCosine palette with
+                   slow autonomous hue drift. Self-plays — no inputs.
+                   Always alive. Floor of the piece.
+  2. plasma-touch  Reads u_below as a fluid surface and displaces it
+                   per active touch. Each touch radiates a sin ripple
+                   that pulls the plasma sample with it; fresh touches
+                   pull harder, age-fade over ~2s after release. Plus
+                   a tactile halo at each contact point so the viewer
+                   sees "yes, the system saw my touch" before the
+                   ripple builds. Multi-touch superposes.
+  3. plasma-chord  Reads u_below and adds keyboard-driven harmonics
+                   (each pressed key adds a higher-frequency sin term
+                   that screens onto the plasma — pressed-key set =
+                   visible high-frequency texture coupled to the
+                   underlying field). With no keys held, contributes
+                   only a slow 0.04 Hz hue rotation so the layer
+                   stays alive on mobile (no keyboard).
+
+  Three input channels:
+    cursor / touch → plasma-touch displacement + halo (PRIMARY)
+    keyboard       → plasma-chord harmonics (DESKTOP BONUS)
+    audio          → none
+
+  Mobile budget:
+    render_scale 0.85 (FBO at 85% of canvas-px × dpr)
+    No FBO ping-pong (`passes:` not used)
+    No noise textures
+    All layers <30 fragment ops in the inner loop
+    Targets 60fps on Pixel 6 / iPhone 12
+
+  Closed-brief discipline: this is the canonical Yusuke Endoh / 80s-
+  demoscene plasma, not a re-imagining. Three sin terms and a moving
+  fourth, classic palette LUT. The interactivity layer is the new
+  thing; the plasma core is faithful to the original.
+duration: 30
+render_scale: 0.85
+uniforms: []
+published_at: null
+layers:
+  - layer: plasma-base
+    blend: normal
+  - layer: plasma-touch
+    blend: replace
+  - layer: plasma-chord
+    blend: replace

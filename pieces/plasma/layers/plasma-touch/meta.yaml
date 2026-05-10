@@ -1,0 +1,8 @@
+name: plasma-touch
+identity: "ripple-displaces u_below per active touch + halo"
+default_blend: replace
+uniforms: {}
+reads:
+  - u_below
+publishes: []
+consumes: []

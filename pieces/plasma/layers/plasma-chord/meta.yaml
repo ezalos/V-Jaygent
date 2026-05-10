@@ -1,0 +1,8 @@
+name: plasma-chord
+identity: "keyboard harmonics screen onto u_below; idle hue rotate"
+default_blend: replace
+uniforms: {}
+reads:
+  - u_below
+publishes: []
+consumes: []

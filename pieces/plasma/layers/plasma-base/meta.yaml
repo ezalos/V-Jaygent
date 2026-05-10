@@ -1,0 +1,7 @@
+name: plasma-base
+identity: "canonical demoscene plasma with iqCosine hue drift"
+default_blend: normal
+uniforms: {}
+reads: []
+publishes: []
+consumes: []
