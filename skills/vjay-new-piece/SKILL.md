@@ -488,12 +488,25 @@ If it errors:
 ### 10. Inspect & self-critique
 
 ```
-node bin/inspect.mjs <slug> 4 8
+node bin/inspect.mjs <slug> 4 8     # theme-only / short pieces (≤60s)
+node bin/inspect.mjs <slug> 5 60    # 2–5 min audio piece
+node bin/inspect.mjs <slug> 5 90    # 5–10 min audio piece
 ```
 
-This takes ~35 seconds of wall time. Then Read each PNG yourself
-(multimodal input). Write `brainstorming/critiques/<slug>-v1.md`
-following the shape of existing critiques:
+`bin/inspect.mjs` samples at wall-clock spacing from t=0; with
+`time_source: audio` that maps directly to song timestamps. For
+audio-driven pieces, **scale the interval so `frames × intervalSec ≥
+0.7 × duration`** — otherwise every frame lands in the intro and the
+active sections (build / drop / peak) go unsampled. The default
+`4 8` shape is calibrated for theme-only / short pieces; do not
+keep it for long-form audio. Wall-clock cost = `frames × intervalSec`
+seconds, so a 7-minute song spread takes ~6 min — run in background
+and draft the critique scaffold meanwhile.
+
+Theme-only / short pieces take ~35 seconds. Then Read each PNG
+yourself (multimodal input). Write
+`brainstorming/critiques/<slug>-v1.md` following the shape of
+existing critiques:
 - What you see in each frame (honest, specific)
 - Scores against `taste.md` dimensions
 - Ranked fixes
