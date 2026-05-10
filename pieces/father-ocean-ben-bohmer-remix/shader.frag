@@ -149,9 +149,10 @@ void main() {
     float erupt      = 0.018 * pow(u_audio_kick, 2.0);
     float capChop    = 0.005 * u_audio_high;
 
-    // BASS as the primary visual. Body radius pulses BIG (~55% of base R)
-    // on bass envelope. Smooth, not metronomic — the music IS the body.
-    float bassPulse = R_base * 0.55 * u_audio_bass;
+    // BASS as the primary visual driver — radius and topology, NOT
+    // body color. ~32% radius pulse keeps the body within frame and
+    // protects the Kodama dark-body discipline.
+    float bassPulse = R_base * 0.32 * u_audio_bass;
 
     // Effective body radius, modulated by all timescales.
     // Beat-throb dropped: it fired every 0.49s and over 8 minutes that
@@ -192,16 +193,18 @@ void main() {
     float latticeOrder = pow(max(0.0, 1.0 - u_bar_phase), 1.6) * 0.85
                        + 0.15 * u_downbeat;
 
-    // === Body SDF — asymmetric body + procedural spike profile in θ-space ===
+    // === Body SDF — 3-seed smin'd cluster + procedural spikes in θ-space ===
+    // Three seeds drifting on independent Perlin paths inside a containment
+    // radius. opSmin'd together: when seeds are close, body reads as one
+    // creature; when they spread, it visibly stretches into lobes — the
+    // body's TOPOLOGY changes with the music, not just its size.
     vec2 dC = p - bodyC;
     float r = length(dC);
     float theta = atan(dC.y, dC.x);
 
-    // Asymmetric body lobes — multi-octave fbm so the silhouette has BIG
-    // lobes (±28%) plus smaller bulges. Reads as "fluid being pulled by an
-    // inhomogeneous field", not "circle".
-    float bodyLobe = 0.28 * (fbm(vec2(theta * 1.3 + t * 0.09, 7.7)) - 0.5)
-                   + 0.10 * (fbm(vec2(theta * 3.1 + t * 0.27, 2.3)) - 0.5);
+    // Asymmetric body lobes — multi-octave fbm.
+    float bodyLobe = 0.34 * (fbm(vec2(theta * 1.3 + t * 0.09, 7.7)) - 0.5)
+                   + 0.14 * (fbm(vec2(theta * 3.1 + t * 0.27, 2.3)) - 0.5);
     float Rasym = R * (1.0 + bodyLobe);
 
     float profile = spikeProfile(theta, spikePhase, spikeCount, p, ampNow * 6.0,
@@ -210,23 +213,43 @@ void main() {
     float poleBias = 0.45 + 1.10 * pow(max(0.0, dot(rimDir, dipoleAxis)), 2.0);
     profile *= poleBias;
 
-    // Capillary chop on rim — pixel-scale jitter that intensifies with
-    // hi-hat. Hi-hat hits → scintillation, not bumps. Always-on minimum.
-    float chopAmp = 0.010 + 0.020 * u_audio_high;
+    // Capillary chop on rim — pixel-scale jitter, hi-hat scales it.
+    float chopAmp = 0.012 + 0.024 * u_audio_high;
     float chop = chopAmp * (fbm(vec2(theta * 26.0 + t * 6.0, 11.3)) - 0.5);
 
-    // Drumhead wobble — kicks fire a damped radial wave; idle synthetic
-    // pulses keep the body breathing.
+    // Curl-noise turbulence on body skin — adds visible turbulent texture
+    // INSIDE the body (not just at rim). 2-octave fbm of (p, t) modulated
+    // by bass so the skin churns when the music hits.
+    float skinTurb = (fbm(vec2(p.x * 18.0 + t * 0.7, p.y * 18.0)) - 0.5) * 0.030
+                   + (fbm(vec2(p.x * 36.0 - t * 1.2, p.y * 36.0)) - 0.5) * 0.012;
+    skinTurb *= (0.4 + 1.4 * u_audio_bass);
+
+    // Drumhead wobble — kicks fire a damped radial wave.
     float dh = drumhead(dC, r);
 
-    // Pinch-off proto-droplets — three roving bumps that grow/shrink on
-    // the rim, simulating spikes about to detach.
+    // Pinch-off proto-droplets — three roving bumps on the rim.
     float drops = dropletBumps(theta, r, R, t);
 
-    // Effective rim displacement and SDF.
+    // Multi-seed contribution: three drifting seed offsets, smin'd into the
+    // main body. Seeds wander at different Perlin-rate phases.
+    float seedRad = R * 0.60;
+    vec2 s0 = bodyC + 0.060 * vec2(sin(t*0.27 + 1.1), cos(t*0.31 + 2.2));
+    vec2 s1 = bodyC + 0.075 * vec2(sin(t*0.41 + 3.3), cos(t*0.37 + 4.4));
+    vec2 s2 = bodyC + 0.082 * vec2(sin(t*0.53 + 5.5), cos(t*0.47 + 6.6));
+    float dSeed0 = length(p - s0) - seedRad * (1.0 + 0.12 * sin(t*0.17));
+    float dSeed1 = length(p - s1) - seedRad * (1.0 + 0.12 * sin(t*0.23));
+    float dSeed2 = length(p - s2) - seedRad * (1.0 + 0.12 * sin(t*0.29));
+    float kJoin  = mix(0.18, 0.06, u_audio_bass);  // bass-tightens the join
+                                                    // = visible topology
+    float dSeeds = opSmin(dSeed0, opSmin(dSeed1, dSeed2, kJoin), kJoin);
+
+    // Effective rim displacement; combine smooth rim with seed-cluster body.
     float Reff = Rasym + profile * ampNow + capChop * sin(theta * 22.0 + t * 6.0)
                  + chop + drops;
-    float d    = r - Reff + dh;
+    float dRim   = r - Reff + dh;
+    // smin between the rim-driven SDF and the seed-cluster SDF — body has
+    // BOTH the spike-rim silhouette AND the multi-seed lobes.
+    float d      = opSmin(dRim, dSeeds, R * 0.30) + skinTurb * 0.5;
 
     // Section-3 special: body collapses toward a small droplet then reforms
     // (handled implicitly via R_base shrinkage in kodamaState).
@@ -367,10 +390,10 @@ void main() {
         // small, just enough to lift the body off pure black.
         col += vec3(0.040, 0.018, 0.008) * (1.0 - depth * 0.4);
 
-        // BASS-DRIVEN INTERIOR WARMTH — body interior brightens with bass.
-        // The music's loudness IS the body's heat. Caps modestly so the
-        // dark-interior contract holds at silent moments.
-        col += vec3(0.55, 0.26, 0.10) * u_audio_bass * 0.22 * (1.0 - depth * 0.5);
+        // Body interior warmth from bass — VERY small additive so the
+        // dark-body contract holds. Was 0.22; that drowned the silhouette
+        // in active sections. Now just a whisper of warmth on big bass.
+        col += vec3(0.55, 0.26, 0.10) * u_audio_bass * 0.05 * (1.0 - depth * 0.5);
 
         // ----- IRIDESCENCE — warm-only, ridge-only, low amplitude -----
         // Cosmetic-toy oil-film effect. Blue knocked down 60%.
@@ -391,16 +414,35 @@ void main() {
         col += vec3(0.95, 0.45, 0.16) * rim * 0.85;
     }
 
-    // ----- BASS GLOW — soft warm halo that breathes with bass envelope -----
-    // Single smooth field that scales with bass — not a beat-locked pulse.
-    // The music PRESENT in the visuals: louder bass = bigger warm glow
-    // around the body, quieter bass = it recedes.
+    // ----- BASS GLOW — narrow warm halo, gated tight against the body
+    // so it doesn't drown the frame. Reach was 0.55, now 0.18. -----
     {
         float distC = length(p - bodyC);
-        float reach = R * 1.4 + 0.45 * u_audio_bass;
-        float bassGlow = u_audio_bass * exp(-pow(distC / reach, 1.8));
-        col += vec3(0.42, 0.20, 0.07) * bassGlow * 0.70;
+        float reach = R * 1.2 + 0.18 * u_audio_bass;
+        float bassGlow = u_audio_bass * exp(-pow(distC / reach, 2.0));
+        col += vec3(0.42, 0.20, 0.07) * bassGlow * 0.55;
     }
+
+    // ----- BASS SHOCKWAVE — strong-kick gated radial wave traveling
+    // outward across the canvas. Only fires when audio_kick > 0.5 (so
+    // it's NOT every beat — only the loud hits, never repetitive). -----
+    {
+        float kickStrength = smoothstep(0.45, 0.85, u_audio_kick);
+        if (kickStrength > 0.001) {
+            // Wave radius grows quickly across the bar — synthesised here
+            // from bar_phase since we have no per-event state.
+            float distC = length(p - bodyC);
+            float waveR = R + 0.10 + u_bar_phase * 1.2;
+            float dr    = abs(distC - waveR);
+            float wThick = 0.020 + 0.030 * (1.0 - u_bar_phase);
+            float wFade  = (1.0 - u_bar_phase) * (1.0 - u_bar_phase);
+            col += vec3(1.10, 0.55, 0.18)
+                 * smoothstep(wThick, 0.0, dr) * wFade * kickStrength * 0.45;
+        }
+    }
+
+    // (Chromatic shift removed — added too much warmth, broke the
+    //  Sachiko-Kodama silhouette contract in active sections.)
 
     // ----- DOWNBEAT RING — once per bar (1.95s @ 123 BPM), the only
     // metronomic-on-purpose element. Anchors rhythm without aggression. -----
