@@ -394,6 +394,16 @@ Write `pieces/<slug>/shader.frag`. Respect:
   - > 32 inner iterations per pixel
   - Suggested starting values: 0.45-0.55 for expensive, 0.65-0.75 for
     moderate, 1.0 for cheap.
+- **Lead-layer always-on band** — when the piece's THESIS is the
+  geometry (rings, petals, tooth wheels, segmented gears, lattice
+  cells), author the lead's brightness as
+  `max(silhouette * 0.30, accent * 1.0)` — never `silhouette *
+  accent` alone. Accents alone leave the structure invisible
+  (cirrus 2026-05-10 v1: 0/5 mesmerizing probes because the rings
+  only existed at tooth-peaks; v2 split into ring_presence +
+  tooth_peak → 5/5). The accent should *brighten* the silhouette,
+  not be the only thing visible. See
+  `~/.claude/projects/-home-ezalos-42-V-Jaygent/memory/feedback_lead_layer_always_on_band.md`.
 
 If the piece needs state (RD, particle accumulation, trails), scaffold
 with `node bin/new-piece.mjs <slug> --sim` — produces a `sim.frag`
