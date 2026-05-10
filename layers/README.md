@@ -228,14 +228,36 @@ The engine adds `flash: true` uniforms to its flash-budget counter
 
 ## Examples to read first
 
-- `layers/chromatic-refraction/` — read-only `u_below` distort, no
-  shared state.
-- `layers/gravitational-field/` — publishes a `vec2 field` shared
-  state.
-- `layers/ferrofluid/` — consumes `external_force`, has its own
-  ping-pong density via `persistent: true` publish.
-- `pieces/_layer-engine-test/` — tiny integration test with two
-  trivial layers; smoke-test target.
+The README's earlier draft promised `chromatic-refraction`,
+`gravitational-field`, and `ferrofluid` as canonical examples. Real
+shipped layers cover the same patterns; read these instead:
+
+- `layers/wave-distort/` — read-only `u_below` distort, no shared
+  state. Single-job layer, no audio binding, smallest possible
+  example. (Stand-in for the planned `chromatic-refraction`.)
+- `layers/lodestone-pull/` — publishes a `vec2 force` field from
+  three orbiting masses (1/r² gravitational falloff). Note the
+  `alpha: 0` requirement on the piece-side declaration to keep the
+  rg-encoded data from leaking visually. (Stand-in for the planned
+  `gravitational-field`.)
+- `layers/force-source/` — minimal force-publisher; cleaner pattern
+  if you want to *just* see the publish/consume contract without
+  the lodestone visuals.
+- `layers/flow-particles/` — consumes `u_force`, advects sparse
+  particles via `u_history` feedback (4-step semi-Lagrangian).
+  Demonstrates the consume + persistent-feedback pattern. (Stand-in
+  for the planned `ferrofluid`.)
+- `layers/flow-warm/` and `layers/follow-force/` — alternative
+  consumers of the same `force` publish; useful for seeing how one
+  publisher feeds multiple downstream consumers in different
+  visual roles.
+- `pieces/layer-engine-test/` and `pieces/layer-publish-test/` —
+  integration tests with trivial layers; smoke-test targets.
+
+The canonical full-stack reference for a 7-layer publish/consume +
+multi-input piece is `pieces/stronger/` (uses `solid-warm`,
+`lodestone-pull`, `flow-particles`, `mirror-bloom`, `black-holes`,
+`glitch-rgb`, `key-rays` — see its `meta.yaml` for the full DAG).
 
 (These don't exist yet at the time of writing — they ship with the
 layer engine in Phase 2 of the spec at
