@@ -1,0 +1,61 @@
+title: Ferrohands
+slug: ferrohands
+created: 2026-05-10T15:30:16.169Z
+notes: |
+  Multi-touch ferrofluid. Each finger is a magnetic dipole — the canonical
+  Cowley-Rosensweig instability ( dh/dt = D*lap(h) - G*h + alpha*|B|^2 - beta*h^3 )
+  on a half-resolution rgba16f ping-pong height field, summing |B|^2 across
+  up to 8 simultaneous u_touches[]. The audience's hand IS the magnet;
+  spikes erupt where any finger is, anisotropy interferes between adjacent
+  fingers, the substrate sags into the sum-of-fields between them.
+
+  Closed brief — no audio, no keyboard, no extra layers. The interaction
+  model is the entire point of the piece.
+
+  Architecture (passes:, not layers:):
+
+    1. simulate — rgba16f ping-pong @ 0.5x. .r = h, .g = slow-tension echo,
+       .b = local |B|^2 for display. 8 sub-iterations per frame for stable
+       spike formation under a multi-finger chord.
+    2. display — gradient-to-normal embossing, Lambertian + specular + rim,
+       ember palette (near-black violet -> wine -> ember -> amber -> pale gold),
+       per-finger fresnel halo gated by spike height for tactile feedback.
+
+  Input wiring:
+    fingers (primary)  -> u_touches[8] feeds 8 dipole sources into the sim.
+                          Each finger's moment vector rotates at a slightly
+                          different rate (offset by index phase) so adjacent
+                          fingers don't lock; fresh touches (age < 0.4s) get
+                          a strength kick so taps register as discrete
+                          spike-bursts.
+    no audio           -> closed brief. Music can be played alongside, the
+                          piece will not change.
+    idle behaviour     -> when u_touch_count == 0 (headless inspect, idle
+                          desktop), three Lissajous-orbit dipoles keep the
+                          surface alive. Self-plays without input.
+
+  Differs from pieces/ferrofluid:
+    - 8 finger dipoles vs 1 cursor dipole
+    - per-finger phase-offset moment rotation (vs single u_time-locked angle)
+    - fresh-touch strength kick (vs audio-bass scaling)
+    - per-finger fresnel halo for tactile feedback (vs none)
+    - no audio coupling
+duration: 60
+render_scale: 1
+passes:
+  - name: simulate
+    shader: sim.frag
+    target:
+      format: rgba16f
+      ping_pong: true
+      scale: 0.5
+    inputs:
+      u_state: simulate
+    iterations: 4
+  - name: display
+    shader: shader.frag
+    target: screen
+    inputs:
+      u_state: simulate
+published_at: null
+rendered_at: '2026-05-10T15:40:28.940Z'
