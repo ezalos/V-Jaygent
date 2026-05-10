@@ -67,6 +67,23 @@ void main() {
     vec2 pos  = self.xy;
     vec2 vel  = self.zw;
 
+    // ---- Lifespan / respawn.
+    // Each boid lives 4-9 seconds (per-boid hash) then respawns at a new
+    // random position with zeroed velocity. Detect wrap by comparing age
+    // to a one-frame-earlier sample of the same modular function.
+    float lifespan = 4.0 + 5.0 * fract(sin(fi * 1.71) * 41.73);
+    float phase    = fract(cos(fi * 2.39) * 13.71) * lifespan;
+    float age      = mod(u_time + phase, lifespan);
+    float prevAge  = mod(u_time + phase - 0.016667, lifespan);
+    if (age < prevAge) {
+        // Respawn at a fresh hash-driven position. Use floor(u_time/lifespan)
+        // as part of the seed so consecutive lives don't repeat the same spot.
+        float gen = floor((u_time + phase) / lifespan);
+        vec2  hp  = hash22(vec2(fi + gen * 7.13, fi * 0.7 + gen * 3.37));
+        pos = hp;
+        vel = vec2(0.0);
+    }
+
     // ---- Direct finger forcing — orbital, not collapsing.
     // Mostly-tangential force with a light radial component. Boids that
     // wander near a finger curve around it like a moon, then escape.

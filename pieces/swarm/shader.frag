@@ -129,30 +129,42 @@ void main() {
     // where their input lands. Ring radius pulses with finger age.
     // ---- 100 boids (Lagrangian particles swimming in the velocity field).
     // Each boid is splatted as a small disc tinted by the sim's affinity at
-    // its position — boids passing through finger zones take that finger's
-    // colour; boids in neutral cells fall back to the slow palette drift.
+    // its position. Boids fade in at birth and fade out at death (lifespan
+    // 4-9s, per-boid hash) — same age formula as boids.frag.
     for (int i = 0; i < 100; i++) {
         ivec2 bc = ivec2(i % 10, i / 10);
         vec4  b  = texelFetch(u_boids, bc, 0);
         vec2  bp = b.xy;
         vec2  bv = b.zw;
 
-        vec2  d   = (uv - bp) * vec2(aspect, 1.0);
-        float r2  = dot(d, d);
+        // Match boids.frag's lifespan formula exactly so visible age tracks
+        // the simulation age — drift between the two desyncs the fade.
+        float fi       = float(i);
+        float lifespan = 4.0 + 5.0 * fract(sin(fi * 1.71) * 41.73);
+        float phase    = fract(cos(fi * 2.39) * 13.71) * lifespan;
+        float age      = mod(u_time + phase, lifespan);
+        float lifeT    = age / lifespan;          // 0..1 across one life
+        // Bell envelope: 0 at birth, 1 in the middle, 0 at death.
+        float life     = sin(lifeT * PI);
+        life = pow(life, 0.7);
 
-        // Disc: tight Gaussian. Slight axial stretch along velocity so
+        vec2  d  = (uv - bp) * vec2(aspect, 1.0);
+        float r2 = dot(d, d);
+
+        // Disc: tight Gaussian, slight axial stretch along velocity so
         // fast-moving boids leave a comet streak instead of a perfect blob.
-        float radius = 0.0055;
+        float radius = 0.0075;
         float speed  = length(bv);
         float along  = speed > 1e-4 ? abs(dot(d, bv) / speed) : 0.0;
-        float r2e    = r2 + along * 0.6 * along * 0.6;  // squash along motion
+        float r2e    = r2 + along * 0.6 * along * 0.6;
         float disc   = exp(-r2e / (radius * radius));
+        // Soft halo (wider, dimmer) — boids stand out from the field.
+        float halo   = exp(-r2 / (0.018 * 0.018)) * 0.35;
 
-        // Colour from the field's affinity at the boid's position.
         float aff   = texture(u_state, bp).a;
         vec3  bcol  = fingerPalette(aff + drift);
 
-        col += bcol * disc * (1.4 + 0.8 * saturate(speed * 0.6));
+        col += bcol * (disc * 1.8 + halo) * life * (1.0 + 0.7 * saturate(speed * 0.6));
     }
 
     for (int i = 0; i < 8; i++) {
