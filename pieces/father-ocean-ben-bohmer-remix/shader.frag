@@ -45,35 +45,73 @@ float oneOverF(float t) {
 //   0 soft fluid → 1 moss → 2 shark teeth → 3 break → 4 drop → 5 iron →
 //   6 cooling → 7 glassy.
 vec3 kodamaState(int sec, float prog) {
-    if (sec == 0) return vec3(0.20 + 0.04 * prog, 0.0,                0.005);
-    if (sec == 1) return vec3(0.24,               18.0,               0.030);
-    if (sec == 2) return vec3(0.27,               12.0,               0.075);
-    if (sec == 3) return vec3(0.27 - 0.12 * prog, 12.0 * (1.0 - prog), 0.075 * (1.0 - prog));
-    if (sec == 4) return vec3(0.18 + 0.13 * prog, 12.0,               0.045 + 0.090 * prog);
-    if (sec == 5) return vec3(0.31,                7.0,               0.150);  // iron — tower
-    if (sec == 6) return vec3(0.31 - 0.05 * prog, 12.0,               0.110 * (1.0 - prog * 0.7));
-    return vec3(0.26, 0.0, 0.0);                                                // glassy
+    if (sec == 0) return vec3(0.20 + 0.04 * prog, 14.0,               0.018 + 0.020 * prog);
+    if (sec == 1) return vec3(0.24,               18.0,               0.045);
+    if (sec == 2) return vec3(0.27,               14.0,               0.105);
+    if (sec == 3) return vec3(0.27 - 0.12 * prog, 14.0,               0.060 * (1.0 - prog * 0.5));
+    if (sec == 4) return vec3(0.18 + 0.13 * prog, 14.0,               0.080 + 0.110 * prog);
+    if (sec == 5) return vec3(0.31,                7.0,               0.190);  // iron — tower
+    if (sec == 6) return vec3(0.31 - 0.05 * prog, 14.0,               0.150 * (1.0 - prog * 0.7));
+    return vec3(0.26, 6.0, 0.020);                                              // glassy still has whisper
 }
 
-// Procedural spike rim — pow-sharpened sin lattice in θ-space, fbm-perturbed
-// in phase AND amplitude so the lattice never sits in a perfect ring.
-// Defects drift, heights vary, the surface is alive at every glance length.
+// Procedural spike rim — pow-sharpened sin lattice in θ-space with multi-
+// scale chaos. Phase wobbles slowly across ±1.4 rad so spikes really swap
+// positions; per-spike heights vary 0.05→2.10×; defects pop in and out.
 float spikeProfile(float theta, float spikePhase, float spikeCount,
                    vec2 worldP, float jitterAmt) {
-    // Phase perturbation — slow fbm wobble so spikes drift between
-    // positions rather than locking to fixed θ. This is the "controlled
-    // chaos" move that defeats the cog-wheel reading.
-    float phasePerturb = 0.55 * fbm(vec2(theta * 0.55 + u_time * 0.13, 1.7));
-    // Cheap pixel-scale hash adds micro-jitter at the rim.
+    // Phase perturbation — slow LARGE fbm wobble (±1.4 rad) so the lattice
+    // never settles. Two-octave so big drift + smaller wiggle.
+    float phasePerturb = 1.40 * fbm(vec2(theta * 0.55 + u_time * 0.17, 1.7))
+                       + 0.40 * fbm(vec2(theta * 1.40 + u_time * 0.41, 8.7));
     float jit = (hash21(worldP * 6.0 + vec2(u_time * 0.3, 0.0)) - 0.5) * jitterAmt;
     float lattice = sin(theta * spikeCount + spikePhase + phasePerturb + jit * 2.0);
     lattice = max(0.0, lattice);
-    lattice = pow(lattice, 3.5);  // crisp triangular peaks
-    // Per-spike height jitter — slow fbm modulation along θ so some spikes
-    // are 2.5× taller than their neighbours. Drifts over seconds, not
-    // metronomic.
-    float heightJit = 0.35 + 1.30 * fbm(vec2(theta * 2.1 + u_time * 0.31, 4.3));
+    lattice = pow(lattice, 3.5);
+    // Per-spike height jitter — wide range 0.05→2.10. Some spikes are
+    // nearly invisible while neighbours tower, the pattern drifting.
+    float heightJit = 0.05 + 2.05 * fbm(vec2(theta * 2.1 + u_time * 0.37, 4.3));
     return lattice * heightJit;
+}
+
+// Drumhead wobble — radial damped sine wave from a kick site. Re-fires on
+// each downbeat. Even silent, a slow synthetic re-trigger keeps the body
+// breathing. Returns extra rim displacement per pixel.
+float drumhead(vec2 dC, float r) {
+    // Wave originates at body center; phase advances with time, amplitude
+    // re-triggered on downbeat or on a slow synthetic clock when audio idle.
+    float trigger = max(u_audio_kick * 1.2, u_downbeat * 0.6);
+    if (u_audio_playing < 0.5) {
+        trigger = max(trigger, 0.5 * pow(0.5 + 0.5 * sin(u_time * 1.7), 4.0));
+    }
+    if (trigger < 0.01) return 0.0;
+    float phase = r * 18.0 - u_time * 7.0;
+    float damp  = exp(-r * 6.0);
+    return 0.014 * trigger * cos(phase) * damp;
+}
+
+// Pinch-off proto-droplets — bumps at random θ positions on the rim that
+// grow and shrink, simulating spikes about to detach. Three independent
+// drops with phase-shifted lifetimes.
+float dropletBumps(float theta, float r, float Rasym, float t) {
+    float bumps = 0.0;
+    for (int i = 0; i < 3; i++) {
+        float seed = float(i);
+        // Drop's θ wanders slowly.
+        float dropTheta = TAU * (0.13 + 0.5 * sin(t * 0.21 + seed * 1.7));
+        // Drop's life cycle — grow then shrink.
+        float lifePhase = mod(t * 0.6 + seed * 2.7, 4.5) / 4.5;  // 0..1 cycle
+        float lifeAmp   = sin(lifePhase * PI);                    // 0..1..0
+        if (lifeAmp < 0.05) continue;
+        // Angular distance from drop center.
+        float dth = mod(theta - dropTheta + PI, TAU) - PI;
+        // Bump height as gaussian in θ around drop position.
+        float bumpAng = exp(-dth * dth * 80.0) * lifeAmp * 0.07;
+        // Radial: bump extends outward from rim.
+        float bumpRad = exp(-pow((r - Rasym) * 35.0 - lifeAmp * 1.5, 2.0));
+        bumps += bumpAng * bumpRad;
+    }
+    return bumps;
 }
 
 void main() {
@@ -82,16 +120,21 @@ void main() {
     vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
     float t = u_time;
 
-    // === Body anchor — center, gently follows the field ===
-    // Sample sim_field at center to get the global "magnet pull" direction.
+    // === Body anchor — drifts on a slow Perlin path, plus cursor pull ===
     vec4 fS_c = texture(u_field_state, vec2(0.5));
     vec2 fGrad_c = fS_c.gb;
-    // Body drifts a little toward the cursor when active.
     bool mouseActive = !(u_mouse.x == 0.0 && u_mouse.y == 0.0);
     vec2 cw = mouseActive
             ? (u_mouse / u_resolution - 0.5) * vec2(aspect, 1.0)
             : vec2(0.0);
-    vec2 bodyC = cw * 0.18;  // small cursor pull on body position
+    // Slow Perlin-style drift so the body wanders even when idle. Range
+    // ~0.10 world units — visible motion across 6-second cycles, breaks
+    // the "stationary at center" reading.
+    vec2 wander = vec2(
+        0.10 * (fbm(vec2(t * 0.13, 3.7)) - 0.5),
+        0.08 * (fbm(vec2(t * 0.17, 9.1)) - 0.5)
+    );
+    vec2 bodyC = wander + cw * 0.22;
 
     // === Kodama state for this section ===
     vec3 ks = kodamaState(u_section_id, u_section_progress);
@@ -135,27 +178,35 @@ void main() {
     float r = length(dC);
     float theta = atan(dC.y, dC.x);
 
-    // Asymmetric body lobes — fbm-modulated R so the silhouette is NOT a
-    // perfect circle. Body has 2-3 slowly drifting lobes that read as
-    // "ferrofluid pulled by inhomogeneous field" rather than "geometric blob".
-    float bodyLobe = 0.12 * (fbm(vec2(theta * 1.3 + t * 0.09, 7.7)) - 0.5);
+    // Asymmetric body lobes — multi-octave fbm so the silhouette has BIG
+    // lobes (±28%) plus smaller bulges. Reads as "fluid being pulled by an
+    // inhomogeneous field", not "circle".
+    float bodyLobe = 0.28 * (fbm(vec2(theta * 1.3 + t * 0.09, 7.7)) - 0.5)
+                   + 0.10 * (fbm(vec2(theta * 3.1 + t * 0.27, 2.3)) - 0.5);
     float Rasym = R * (1.0 + bodyLobe);
 
     float profile = spikeProfile(theta, spikePhase, spikeCount, p, ampNow * 6.0);
-    // Pole bias factor — more spikes on the cursor-facing side.
     vec2 rimDir = vec2(cos(theta), sin(theta));
-    float poleBias = 0.55 + 0.85 * pow(max(0.0, dot(rimDir, dipoleAxis)), 2.0);
+    float poleBias = 0.45 + 1.10 * pow(max(0.0, dot(rimDir, dipoleAxis)), 2.0);
     profile *= poleBias;
 
     // Capillary chop on rim — pixel-scale jitter that intensifies with
-    // hi-hat. Hi-hat hits → scintillation, not bumps.
-    float chopAmp = 0.006 + 0.014 * u_audio_high;
+    // hi-hat. Hi-hat hits → scintillation, not bumps. Always-on minimum.
+    float chopAmp = 0.010 + 0.020 * u_audio_high;
     float chop = chopAmp * (fbm(vec2(theta * 26.0 + t * 6.0, 11.3)) - 0.5);
+
+    // Drumhead wobble — kicks fire a damped radial wave; idle synthetic
+    // pulses keep the body breathing.
+    float dh = drumhead(dC, r);
+
+    // Pinch-off proto-droplets — three roving bumps that grow/shrink on
+    // the rim, simulating spikes about to detach.
+    float drops = dropletBumps(theta, r, R, t);
 
     // Effective rim displacement and SDF.
     float Reff = Rasym + profile * ampNow + capChop * sin(theta * 22.0 + t * 6.0)
-                 + chop;
-    float d    = r - Reff;
+                 + chop + drops;
+    float d    = r - Reff + dh;
 
     // Section-3 special: body collapses toward a small droplet then reforms
     // (handled implicitly via R_base shrinkage in kodamaState).
