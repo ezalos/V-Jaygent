@@ -209,6 +209,17 @@ Background. Continue with steps 3-5 while it runs.
 
 Write `brainstorming/pieces/<slug>.md` with:
 - Thesis: one sentence on what this piece is about.
+- **Canonical-name check.** If the brief names a classical algorithm
+  or technique — "boids", "reaction-diffusion", "Stam fluid",
+  "Voronoi", "Verlet", "hyperbolic tiling", "Julia set", "Game of
+  Life" — write down the textbook definition (one paragraph from
+  Wikipedia or a primary reference). The default implementation is
+  the canonical form. Do NOT silently reinterpret it as a clever
+  variant on the runtime's preferred architecture. This was the
+  swarm-2026-05-10 failure mode: brief said "boids", piece shipped
+  as an Eulerian boid-fluid, took ~10 turns of back-and-forth to
+  rewrite into actual Reynolds. See
+  `~/.claude/projects/-home-ezalos-42-V-Jaygent/memory/feedback_canonical_algorithm_brief.md`.
 - Form candidates: 2-3 concrete technical shapes (e.g., "curl-noise
   smoke", "hyperbolic tiling", "Julia set parameter walk"). For each
   candidate, note which `lib/` modules it would lean on — that's a
@@ -238,6 +249,17 @@ keyboard + audio coupled in). Single-shader monolithic pieces feel
 boring next to the multi-layer ones — Louis explicitly rejects them
 as "boring" / "only one layer". See the memory entry "Multi-layer +
 multi-input default" for context.
+
+**Counter-rule for closed briefs (added 2026-05-10).** When the
+brief NAMES a canonical algorithm + an interaction model + an
+aesthetic word ("multi-finger boids, make it crazy", "RD with
+audio drive", "Voronoi flow tied to the bassline") — the default
+flips. Implement the canonical algorithm in its simplest faithful
+form, with only the interaction the brief asks for. Don't pad
+with extra layers or driver channels because "multi-input is the
+default". A 1000-agent boids flock IS a flagship piece without
+needing a glitch layer + key-rays + section-state-machine bolted
+on. See `feedback_canonical_algorithm_brief.md`.
 
 `layers:` and `passes:` are MUTUALLY EXCLUSIVE in the runtime. Pick
 one:
@@ -508,6 +530,16 @@ yourself (multimodal input). Write
 `brainstorming/critiques/<slug>-v1.md` following the shape of
 existing critiques:
 - What you see in each frame (honest, specific)
+- **FPS sanity check.** Inspect frames embed the runtime's wall-
+  clock FPS counter in the top-right corner ("21 fps" etc). For any
+  compute-heavy piece (multi-pass, large all-pairs loops, > 256
+  texelFetch per pixel) — read the number. Below ~30 fps in headless
+  is roughly "below 60 fps on midrange phones" and warrants an
+  optimisation pass before claiming the piece works (spatial bins,
+  lower display scale, or a structural rethink). Was the swarm-
+  2026-05-10 perf bug: shipped a 1000-boid all-pairs display loop at
+  2 fps, only caught when Louis tested. See
+  `feedback_iteration_discipline.md` §4.
 - Scores against `taste.md` dimensions
 - Ranked fixes
 
