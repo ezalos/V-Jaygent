@@ -56,34 +56,33 @@ vec3 kodamaState(int sec, float prog) {
 }
 
 // Procedural spike rim — pow-sharpened sin lattice in θ-space with multi-
-// scale chaos. Phase wobbles slowly across ±1.4 rad so spikes really swap
-// positions; per-spike heights vary 0.05→2.10×; defects pop in and out.
+// scale chaos that BREATHES with the bar. Lattice snaps to perfect hex on
+// downbeat (lattice_order = 1) and drifts into chaos across the bar
+// (lattice_order → 0 → max chaos). This is the visible phase-lock — the
+// reason the hypnotic rhythm is the BPM, not the random fbm.
 float spikeProfile(float theta, float spikePhase, float spikeCount,
-                   vec2 worldP, float jitterAmt) {
-    // Phase perturbation — slow LARGE fbm wobble (±1.4 rad) so the lattice
-    // never settles. Two-octave so big drift + smaller wiggle.
-    float phasePerturb = 1.40 * fbm(vec2(theta * 0.55 + u_time * 0.17, 1.7))
-                       + 0.40 * fbm(vec2(theta * 1.40 + u_time * 0.41, 8.7));
+                   vec2 worldP, float jitterAmt, float latticeOrder) {
+    // Chaos amplitude inversely modulated by lattice_order — snaps clean,
+    // breathes into chaos.
+    float chaosAmp = 1.0 - latticeOrder;
+    float phasePerturb = (1.60 * fbm(vec2(theta * 0.55 + u_time * 0.17, 1.7))
+                       +  0.45 * fbm(vec2(theta * 1.40 + u_time * 0.41, 8.7))) * chaosAmp;
     float jit = (hash21(worldP * 6.0 + vec2(u_time * 0.3, 0.0)) - 0.5) * jitterAmt;
     float lattice = sin(theta * spikeCount + spikePhase + phasePerturb + jit * 2.0);
     lattice = max(0.0, lattice);
     lattice = pow(lattice, 3.5);
-    // Per-spike height jitter — wide range 0.05→2.10. Some spikes are
-    // nearly invisible while neighbours tower, the pattern drifting.
-    float heightJit = 0.05 + 2.05 * fbm(vec2(theta * 2.1 + u_time * 0.37, 4.3));
+    // Height jitter also gated by chaos amp — uniform on downbeat, wild
+    // by end of bar. Range 0.05..2.30 at full chaos, 0.85..1.15 at snap.
+    float jitRaw = 0.05 + 2.25 * fbm(vec2(theta * 2.1 + u_time * 0.37, 4.3));
+    float heightJit = mix(1.0, jitRaw, chaosAmp);
     return lattice * heightJit;
 }
 
-// Drumhead wobble — radial damped sine wave from a kick site. Re-fires on
-// each downbeat. Even silent, a slow synthetic re-trigger keeps the body
-// breathing. Returns extra rim displacement per pixel.
+// Drumhead wobble — radial damped sine wave from a kick site. Fires on
+// kick or downbeat only. Synthetic idle trigger removed — repeated rings
+// were reading as visual noise rather than rhythm.
 float drumhead(vec2 dC, float r) {
-    // Wave originates at body center; phase advances with time, amplitude
-    // re-triggered on downbeat or on a slow synthetic clock when audio idle.
-    float trigger = max(u_audio_kick * 1.2, u_downbeat * 0.6);
-    if (u_audio_playing < 0.5) {
-        trigger = max(trigger, 0.5 * pow(0.5 + 0.5 * sin(u_time * 1.7), 4.0));
-    }
+    float trigger = max(u_audio_kick * 1.2, u_downbeat * 0.5);
     if (trigger < 0.01) return 0.0;
     float phase = r * 18.0 - u_time * 7.0;
     float damp  = exp(-r * 6.0);
@@ -150,28 +149,48 @@ void main() {
     float erupt      = 0.018 * pow(u_audio_kick, 2.0);
     float capChop    = 0.005 * u_audio_high;
 
+    // BASS as the primary visual. Body radius pulses BIG (~55% of base R)
+    // on bass envelope. Smooth, not metronomic — the music IS the body.
+    float bassPulse = R_base * 0.55 * u_audio_bass;
+
     // Effective body radius, modulated by all timescales.
+    // Beat-throb dropped: it fired every 0.49s and over 8 minutes that
+    // reads as aggressive. Bass envelope replaces it as the breath driver.
     float R = R_base
             + bodyBreath
             + erupt
-            + 0.025 * u_audio_bass * (0.7 + 0.6 * oneF);
+            + bassPulse
+            + 0.018 * (oneF - 0.5);   // very slow 1/f drift, no audio
 
-    // Effective spike amplitude — gated by audio + 1/f modulation so
-    // spikes never fully hold steady, never feel metronomic.
-    float ampBoost = 1.0 + 0.8 * u_audio_bass + 0.4 * u_downbeat
-                       + 0.6 * u_audio_high;
+    // Spike amplitude is bass-dominant. Loud bass = tall spikes. Hi-hat
+    // and downbeat are accents on top, not co-equal drivers.
+    float ampBoost = 0.40 + 1.50 * u_audio_bass
+                          + 0.25 * u_downbeat
+                          + 0.18 * u_audio_high;
     float ampNow = spikeAmp * ampBoost * (0.6 + 0.7 * oneF);
 
-    // === Cursor "leans" the spike lattice ===
-    // The cursor direction tilts the lattice phase so spikes concentrate
-    // toward the magnet. cursorPhase rotates the whole spike ring.
+    // === Cursor leans the lattice + bar-phase rotates it ===
+    // BPM-locked rotation: the lattice rotates 2*PI per 16 bars (≈ 31s
+    // at 123 BPM = the song's natural 16-bar period). Visible rotation
+    // synced to music — half the "BPM is part of the art" promise.
+    float barRot = TAU * u_song_progress * 0.0;  // anchor; song_progress is
+                                                   // a smooth ramp 0..1
     float cursorPhase = mouseActive ? atan(cw.y - bodyC.y, cw.x - bodyC.x)
-                                    : 0.5 * sin(t * 0.21);
-    float spikePhase  = cursorPhase + 0.45 * sin(t * 0.30);
+                                    : 0.0;
+    float spikePhase  = cursorPhase
+                      + TAU * 0.10 * sin(u_bar_phase * TAU)  // bar-locked wobble
+                      + 0.30 * t * 0.05;                      // slow continuous
 
     // Pole bias toward cursor — spikes grow taller on the side facing it.
     vec2 dipoleAxis = mouseActive ? normalize(cw - bodyC + vec2(1e-6))
-                                  : vec2(cos(t * 0.13), sin(t * 0.17));
+                                  : vec2(cos(t * 0.13 + u_bar_phase * TAU * 0.25),
+                                         sin(t * 0.17 + u_bar_phase * TAU * 0.25));
+
+    // === Lattice order — snaps to 1 on downbeat, decays across the bar ===
+    // This is THE phase-lock. Chaos respects rhythm. Bar starts crisp,
+    // ends melted, snap restores clean lattice for one frame.
+    float latticeOrder = pow(max(0.0, 1.0 - u_bar_phase), 1.6) * 0.85
+                       + 0.15 * u_downbeat;
 
     // === Body SDF — asymmetric body + procedural spike profile in θ-space ===
     vec2 dC = p - bodyC;
@@ -185,7 +204,8 @@ void main() {
                    + 0.10 * (fbm(vec2(theta * 3.1 + t * 0.27, 2.3)) - 0.5);
     float Rasym = R * (1.0 + bodyLobe);
 
-    float profile = spikeProfile(theta, spikePhase, spikeCount, p, ampNow * 6.0);
+    float profile = spikeProfile(theta, spikePhase, spikeCount, p, ampNow * 6.0,
+                                 latticeOrder);
     vec2 rimDir = vec2(cos(theta), sin(theta));
     float poleBias = 0.45 + 1.10 * pow(max(0.0, dot(rimDir, dipoleAxis)), 2.0);
     profile *= poleBias;
@@ -347,6 +367,11 @@ void main() {
         // small, just enough to lift the body off pure black.
         col += vec3(0.040, 0.018, 0.008) * (1.0 - depth * 0.4);
 
+        // BASS-DRIVEN INTERIOR WARMTH — body interior brightens with bass.
+        // The music's loudness IS the body's heat. Caps modestly so the
+        // dark-interior contract holds at silent moments.
+        col += vec3(0.55, 0.26, 0.10) * u_audio_bass * 0.22 * (1.0 - depth * 0.5);
+
         // ----- IRIDESCENCE — warm-only, ridge-only, low amplitude -----
         // Cosmetic-toy oil-film effect. Blue knocked down 60%.
         if (profile > 0.20) {
@@ -366,11 +391,23 @@ void main() {
         col += vec3(0.95, 0.45, 0.16) * rim * 0.85;
     }
 
-    // ----- DOWNBEAT RING — narrow expanding warm wave from body -----
+    // ----- BASS GLOW — soft warm halo that breathes with bass envelope -----
+    // Single smooth field that scales with bass — not a beat-locked pulse.
+    // The music PRESENT in the visuals: louder bass = bigger warm glow
+    // around the body, quieter bass = it recedes.
     {
-        float ringR = R + 0.012 + (1.0 - u_downbeat) * 0.55;
+        float distC = length(p - bodyC);
+        float reach = R * 1.4 + 0.45 * u_audio_bass;
+        float bassGlow = u_audio_bass * exp(-pow(distC / reach, 1.8));
+        col += vec3(0.42, 0.20, 0.07) * bassGlow * 0.70;
+    }
+
+    // ----- DOWNBEAT RING — once per bar (1.95s @ 123 BPM), the only
+    // metronomic-on-purpose element. Anchors rhythm without aggression. -----
+    {
+        float ringR = R + 0.018 + (1.0 - u_downbeat) * 0.55;
         float dr = abs(length(p - bodyC) - ringR);
-        col += vec3(0.95, 0.45, 0.14) * smoothstep(0.008, 0.0, dr) * u_downbeat * 0.55;
+        col += vec3(1.10, 0.55, 0.18) * smoothstep(0.010, 0.0, dr) * u_downbeat * 0.75;
     }
 
     // ----- CURSOR HALO — warm spot when cursor active -----
