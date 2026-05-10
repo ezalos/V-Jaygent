@@ -1,0 +1,8 @@
+name: vignette-grain
+identity: "warm vignette + 1/f film grain over u_below"
+default_blend: replace
+uniforms: {}
+reads:
+  - u_below
+publishes: []
+consumes: []

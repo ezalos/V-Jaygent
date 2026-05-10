@@ -1,0 +1,8 @@
+name: coprime-wheels
+identity: "five concentric coprime-tooth wheels over u_below"
+default_blend: replace
+uniforms: {}
+reads:
+  - u_below
+publishes: []
+consumes: []

@@ -1,0 +1,7 @@
+name: haze-drift
+identity: "warm fbm haze drifting on section progress"
+default_blend: screen
+uniforms: {}
+reads: []
+publishes: []
+consumes: []

@@ -1,0 +1,96 @@
+title: Cirrus
+slug: cirrus
+created: 2026-05-10T15:34:43.107Z
+keyboard_synth: true
+audio: audio.mp3
+audio_features:
+  - beat
+  - sections
+  - key
+time_source: audio
+duration: 202
+render_scale: 0.65
+notes: |
+  Bonobo — *Cirrus* (The North Borders, 2013), 117.5 BPM, D minor.
+  Polyrhythm made visible: five concentric wheels at coprime tooth
+  counts (5, 7, 11, 13, 17), each ring on its own clock. The piece
+  lives in the *almost-aligned* zone — pairwise tooth alignments per
+  bar are the visual hooks; total alignment of all five rings is
+  the never-arrived destination (LCM ≈ 85,085 — practically never).
+
+  Layer stack (bottom → top):
+
+  1. solid-warm        warm vertical gradient base. no inputs.
+  2. haze-drift        slow domain-warped fbm; mid-band warps the
+                       field; section-progress drifts the phase.
+                       Screen-blended over the base. (piece-local)
+  3. coprime-wheels    THE LEAD. Five rings at radii 0.12 / 0.20 /
+                       0.28 / 0.36 / 0.44, tooth counts 5 / 7 / 11 /
+                       13 / 17. Per-ring rotation source: bar phase /
+                       section progress / beat phase / mid-driven /
+                       time + high jitter. Reads u_below for radial
+                       refraction at tooth-bright zones. Cursor: a
+                       wind that bows ring radii in the cursor's
+                       azimuth (faster rings bow more — ripple
+                       inward). Keyboard: each key adds a momentary
+                       tooth on ring (key % 5) at a fixed azimuth.
+                       Alignment-axis glow when teeth from multiple
+                       rings line up at the same angle. (piece-local)
+  4. hub-bloom         central bloom — kick + downbeat impulse,
+                       any-key inflation, pre-tension dimming as
+                       u_to_section_change → 0, post-flash on
+                       section flip. Reynaud's still centre. (piece-
+                       local)
+  5. key-rays          (global) 15 radial beams; held key sustains a
+                       glow ray, press fires an inward spear.
+  6. vignette-grain    warm vignette + 1/f film grain modulated by
+                       u_audio_high. Reads u_below. (piece-local)
+
+  Audio bindings (PASS shapes only — every binding is geometric, no
+  audio-on-brightness):
+    - bar phase             → ring 0 (P=5)  rotation
+    - section progress      → ring 1 (P=7)  rotation
+    - beat phase            → ring 2 (P=11) rotation snap
+    - mid                   → ring 3 (P=13) rotation rate
+    - high                  → ring 4 (P=17) rotation jitter
+    - downbeat              → hub-bloom radius impulse
+    - to-section-change     → hub-bloom pre-tension squeeze
+    - section-progress < .05→ hub-bloom post-flash
+    - song progress         → wheel palette ramp (warm cycle)
+
+  Cursor: u_mouse → wind azimuth + magnitude. Bows ring radii in the
+  cursor's direction; faster rings bow more so the wind ripples
+  visibly inward.
+
+  Keyboard (15 keys): each key adds a momentary glowing tooth at a
+  fixed azimuth on ring (key_index % 5); sustained while held,
+  flashes on press. key-rays beams visible. any-key inflates the
+  hub. Press Shift+H for help.
+
+  Polyrhythm of clocks: u_bar_phase, u_section_progress,
+  u_beat_phase, u_song_progress, u_audio_mid, u_audio_high,
+  u_downbeat, u_to_section_change, u_audio_kick, u_time, u_mouse,
+  u_keys[15] — twelve distinct clock sources across six layers.
+
+  Arc (sections, 117.5 BPM): [0–1s] silence; [1–17s] intro pulse;
+  [17–81s] melody build; [81–113s] drop; [113–178s] PEAK (climax,
+  all stems hocketed); [178–195s] outro fade; [195–202s] silence.
+  The 65-second peak is where pairwise alignments brighten the
+  radial axes most often.
+
+  Press Shift+H for the controls panel.
+layers:
+  - layer: solid-warm
+    blend: normal
+  - layer: haze-drift
+    blend: screen
+  - layer: coprime-wheels
+    blend: replace
+  - layer: hub-bloom
+    blend: screen
+  - layer: key-rays
+    blend: max
+  - layer: vignette-grain
+    blend: replace
+published_at: null
+rendered_at: '2026-05-10T15:52:57.883Z'
