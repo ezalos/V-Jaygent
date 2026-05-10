@@ -8,6 +8,9 @@ uniform float     u_time;
 uniform sampler2D u_boids;
 uniform sampler2D u_bins;
 
+uniform vec4 u_touches[8];
+uniform int  u_touch_count;
+
 #include "math.glsl"
 #include "tonemap.glsl"
 
@@ -93,6 +96,24 @@ void main() {
                 renderBoid(int(idF + 0.5), uv, aspect, bodyCol, tipCol, col);
             }
         }
+    }
+
+    // ---- Finger glyphs. A faint ring at every active touch — same hue as
+    // the boids so it reads as part of the swarm's UI rather than a HUD.
+    for (int i = 0; i < 8; i++) {
+        if (i >= u_touch_count) break;
+        vec4 t = u_touches[i];
+        if (t.w < 0.5) continue;
+        vec2 fp = t.xy / u_resolution;
+        vec2 fd = uv - fp;
+        fd -= floor(fd + 0.5);
+        fd *= vec2(aspect, 1.0);
+        float r = length(fd);
+        // Outer ring marks the influence radius (FINGER_R = 0.18 in sim
+        // uv; aspect-corrected here to roughly match what the user sees).
+        float ring = exp(-pow((r - 0.024) / 0.0028, 2.0));
+        float core = exp(-r * r / (0.008 * 0.008));
+        col += tipCol * (ring * 0.55 + core * 0.9);
     }
 
     col = reinhardPartial(col, 4.0);

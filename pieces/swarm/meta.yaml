@@ -43,4 +43,4 @@ passes:
     inputs:
       u_boids: boids
       u_bins: bins
-rendered_at: '2026-05-10T15:08:32.454Z'
+rendered_at: '2026-05-10T15:13:28.123Z'

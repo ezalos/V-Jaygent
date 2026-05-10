@@ -8,6 +8,9 @@ uniform float     u_time;
 uniform int       u_frame;
 uniform sampler2D u_boids;   // self ping-pong
 
+uniform vec4 u_touches[8];   // xy = px (target space), z = age, w = active
+uniform int  u_touch_count;
+
 #include "math.glsl"
 #include "noise.glsl"
 
@@ -54,7 +57,7 @@ void main() {
 
     vec2 sepSum   = vec2(0.0);
     vec2 alignSum = vec2(0.0);
-    vec2 cohSum   = vec2(0.0);
+    vec2 cohDelta = vec2(0.0);   // sum of (neighbour - self) using toroidal nearest copy
     int  alignN   = 0;
     int  cohN     = 0;
 
@@ -68,32 +71,32 @@ void main() {
         vec2  op    = other.xy;
         vec2  ov    = other.zw;
 
-        // Toroidal delta — neighbours across the wrap edge still count.
+        // Toroidal delta — d points from neighbour's nearest copy to self.
         vec2 d = pos - op;
         d -= floor(d + 0.5);
         float r2 = dot(d, d);
         if (r2 > P2) continue;
 
-        cohSum   += op + d;       // = pos's frame neighbour
+        // Cohesion: accumulate (neighbour_near - self) = -d. Average is the
+        // direction to steer toward. This is the only formulation that
+        // wraps correctly across the torus seam — the previous code
+        // averaged op + d, which collapsed to ~zero unless the neighbour
+        // distribution was asymmetric across the wrap.
+        cohDelta -= d;
         cohN     += 1;
         alignSum += ov;
         alignN   += 1;
 
-        // Separation only inside the tighter radius. Smooth quadratic
-        // falloff (gaussian-like) so the response near the boundary is
-        // soft instead of a hard wall — the previous linear falloff with
-        // a 6×-boid-length radius made dense crowds rigid.
+        // Separation: smooth quadratic falloff inside the tight radius.
         if (r2 < S2) {
-            float t = 1.0 - r2 / S2;            // 1 at touch, 0 at radius
+            float t = 1.0 - r2 / S2;
             float r = sqrt(r2 + 1e-6);
             sepSum += (d / r) * t * t;
         }
     }
 
     if (cohN > 0) {
-        vec2 avg    = cohSum / float(cohN);
-        vec2 toward = avg - pos;
-        toward -= floor(toward + 0.5);
+        vec2 toward = cohDelta / float(cohN);
         vel += toward * W_COHESION;
     }
     if (alignN > 0) {
@@ -101,6 +104,26 @@ void main() {
         vel += (avgVel - vel) * W_ALIGN;
     }
     vel += sepSum * W_SEPARATE;
+
+    // ---- Finger attractors. Each touch pulls nearby boids toward it.
+    // The pull is local (capped at FINGER_R) and one-directional — fingers
+    // affect boids; boids don't affect fingers. Toroidal delta so a finger
+    // near the edge pulls boids on the other side of the wrap.
+    const float FINGER_R   = 0.18;
+    const float W_FINGER   = 0.085;
+    for (int i = 0; i < 8; i++) {
+        if (i >= u_touch_count) break;
+        vec4 t = u_touches[i];
+        if (t.w < 0.5) continue;
+        vec2 fp = t.xy / u_resolution;
+        vec2 fd = fp - pos;
+        fd -= floor(fd + 0.5);
+        float fr2 = dot(fd, fd);
+        if (fr2 > FINGER_R * FINGER_R) continue;
+        float fr      = sqrt(fr2 + 1e-6);
+        float falloff = 1.0 - fr / FINGER_R;
+        vel += (fd / fr) * falloff * falloff * W_FINGER;
+    }
 
     // Soft inertia damping — keeps changes smooth across frames instead of
     // jumping when forces flip sign.
