@@ -14,6 +14,7 @@ layers:
     blend: normal
   - layer: force-source
     blend: normal
+    alpha: 0
     publishes:
       force: vec2
   - layer: follow-force
