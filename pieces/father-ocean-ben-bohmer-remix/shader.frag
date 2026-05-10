@@ -1,5 +1,5 @@
-// ABOUTME: Display — 4 ferrofluid bodies on real Keplerian orbits + 5th = cursor body.
-// ABOUTME: Spikes erupt outward only, dark steel + warm specular tip; 1 field tap, no halo leak.
+// ABOUTME: Display — single ferrofluid blob with procedural Rosensweig hex profile,
+// ABOUTME: Kajiya-Kay anisotropic spec, apex kill, Kodama palette discipline, attention anchor.
 #version 300 es
 precision highp float;
 
@@ -18,6 +18,7 @@ uniform float u_audio_kick;
 uniform float u_audio_playing;
 uniform float u_downbeat;
 uniform float u_bar_phase;
+uniform float u_beat_phase;
 uniform int   u_section_id;
 uniform float u_section_progress;
 uniform float u_song_progress;
@@ -28,92 +29,43 @@ uniform sampler2D u_field_state;
 
 out vec4 fragColor;
 
-// === MUST match sim_field.frag::kepler / bodies / sectionMag exactly ===
-
-vec2 kepler(float t, float a, float e, float T, float phi0,
-            float orient, vec2 center) {
-    float M = TAU * t / T + phi0;
-    float E = M + e * sin(M) + 0.5 * e * e * sin(2.0 * M);
-    float b = a * sqrt(max(0.0, 1.0 - e * e));
-    vec2 r = vec2(a * (cos(E) - e), b * sin(E));
-    return center + rot2d(orient) * r;
+// 1/f modulation (4-octave low-freq sum) — breaks the VU-meter feel.
+// Mesmerism rule: parameters should not feel metronomic.
+float oneOverF(float t) {
+    return 0.5 + 0.5 * (
+        0.45 * sin(t * 0.21 + 0.7)
+      + 0.30 * sin(t * 0.43 + 1.3)
+      + 0.18 * sin(t * 0.91 + 2.1)
+      + 0.10 * sin(t * 1.83 + 3.7)
+    ) * 0.5;
 }
 
-void bodies(float t, float audioBass, float audioMid, float kickEnv,
-            int sec, float secProg,
-            out vec2 b0, out vec2 b1, out vec2 b2, out vec2 b3,
-            out float pairSep) {
-    vec2 pairC = vec2(0.16 * cos(t * 0.071), 0.11 * sin(t * 0.103));
-    float eBoost = 0.0;
-    if (sec == 4) eBoost = 0.27 * smoothstep(0.0, 0.5, secProg);
-    else if (sec == 5) eBoost = 0.27;
-    else if (sec == 6) eBoost = 0.27 * (1.0 - smoothstep(0.0, 0.4, secProg));
-    float ePair = clamp(0.55 + eBoost, 0.0, 0.85);
-    float phaseWobble = 1.2 * audioBass * sin(TAU * t / 4.0);
-    float orient0 = 0.5 * sin(t * 0.041) + audioMid * 0.6;
-    float kickPhase = kickEnv * 0.6;
-    b0 = kepler(t, 0.30, ePair, 31.0,
-                phaseWobble + kickPhase, orient0, pairC);
-    b1 = kepler(t, 0.30, ePair, 31.0,
-                PI + phaseWobble - kickPhase, orient0, pairC);
-    float orient2 = -0.3 + 0.2 * sin(t * 0.027);
-    b2 = kepler(t, 0.78, 0.42, 73.0,
-                0.4 + audioMid * 0.10, orient2, vec2(0.0));
-    float orient3 = 0.7 + 0.4 * sin(t * 0.019);
-    b3 = kepler(t, 0.68, 0.62, 53.0,
-                2.1 + audioMid * 0.08 - kickPhase * 0.5, orient3,
-                vec2(0.05 * cos(t * 0.043), -0.04 * sin(t * 0.061)));
-    pairSep = length(b0 - b1);
+// Kodama section vocabulary. Returns (R_base, spike_count, spike_amp) so
+// each section is qualitatively different — not just "more amplitude".
+//   0 soft fluid → 1 moss → 2 shark teeth → 3 break → 4 drop → 5 iron →
+//   6 cooling → 7 glassy.
+vec3 kodamaState(int sec, float prog) {
+    if (sec == 0) return vec3(0.20 + 0.04 * prog, 0.0,                0.005);
+    if (sec == 1) return vec3(0.24,               18.0,               0.030);
+    if (sec == 2) return vec3(0.27,               12.0,               0.075);
+    if (sec == 3) return vec3(0.27 - 0.12 * prog, 12.0 * (1.0 - prog), 0.075 * (1.0 - prog));
+    if (sec == 4) return vec3(0.18 + 0.13 * prog, 12.0,               0.045 + 0.090 * prog);
+    if (sec == 5) return vec3(0.31,                7.0,               0.150);  // iron — tower
+    if (sec == 6) return vec3(0.31 - 0.05 * prog, 12.0,               0.110 * (1.0 - prog * 0.7));
+    return vec3(0.26, 0.0, 0.0);                                                // glassy
 }
 
-float sectionMag(int sec, float prog) {
-    if (sec == 0) return 0.05 + 0.20 * prog;
-    if (sec == 1) return 0.45 + 0.30 * prog;
-    if (sec == 2) return 0.70;
-    if (sec == 3) return max(0.0, 0.70 - 1.30 * prog);
-    if (sec == 4) return 0.30 + 1.30 * prog;
-    if (sec == 5) return 1.55 - 0.05 * sin(prog * TAU);
-    if (sec == 6) return 1.10 - 0.85 * prog;
-    return 0.04;
-}
-
-// One-octave "warp" hash — way cheaper than fbm. Used for spike-tip jitter.
-float jhash(vec2 p) {
-    p = floor(p) + 0.5;
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-}
-
-// Spike profile in θ-space. pow 4 makes peaks crisp triangular.
-float spikeProfile(float theta, float planetPhase, vec2 dipoleAxis,
-                   float jitter) {
-    float lattice = sin(theta * 14.0 + planetPhase + jitter * 2.4);
+// Procedural spike rim — pow-sharpened sin lattice in θ-space with cheap
+// hash jitter so spikes wobble organically rather than ringing like teeth.
+// θ phase is offset by the cursor direction so spikes "lean toward the
+// magnet" — the brief's defining interaction.
+float spikeProfile(float theta, float spikePhase, float spikeCount,
+                   vec2 worldP, float jitterAmt) {
+    float jit = (hash21(worldP * 6.0 + vec2(u_time * 0.3, 0.0)) - 0.5) * jitterAmt;
+    float lattice = sin(theta * spikeCount + spikePhase + jit * 2.0);
     lattice = max(0.0, lattice);
-    lattice = pow(lattice, 4.0);
-    vec2 dirOnRim = vec2(cos(theta), sin(theta));
-    float bias = 0.45 + 0.75 * pow(max(0.0, dot(dirOnRim, dipoleAxis)), 2.0);
-    return lattice * bias;
-}
-
-// Per-body SDF with outward-only spike displacement at this pixel.
-float bodySDF(vec2 p, vec2 center, float baseR,
-              float planetPhase, vec2 dipoleAxis,
-              float fieldAtCenter, float spikeAmpScale) {
-    vec2 d = p - center;
-    float r = length(d);
-    float th = atan(d.y, d.x);
-    // Spikes only erupt when |phi| above threshold AND magnetism active.
-    float amp = saturate(abs(fieldAtCenter) * 1.6 - 0.05) * spikeAmpScale;
-    // Cheap inline jitter (was fbm-based — too expensive).
-    float jit = (jhash(p * 6.0 + vec2(u_time * 0.5, 0.0)) - 0.5) * amp * 4.0;
-    float profile = spikeProfile(th, planetPhase, dipoleAxis, jit);
-    float Reff = baseR + profile * amp * 0.10;
-    return r - Reff;
-}
-
-// Cursor world coords; (1e4, 1e4) when idle so its SDF effect vanishes.
-vec2 cursorWorld(vec2 mPx, vec2 res, float aspect) {
-    if (mPx.x == 0.0 && mPx.y == 0.0) return vec2(1e4);
-    return ((mPx / res) - 0.5) * vec2(aspect, 1.0);
+    lattice = pow(lattice, 3.5);  // crisp triangular peaks
+    return lattice;
 }
 
 void main() {
@@ -122,192 +74,249 @@ void main() {
     vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
     float t = u_time;
 
-    // === Bodies ===
-    float kickEnv = clamp(u_audio_kick * 1.3, 0.0, 1.0);
-    vec2 b0, b1, b2, b3;
-    float pairSep;
-    bodies(t, u_audio_bass, u_audio_mid, kickEnv,
-           u_section_id, u_section_progress,
-           b0, b1, b2, b3, pairSep);
+    // === Body anchor — center, gently follows the field ===
+    // Sample sim_field at center to get the global "magnet pull" direction.
+    vec4 fS_c = texture(u_field_state, vec2(0.5));
+    vec2 fGrad_c = fS_c.gb;
+    // Body drifts a little toward the cursor when active.
+    bool mouseActive = !(u_mouse.x == 0.0 && u_mouse.y == 0.0);
+    vec2 cw = mouseActive
+            ? (u_mouse / u_resolution - 0.5) * vec2(aspect, 1.0)
+            : vec2(0.0);
+    vec2 bodyC = cw * 0.18;  // small cursor pull on body position
 
-    vec2 cw = cursorWorld(u_mouse, u_resolution, aspect);
-    bool mouseActive = (cw.x < 1e3);
+    // === Kodama state for this section ===
+    vec3 ks = kodamaState(u_section_id, u_section_progress);
+    float R_base    = ks.x;
+    float spikeCount = ks.y;
+    float spikeAmp   = ks.z;
 
-    // === Single field sample — gradient cached in .gb, |grad| in .a ===
-    vec4 fS = texture(u_field_state, uv);
-    float phi  = fS.x;
-    vec2  grad = fS.yz;
-    float gMag = fS.w;
+    // Polyrhythmic timescales: slow drift (1/f noise) + body breathe (bass)
+    // + spike erupt (kick) + capillary chop (high).
+    float oneF       = oneOverF(t);                 // 0.3 Hz
+    float bodyBreath = 0.020 * sin(TAU * t / 4.5)  // 2 Hz breath
+                     * (0.4 + 0.6 * u_audio_bass);
+    float erupt      = 0.018 * pow(u_audio_kick, 2.0);
+    float capChop    = 0.005 * u_audio_high;
 
-    float magNarr = sectionMag(u_section_id, u_section_progress);
+    // Effective body radius, modulated by all timescales.
+    float R = R_base
+            + bodyBreath
+            + erupt
+            + 0.025 * u_audio_bass * (0.7 + 0.6 * oneF);
 
-    // Field sample at each body center for spike amp.
-    float phi0 = texture(u_field_state, b0 / vec2(aspect, 1.0) + 0.5).r;
-    float phi1 = texture(u_field_state, b1 / vec2(aspect, 1.0) + 0.5).r;
-    float phi2 = texture(u_field_state, b2 / vec2(aspect, 1.0) + 0.5).r;
-    float phi3 = texture(u_field_state, b3 / vec2(aspect, 1.0) + 0.5).r;
+    // Effective spike amplitude — gated by audio + 1/f modulation so
+    // spikes never fully hold steady, never feel metronomic.
+    float ampBoost = 1.0 + 0.8 * u_audio_bass + 0.4 * u_downbeat
+                       + 0.6 * u_audio_high;
+    float ampNow = spikeAmp * ampBoost * (0.6 + 0.7 * oneF);
 
-    // Per-body slow rotation phases (distinct so bodies don't sync).
-    float ph0 = u_time * 0.45;
-    float ph1 = u_time * 0.51 + 1.3;
-    float ph2 = u_time * 0.39 + 2.7;
-    float ph3 = u_time * 0.62 + 4.1;
+    // === Cursor "leans" the spike lattice ===
+    // The cursor direction tilts the lattice phase so spikes concentrate
+    // toward the magnet. cursorPhase rotates the whole spike ring.
+    float cursorPhase = mouseActive ? atan(cw.y - bodyC.y, cw.x - bodyC.x)
+                                    : 0.5 * sin(t * 0.21);
+    float spikePhase  = cursorPhase + 0.45 * sin(t * 0.30);
 
-    // Dipole axes — each body biases spike density toward strongest neighbour.
-    vec2 axis01 = normalize(b1 - b0 + vec2(1e-6));
-    vec2 axis10 = -axis01;
-    vec2 axis2  = normalize(0.5 * (b0 + b1) - b2 + vec2(1e-6));
-    vec2 axis3  = normalize(0.5 * (b0 + b1) - b3 + vec2(1e-6));
+    // Pole bias toward cursor — spikes grow taller on the side facing it.
+    vec2 dipoleAxis = mouseActive ? normalize(cw - bodyC + vec2(1e-6))
+                                  : vec2(cos(t * 0.13), sin(t * 0.17));
 
-    // Spike amp scaling — gated by sectionMag so dormant truly = no spikes.
-    float ampScale = magNarr * (1.0 + 0.30 * u_downbeat + 0.18 * u_audio_high);
+    // === Body SDF with procedural spike profile in θ-space ===
+    vec2 dC = p - bodyC;
+    float r = length(dC);
+    float theta = atan(dC.y, dC.x);
+    float profile = spikeProfile(theta, spikePhase, spikeCount, p, ampNow * 6.0);
+    // Pole bias factor — more spikes on the cursor-facing side.
+    vec2 rimDir = vec2(cos(theta), sin(theta));
+    float poleBias = 0.55 + 0.65 * pow(max(0.0, dot(rimDir, dipoleAxis)), 2.0);
+    profile *= poleBias;
 
-    float baseR = 0.092 + 0.012 * u_audio_high;
-    float dB0 = bodySDF(p, b0, baseR,         ph0, axis01, phi0, ampScale);
-    float dB1 = bodySDF(p, b1, baseR,         ph1, axis10, phi1, ampScale);
-    float dB2 = bodySDF(p, b2, baseR * 0.84,  ph2, axis2,  phi2, ampScale);
-    float dB3 = bodySDF(p, b3, baseR * 0.74,  ph3, axis3,  phi3, ampScale * 0.85);
+    // Effective rim displacement and SDF.
+    float Reff = R + profile * ampNow + capChop * sin(theta * 22.0 + t * 6.0);
+    float d    = r - Reff;
 
-    // Tidal smooth-min — k_inner spikes at periapsis (sep < 0.16) so the
-    // binary visibly stretches into a peanut.
-    float kInner = 0.020 + 0.080 * smoothstep(0.30, 0.10, pairSep)
-                          + 0.030 * u_audio_bass;
-    float dPair = opSmin(dB0, dB1, kInner);
-    float d12   = opSmin(dPair, dB2, 0.020);
-    float d     = opSmin(d12, dB3, 0.020);
-
-    // Optional cursor-comet — adds a 5th body when cursor active.
-    float dCur = 1e3;
-    if (mouseActive) {
-        // Soft small blob, no spikes, hot warm tint.
-        dCur = length(p - cw) - (0.045 + 0.020 * u_audio_high);
-        d = opSmin(d, dCur, 0.030);
-    }
+    // Section-3 special: body collapses toward a small droplet then reforms
+    // (handled implicitly via R_base shrinkage in kodamaState).
 
     // === COLOR ===
-    vec3 sub      = vec3(0.018, 0.014, 0.011);   // very dark warm graphite
-    vec3 ffDeep   = vec3(0.030, 0.024, 0.020);   // ferrofluid base
-    vec3 ffWarm   = vec3(0.32, 0.14, 0.05);      // ember interior depth
-    vec3 specHot  = vec3(1.55, 0.78, 0.22);      // sodium-orange spec tip
-    vec3 col      = sub;
+    vec3 col = vec3(0.0);
 
-    // Identify owning body.
-    float dn0 = length(p - b0);
-    float dn1 = length(p - b1);
-    float dn2 = length(p - b2);
-    float dn3 = length(p - b3);
-    int   own = 0;
-    float dnMin = dn0;
-    if (dn1 < dnMin) { own = 1; dnMin = dn1; }
-    if (dn2 < dnMin) { own = 2; dnMin = dn2; }
-    if (dn3 < dnMin) { own = 3; dnMin = dn3; }
-    float ownPhi = (own == 0) ? phi0 : (own == 1) ? phi1
-                  : (own == 2) ? phi2 : phi3;
-    vec2  ownC   = (own == 0) ? b0 : (own == 1) ? b1
-                  : (own == 2) ? b2 : b3;
+    // ----- ATTENTION ANCHOR — always-on warm dim core. Eye's home base. -----
+    {
+        float anchorR = 0.030 + 0.006 * sin(t * 0.30);
+        float dr = length(p - bodyC);
+        col += vec3(0.32, 0.16, 0.06) * exp(-pow(dr / anchorR, 2.0)) * 0.45;
+    }
 
-    // === Background — single warm bloom keyed to phi, no shimmer ===
-    // The flow-aligned hash version produced gradient-radial concentric
-    // rings around the field source; replaced with a smooth dim warm
-    // bloom that only registers when phi is meaningful.
+    // ----- OUTSIDE BODY — substrate + faint warm field bloom -----
     if (d > 0.0) {
-        col += vec3(0.40, 0.20, 0.08) * pow(saturate(abs(phi) * 0.5), 1.6) * 0.35;
-    }
+        // Substrate: dark warm graphite. Never pure black. Slight radial
+        // gradient so the piece doesn't feel like a black void.
+        float distC = length(p - bodyC);
+        col += vec3(0.022, 0.014, 0.010) * (1.0 - 0.6 * smoothstep(0.30, 1.0, distC));
+        // Faint warm bloom keyed to local field magnitude. Reads as a
+        // halo of "magnetic presence" without crossing into fire-sun
+        // territory because amplitude stays tiny and it's gated by phi.
+        float phiHere = texture(u_field_state, uv).r;
+        col += vec3(0.42, 0.20, 0.07)
+             * pow(saturate(abs(phiHere) * 0.55), 1.6)
+             * 0.34
+             * smoothstep(0.40, 0.18, distC);  // fade with distance
+    } else {
+        // ----- INSIDE BODY — Kodama discipline -----
+        // Body base: matte black with hint of warm bias. NO fire, NO inner
+        // glow, NO chrome. Load-bearing visual contract.
+        vec3 body = vec3(0.012, 0.008, 0.006);
+        col = body;
 
-    // === Ferrofluid SDF rendering ===
-    // ZERO outside-the-silhouette glow. Rim is INSIDE only — no halo leak.
-    if (d <= 0.0) {
-        float depth = saturate(-d / (baseR * 1.2));
-        // Dark steel base graded toward warm ember as we descend in.
-        vec3 inner = mix(ffDeep, ffWarm, pow(depth, 0.55));
+        // Surface depth tint: deeper into the body fades to slightly warmer.
+        float depth = saturate(-d / R);  // 0 at rim, 1 deep in
+        col += vec3(0.040, 0.022, 0.014) * pow(depth, 0.6) * 0.7;
 
-        // Specular pinpoint at "polished metal" angle (light from upper-left).
-        vec2 dn2v = p - ownC;
-        float specL = saturate(dot(normalize(dn2v + vec2(1e-6)),
-                                   normalize(vec2(-0.55, 0.85))));
-        inner += specHot * 0.55 * pow(specL, 8.0);
+        // Reconstruct a 2.5D surface normal from the rim's local spike
+        // geometry. dProfile/dtheta gives the tangential slope along the
+        // rim. We also add a small radial component proportional to the
+        // local profile height (so spike *shafts* tilt outward → flanks
+        // catch light differently from the apex).
+        float dProfile_dtheta = (
+            spikeProfile(theta + 0.02, spikePhase, spikeCount, p, ampNow * 6.0)
+          - spikeProfile(theta - 0.02, spikePhase, spikeCount, p, ampNow * 6.0)
+        ) / 0.04;
+        float dh_dtheta = dProfile_dtheta * ampNow;
+        // Tangential slope contribution: tilts N around the rim.
+        // Radial slope contribution: at peak profile, N points slightly
+        // outward — but ONLY near the rim, otherwise the constant-along-
+        // theta term creates visible radial "spokes" across the body
+        // interior. Depth falloff: slope only fires when within ~25% of
+        // the rim from outside.
+        float rimBand    = smoothstep(R * 0.65, R, r);   // 1 near rim, 0 deep
+        float radialSlope = profile * ampNow * 7.0 * rimBand;
+        // Tangential slope also fades with depth — same reason.
+        float tangSlope  = dh_dtheta * rimBand;
+        vec3 N = normalize(vec3(
+            -tangSlope * (-sin(theta)) + radialSlope * cos(theta),
+            -tangSlope * ( cos(theta)) + radialSlope * sin(theta),
+             1.0
+        ) + vec3(1e-6));
 
-        // Spike-tip warm specular — appears ONLY where the rim is being
-        // pushed outward by a spike, so the highlight tracks the spike peaks.
-        float th = atan(dn2v.y, dn2v.x);
-        vec2 axisOwn = (own == 0) ? axis01 : (own == 1) ? axis10
-                       : (own == 2) ? axis2 : axis3;
-        float profile = spikeProfile(th, (own == 0) ? ph0 : (own == 1) ? ph1
-                                       : (own == 2) ? ph2 : ph3,
-                                     axisOwn, 0.0);
-        float spikeRim = exp(-pow((d + 0.004) / 0.005, 2.0));
-        inner += specHot * profile * spikeRim
-                          * saturate(magNarr * abs(ownPhi) * 1.8) * 1.4;
+        // Axial tangent T — projection of +z onto tangent plane (Kajiya-Kay).
+        vec3 T = normalize(vec3(-N.z * N.x, -N.z * N.y, 1.0 - N.z * N.z) + vec3(1e-6));
 
-        // Cursor-comet override — pure warm so it reads "the input".
-        if (mouseActive && dCur < 0.0) {
-            float depthC = saturate(-dCur / 0.06);
-            inner = mix(inner, mix(vec3(0.18, 0.07, 0.02),
-                                    specHot * 0.55, pow(depthC, 0.4)),
-                        0.85);
+        // Light direction — warm sodium key.
+        vec3 L = normalize(vec3(0.45, 0.30, 0.84));
+        vec3 V = vec3(0.0, 0.0, 1.0);
+
+        // Kajiya-Kay primary line highlight along axial tangent.
+        float TdotL = dot(T, L);
+        float TdotV = dot(T, V);
+        float sinTL = sqrt(max(1.0 - TdotL * TdotL, 0.0));
+        float sinTV = sqrt(max(1.0 - TdotV * TdotV, 0.0));
+        float kkPrimary = pow(max(sinTL * sinTV - TdotL * TdotV, 0.0), 80.0);
+
+        // Marschner cuticle-tilt secondary highlight (5° toward N, weight 0.5).
+        vec3 Tshift = normalize(T + 0.09 * N);
+        float TsdotL = dot(Tshift, L);
+        float TsdotV = dot(Tshift, V);
+        float sinTsL = sqrt(max(1.0 - TsdotL * TsdotL, 0.0));
+        float sinTsV = sqrt(max(1.0 - TsdotV * TsdotV, 0.0));
+        float kkSecondary = pow(max(sinTsL * sinTsV - TsdotL * TsdotV, 0.0), 30.0);
+
+        // Apex kill — real spikes are MATTE BLACK at the very tip; specular
+        // peaks 30° off-axis on the FLANK. The single move that defeats the
+        // CGI fire-sun tell. Use n.z as a flatness proxy: high n.z = apex
+        // (or smooth area) = kill spec.
+        float flankMask = 1.0 - smoothstep(0.92, 0.99, N.z);
+
+        // Tip boost — flanks of taller spikes catch more light.
+        float tipBoost = 0.6 + 1.4 * smoothstep(0.0, 0.5, profile);
+
+        // Schlick Fresnel against warm sodium-orange env.
+        float ndv = max(dot(N, V), 0.0);
+        float F0 = 0.04;
+        float F  = F0 + (1.0 - F0) * pow(1.0 - ndv, 5.0);
+
+        vec3 envWarm = vec3(1.85, 0.95, 0.34);
+        vec3 envFill = vec3(0.32, 0.16, 0.07);
+        vec3 env = mix(envFill, envWarm,
+                       smoothstep(0.0, 1.0, reflect(-V, N).y * 0.5 + 0.5));
+
+        // Compose: Kajiya-Kay primary + Marschner secondary, gated by
+        // flank mask and tip boost, modulated by Fresnel against env.
+        // Cranked amplitudes — body needed more presence than v4-initial gave.
+        vec3 spec = (3.6 * kkPrimary + 1.4 * kkSecondary) * tipBoost * flankMask
+                  * env * F;
+        col += spec;
+
+        // Soft Fresnel sheen across the whole body — adds a bit of warm
+        // presence so the interior reads as "wet metal" instead of "matte
+        // void". Stays inside Kodama discipline because amplitude is low
+        // and color comes from env (not the fluid). Wider falloff (1.5)
+        // so the sheen reaches into the interior, not just the rim.
+        float sheen = pow(1.0 - ndv, 1.5);
+        col += env * sheen * 0.32 * F;
+        // Plus a tiny constant warm "fluid is wet" tone — vanishingly
+        // small, just enough to lift the body off pure black.
+        col += vec3(0.040, 0.018, 0.008) * (1.0 - depth * 0.4);
+
+        // ----- IRIDESCENCE — warm-only, ridge-only, low amplitude -----
+        // Cosmetic-toy oil-film effect. Blue knocked down 60%.
+        if (profile > 0.20) {
+            float curvatureMask = smoothstep(0.20, 0.55, profile);
+            float opd = 2.0 * 1.30 * (180.0 + 340.0 * profile) * ndv;
+            vec3 k = vec3(6.2832 / 620.0, 6.2832 / 580.0, 6.2832 / 540.0);
+            vec3 iri = 0.5 + 0.5 * cos(k * opd + vec3(0.0, 0.6, 1.2));
+            iri = pow(iri, vec3(2.0));
+            iri.b *= 0.4;  // warm-bias enforcement
+            col += spec * iri * curvatureMask * 0.50;
         }
-
-        col = inner;
     }
 
-    // === Tidal bridge ember thread — when binary is fused ===
+    // ----- BODY-RIM EMBER — narrow warm tell INSIDE silhouette edge -----
+    if (d <= 0.0 && d > -0.014) {
+        float rim = exp(-pow((d + 0.006) / 0.006, 2.0));
+        col += vec3(0.95, 0.45, 0.16) * rim * 0.85;
+    }
+
+    // ----- DOWNBEAT RING — narrow expanding warm wave from body -----
     {
-        float bridge = 1.0 - smoothstep(0.0, 0.18, pairSep);
-        if (bridge > 0.001) {
-            float dSeg = sdSegment(p, b0, b1);
-            // Only along the inside-segment band; no halo outside SDF.
-            float band = exp(-dSeg * dSeg * 280.0);
-            // Clamp to inside-the-blob so it stays "inside the ferrofluid".
-            float gate = smoothstep(0.005, -0.010, d);
-            col += specHot * bridge * band * gate * (0.5 + u_audio_bass);
-        }
+        float ringR = R + 0.012 + (1.0 - u_downbeat) * 0.55;
+        float dr = abs(length(p - bodyC) - ringR);
+        col += vec3(0.95, 0.45, 0.14) * smoothstep(0.008, 0.0, dr) * u_downbeat * 0.55;
     }
 
-    // === Downbeat ring — kept narrow, fast falloff ===
-    {
-        float burstR = 0.05 + (1.0 - u_downbeat) * 0.55;
-        float dr = abs(length(p) - burstR);
-        col += vec3(0.95, 0.45, 0.14) * smoothstep(0.010, 0.0, dr)
-                                       * u_downbeat * 0.70;
+    // ----- CURSOR HALO — warm spot when cursor active -----
+    if (mouseActive) {
+        vec2 dM = p - cw;
+        float halo = exp(-dot(dM, dM) * 38.0);
+        col += vec3(0.95, 0.50, 0.22) * halo * 0.32;
     }
 
-    // === Keyboard glow — single warm gaussian per active key, at owning planet ===
-    // Drops the per-pixel 15× sdSegment loop entirely. Each key contribution
-    // is one exp() evaluated at the planet center.
+    // ----- KEYBOARD GLOW — single accumulated warm halo at body -----
     float keyAccum = 0.0;
     for (int i = 0; i < 15; i++) {
-        keyAccum += u_key_event[i] * 0.65 + u_keys_visual[i] * 0.18;
+        keyAccum += 0.55 * u_key_event[i] + 0.16 * u_keys_visual[i];
     }
     if (keyAccum > 0.001) {
-        // Glow at every body — simpler than per-key targeting and reads as
-        // a unified pulse. Decays fast in space.
-        float halo = exp(-dn0 * dn0 * 80.0)
-                   + exp(-dn1 * dn1 * 80.0)
-                   + exp(-dn2 * dn2 * 80.0)
-                   + exp(-dn3 * dn3 * 80.0);
-        col += vec3(1.0, 0.55, 0.22) * halo * keyAccum * 0.35;
+        float halo = exp(-dot(p - bodyC, p - bodyC) * 18.0);
+        col += vec3(0.92, 0.50, 0.20) * halo * keyAccum * 0.32;
     }
 
-    // === Cursor warm halo (always-on tell when cursor is active) ===
-    if (mouseActive && d > 0.0) {
-        vec2 dM = p - cw;
-        float halo = exp(-dot(dM, dM) * 28.0);
-        col += vec3(1.05, 0.55, 0.24) * halo * 0.30;
-    }
-
-    // === Section-3 hush — desaturate during the 5s breakdown ===
+    // ----- SECTION-3 HUSH — desaturate during the 5s breakdown -----
     if (u_section_id == 3) {
         float lum = dot(col, vec3(0.30, 0.59, 0.11));
-        col = mix(col, vec3(lum), 0.35 * (0.7 - 0.5 * abs(u_section_progress - 0.5)));
+        col = mix(col, vec3(lum), 0.40 * (0.7 - 0.5 * abs(u_section_progress - 0.5)));
     }
 
-    // === Tone + finish ===
+    // ----- TONE + FINISH -----
     col = reinhardPartial(col, 4.5);
     float vig = smoothstep(1.55, 0.40, length(p));
     col *= mix(0.62, 1.0, vig);
     col = pow(col, vec3(0.92));
-    col.r *= mix(0.96, 1.06, u_song_progress);
-    col.b *= mix(1.04, 0.94, u_song_progress);
+
+    // Song-progress warmth nudge — peak section reads slightly warmer overall.
+    col.r *= mix(0.97, 1.05, u_song_progress);
+    col.b *= mix(1.03, 0.95, u_song_progress);
 
     fragColor = vec4(col, 1.0);
 }

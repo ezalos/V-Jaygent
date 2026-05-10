@@ -6,86 +6,98 @@ notes: |
   Ofra Haza — *Father Ocean (Ben Böhmer Remix)*. 123 BPM, D major,
   476s, 8 sections.
 
-  Thesis: four ferrofluid bodies (plus the cursor as a 5th when active)
-  ride real Keplerian orbits. As magnetism rises with the music, sharp
-  Rosensweig spikes erupt outward from their dark-steel surfaces and
-  reach toward neighbours and the cursor. Gravity sets the dance —
-  including slingshots and tight periapsis tangos — magnetism sets the
-  texture, the music sets the magnetism.
+  v4 — research-driven redesign. The earlier orbital / multi-blob
+  approach was abandoned per Louis's "focus on the ferrofluid".
+  Single central body. The piece IS the surface.
 
-  Two coupled physics:
+  Architecture: TWO passes (sim_field rgba16f ping-pong + display).
+  The state-bearing height-field PDE was prototyped in v4-pde and
+  then rolled back: the dispersion-vs-instability tuning produced
+  visual chaos rather than ordered hex spikes within a session
+  budget. The procedural lattice (with the new Kajiya-Kay / apex-
+  kill / Kodama-palette upgrades) reads cleaner. PDE saved for a
+  future piece.
 
-  1. Real Keplerian orbits — 4 bodies + cursor as a 5th when active.
-     Inner binary on a high-eccentricity ellipse (e=0.55→0.82 across
-     the drop), period 31s = 16 bars at 123 BPM. Slow at apoapsis,
-     fast at periapsis (Kepler's 2nd law via 2-term eccentric-anomaly
-     expansion). Wide moon at 73s, e=0.42. Wanderer at 53s, e=0.62.
-     Bass strongly perturbs phase (1.2 rad wobble at peak); kick
-     events deflect the binary's periapsis axis. Drop section
-     elongates orbits dramatically — "the music slingshots them".
+  ## What's new in v4 vs v3
 
-  2. Magnetic potential field (sim_field, rgba16f ping-pong, half-res,
-     1 sub-step/frame). Scalar phi diffused by 5-point Laplacian,
-     decayed at .985/frame. Gradient cached in .gb so display takes
-     ONE texture sample instead of five. Sources:
-       - body centers: positive monopoles
-       - cursor: NEGATIVE monopole (drags spikes toward the finger)
-       - kick: flux impulse at one cycling body
-       - downbeat: expanding ring of flux from centre
-       - white keys: positive (spikes intensify); black: negative
+  - One body (not 4 orbits). Anchored at canvas center, drifts
+    slightly toward cursor. Cursor IS the magnet — the spike pattern
+    leans toward your finger.
+  - Kajiya-Kay anisotropic specular along the axial tangent
+    (projection of +z onto the surface tangent plane). Spike tips get
+    a LINE highlight up the spike axis, not a Phong dot. Marschner-
+    tilted secondary at 5° normal-shift, exponent 30, weight 0.5.
+  - Apex kill: spec only on flanks (`1 - smoothstep(0.92, 0.99, n.z)`).
+    Real spikes are MATTE BLACK at the very tip; CGI fire-sun is what
+    happens when you skip this.
+  - Kodama section vocabulary: section_id picks per-section state
+    qualitatively (R, spike_count, spike_amp), not just amplitude
+    scaling. soft fluid → moss → shark teeth → break → drop → iron →
+    cooling → glassy. The "iron" section (5) drops to 8 spikes for a
+    tower-form climax.
+  - Polyrhythmic timescales: slow drift (0.3 Hz, 1/f noise) +
+    body breathe (2 Hz, bass) + spike erupt (kick) + capillary chop
+    (high). Amplitudes inverse to frequency.
+  - Curvature-gated warm iridescence (KHR cosine approx, blue
+    knocked down 60%). Gates on `profile > 0.20` so iridescence only
+    shows on the spike ridges, never on the body interior.
+  - Always-on attention anchor — warm dim core at body center.
+    Mesmerism rule: never let the eye scatter.
 
-  Ferrofluid surface — rendered procedurally from the field. Per-body
-  14-spike sin-lattice in θ-space, pow 4 for crisp triangular peaks,
-  cheap inline hash jitter so spikes wobble organically. Pole bias
-  toward the body's strongest neighbour. Amplitude =
-  max(0, |phi(body)| · 1.6 − 0.05) gated by sectionMag — sub-threshold
-  stays a smooth metal blob; super-threshold the rim erupts.
+  ## Architecture — two passes
 
-  Render is dark-steel-with-warm-specular-tip: NO outside-the-
-  silhouette glow halo, only inside-rim warm specular that tracks the
-  spike peaks. Sachiko Kodama palette discipline.
+  1. sim_field (rgba16f, scale 0.5, ping-pong, 1 iter)
+     Magnetic potential phi from sources: center (audio-bass-driven
+     × 1/f modulation), cursor (capped at 40% of music), kick
+     impulses, downbeat radial pulse, 15-key arc. Diffuses + decays
+     at .985/frame (half-life ≈ 1.4s). Tanh-saturated. Gradient cached
+     in .gb, |grad| in .a.
 
-  Tidal bridge: opSmin's k coefficient rises sharply at periapsis
-  (sep < 0.16). The binary stretches into a peanut and a warm ember
-  thread draws ALONG (not around) the segment, gated to inside-the-
-  blob.
+  2. display (screen, render_scale 0.7)
+     Single-blob procedural ferrofluid:
+     - Body silhouette = disk of section-driven radius R, modulated
+       by a 14-or-other-spike sin lattice in θ-space, pow 3.5 for
+       crisp triangular peaks. Cursor leans the lattice phase.
+     - Body color: matte black with hint of warm bias
+       (vec3(0.012, 0.008, 0.006)). NO emissive, NO subsurface, NO
+       inner glow. Sachiko Kodama discipline.
+     - Kajiya-Kay primary + Marschner secondary specular along axial
+       tangent.
+     - Apex kill via flank mask on n.z.
+     - Schlick Fresnel against warm sodium-orange env (env is the
+       ONLY warm source — the fluid never glows itself).
+     - Curvature-gated warm iridescence on ridges.
+     - Body-rim ember inside silhouette edge.
+     - Attention anchor at body center.
+     - Substrate: dark graphite + faint warm field bloom keyed to phi,
+       fading with distance from body.
 
-  Section narrative — magnetism arc:
-    0 (0–62s)    dormant: smooth liquid-metal blobs, no spikes
-    1 (62–94s)   first spikes wake; field begins to curl
-    2 (94–230s)  groove orbit; spikes pulse with bass
-    3 (230–235s) breakdown — magnetism cuts; blobs go smooth (5s)
-    4 (235–297s) DROP — eccentricity spikes; full Rosensweig field
-    5 (297–362s) peak coupling — tight periapsis tango, ember bridge
-    6 (362–472s) cooling — spikes recede, orbit relaxes
-    7 (472–476s) stillness
+  ## Section narrative — Kodama vocabulary
 
-  Multi-input bindings:
-    cursor   → roving negative magnet on the field; idle: synthetic
-               wandering ghost-source so the piece self-plays. When
-               active, the cursor IS a 5th body in the SDF — a soft
-               warm blob trailing your finger.
-    keyboard → 15-key piano-on-QWERTY. Each key cycles to a body
-               (i mod 4). White injects positive magnetic pulse →
-               bristles. Black injects negative pulse → smooths.
-               Pressed keys add a warm halo at every body.
-    audio    → bass: field strength + orbital phase wobble (visible
-                     acceleration on drops)
-               mid:  binary orient + wide-moon phase nudge
-               high: micro-ripple, planet radius pulse, spike-amp gain
-               kick: flux impulse at cycling body + slingshot deflect
-               downbeat: realigning radial flux pulse + warm ring
-               section_id: narrative magnetism level + e-boost on drop
+    0 (0–62s)    soft fluid: smooth blob, no spikes
+    1 (62–94s)   moss: 24 tiny spikes (h ≈ 0.025)
+    2 (94–230s)  shark teeth: classic 14 hex spikes (h ≈ 0.06)
+    3 (230–235s) breakdown: spikes collapse to droplet
+    4 (235–297s) DROP: 14 spikes ramp up to h ≈ 0.11
+    5 (297–362s) iron: 8 spikes climactic (h ≈ 0.13)
+    6 (362–472s) cooling: spikes recede, rim cools
+    7 (472–476s) glassy: still surface, body holds
+
+  ## Multi-input bindings
+
+    cursor   → roving negative magnet (sim_field), capped at 40% of
+               music; body drifts slightly toward cursor; spike
+               lattice phase rotates toward cursor; pole-bias on the
+               cursor-facing rim.
+    keyboard → 15-key arc. White +, black −. Each press injects a
+               local field impulse → warm halo at body center.
+    audio    → bass: field strength + body radius pulse + spike amp
+               high: capillary chop + spike-amp gain
+               kick: erupt impulse on body radius
+               downbeat: radial flux pulse + warm ring + amp boost
+               section_id: Kodama state (table above)
                section_progress: smooth ramps within sections
-               song_progress: palette warmth nudge across the song
-
-  Couplings (proves "physics, not skin"):
-    body positions → field sources → spike amplitude in display
-    field gradient → background streamer direction (inline jitter)
-    cursor → field + 5th SDF body → directly visible
-    audio_bass → field + orbital phase
-    pair separation → smin-k → tidal-bridge geometry
-    section eccentricity boost → orbit shape
+               song_progress: subtle palette warmth shift over arc
 
   Press Shift+H for the keyboard controls panel.
 duration: 476
@@ -112,4 +124,4 @@ passes:
     target: screen
     inputs:
       u_field_state: simulate_field
-rendered_at: '2026-05-10T08:07:39.959Z'
+rendered_at: '2026-05-10T11:09:43.672Z'
