@@ -24,8 +24,8 @@ const float SEPARATE_R  = 0.009;     // tight — barely larger than the triangl
 const float W_SEPARATE  = 0.85;      // strong but only inside the small radius
 const float W_ALIGN     = 0.035;     // gentle heading lock
 const float W_COHESION  = 0.028;     // gentle pull toward neighbours
-const float MAX_SPEED   = 0.84;
-const float MIN_SPEED   = 0.20;
+const float MAX_SPEED   = 0.21;
+const float MIN_SPEED   = 0.05;
 const float DAMPING     = 0.985;     // smooth per-frame inertia decay
 
 void main() {
