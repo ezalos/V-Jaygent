@@ -21,18 +21,23 @@ out vec4 fragColor;
 // field ~2 ticks per display frame at the chosen forcing constants.
 const float DT = 0.04;
 
-// Returns finger position (in normalized uv) and age. Synthesises 4 ghost
-// orbiters when no real touches are active.
-bool sampleFinger(int i, out vec2 fingerUv, out float age) {
-    if (u_touch_count > 0) {
+// Returns finger position (in normalized uv), age, and a forcing gain.
+// Slots [0..u_touch_count) are real fingers; the next 4 slots (or all 4
+// when no fingers are down) are ghost orbiters. Ghosts run AT ALL TIMES so
+// the swarm always has multiple stirring centres — a single real finger
+// shouldn't make the rest of the canvas go dead.
+bool sampleFinger(int i, out vec2 fingerUv, out float age, out float gain) {
+    if (i < u_touch_count) {
         vec4 t = u_touches[i];
         if (t.w < 0.5) return false;
         fingerUv = t.xy / u_resolution;
         age      = t.z;
+        gain     = 1.0;
         return true;
     }
-    if (i >= 4) return false;
-    float fi = float(i);
+    int g = i - u_touch_count;
+    if (g >= 4 || i >= 8) return false;
+    float fi = float(g);
     // Mutually-prime-ish frequencies (Hz) so ghosts never re-align cleanly.
     float fx = 0.077 + 0.029 * fi;
     float fy = 0.061 + 0.041 * fi;
@@ -42,9 +47,11 @@ bool sampleFinger(int i, out vec2 fingerUv, out float age) {
         0.5 + ax * sin(TAU * fx * u_time + fi * PHI * 1.7),
         0.5 + ay * sin(TAU * fy * u_time + fi * PHI * 2.9)
     );
-    // Cycle 0..6.5 so ghosts periodically "lift off" and respawn — keeps
-    // injection lively even on a desktop without a touchscreen.
+    // Cycle 0..6.5 so ghosts periodically "lift off" and respawn.
     age = mod(u_time + fi * 1.7, 6.5);
+    // Dim ghosts when real fingers are present — real input should still
+    // dominate the focal point; ghosts fill the field, not lead it.
+    gain = (u_touch_count > 0) ? 0.5 : 1.0;
     return true;
 }
 
@@ -104,7 +111,8 @@ void main() {
     for (int i = 0; i < 8; i++) {
         vec2  fUv;
         float fAge;
-        if (!sampleFinger(i, fUv, fAge)) continue;
+        float fGain;
+        if (!sampleFinger(i, fUv, fAge, fGain)) continue;
 
         // Aspect-correct so radii are circular in screen pixels.
         vec2  delta = (fUv - uv) * vec2(aspect, 1.0);
@@ -119,20 +127,20 @@ void main() {
         // Inverse-square-ish falloff with softening.
         float falloff = 1.0 / (35.0 * d2 + 0.6);
 
-        // Radial attraction.
-        vel += DT * 0.55 * (1.0 + 1.7 * newness) * n * falloff;
+        // Radial attraction (gain-scaled so ghosts under-influence vs reals).
+        vel += DT * 0.55 * fGain * (1.0 + 1.7 * newness) * n * falloff;
         // Tangential swirl — orbital stirring character.
-        vel += DT * 0.95 * perp * falloff;
+        vel += DT * 0.95 * fGain * perp * falloff;
 
         // Gaussian density injection at the finger. Tight σ keeps the
         // injection a readable cluster instead of a wide cloud.
         float sigma  = 0.028 + 0.010 * sin(u_time * 0.7 + float(i) * 1.7);
         float blob   = exp(-d2 / (sigma * sigma));
-        density     += DT * (0.45 + 0.9 * newness) * blob;
+        density     += DT * fGain * (0.45 + 0.9 * newness) * blob;
 
         // Affinity pull toward this finger's slot.
         float targetAff = (float(i) + 0.5) / 8.0;
-        float affPull   = saturate(DT * 6.0 * blob * (1.0 + 0.6 * newness));
+        float affPull   = saturate(DT * 6.0 * fGain * blob * (1.0 + 0.6 * newness));
         aff = mix(aff, targetAff, affPull);
     }
 

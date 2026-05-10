@@ -20,16 +20,18 @@ out vec4 fragColor;
 // aesthetic choice that may diverge per piece. The two copies must stay in
 // sync; if you move them apart, the finger glyphs will desync from the
 // density blooms and the piece will look broken.
-bool sampleFinger(int i, out vec2 fingerUv, out float age) {
-    if (u_touch_count > 0) {
+bool sampleFinger(int i, out vec2 fingerUv, out float age, out float gain) {
+    if (i < u_touch_count) {
         vec4 t = u_touches[i];
         if (t.w < 0.5) return false;
         fingerUv = t.xy / u_resolution;
         age      = t.z;
+        gain     = 1.0;
         return true;
     }
-    if (i >= 4) return false;
-    float fi = float(i);
+    int g = i - u_touch_count;
+    if (g >= 4 || i >= 8) return false;
+    float fi = float(g);
     float fx = 0.077 + 0.029 * fi;
     float fy = 0.061 + 0.041 * fi;
     float ax = 0.34 + 0.05 * sin(u_time * 0.07 + fi * 1.7);
@@ -39,6 +41,7 @@ bool sampleFinger(int i, out vec2 fingerUv, out float age) {
         0.5 + ay * sin(TAU * fy * u_time + fi * PHI * 2.9)
     );
     age = mod(u_time + fi * 1.7, 6.5);
+    gain = (u_touch_count > 0) ? 0.5 : 1.0;
     return true;
 }
 
@@ -126,7 +129,8 @@ void main() {
     for (int i = 0; i < 8; i++) {
         vec2  fUv;
         float fAge;
-        if (!sampleFinger(i, fUv, fAge)) continue;
+        float fGain;
+        if (!sampleFinger(i, fUv, fAge, fGain)) continue;
 
         vec2  delta = (uv - fUv) * vec2(aspect, 1.0);
         float r     = length(delta);
@@ -140,8 +144,10 @@ void main() {
         // Hot core where the finger sits.
         float core = exp(-r * r / (0.012 * 0.012));
 
+        // Ghost glyphs are dimmed alongside their forcing — keeps real
+        // fingers (gain=1.0) visually dominant when both are on screen.
         vec3 fingerCol = fingerPalette(((float(i) + 0.5) / 8.0) + drift);
-        col += fingerCol * (ring * 1.5 + core * 1.6) * fade;
+        col += fingerCol * (ring * 1.5 + core * 1.6) * fade * fGain;
     }
 
     // ---- Tone, gamma ----
