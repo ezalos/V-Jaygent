@@ -2,63 +2,39 @@ title: Swarm
 slug: swarm
 created: 2026-05-10T11:35:39.786Z
 notes: |
-  Multi-finger interactive boid-fluid. Each touch becomes a gravitational
-  well + tangential swirl source + density spawner with its own colour
-  wedge from a warm-extended spectrum (red → orange → gold → cream → rose
-  → wine → violet → magenta). Up to 8 simultaneous fingers; on a desktop
-  with no touchscreen, 4 ghost orbiters (Lissajous on mutually-prime
-  frequencies) keep the swarm stirred.
+  1000 Reynolds boids. Three rules, in order: separation, alignment,
+  cohesion (per the original 1987 paper). Toroidal world — boids that
+  leave one edge re-enter on the opposite. No field, no finger
+  forcing, no per-boid lifespan, no palette wedges. Single warm tone
+  with a brighter tip; the only thing on screen is the flock.
 
-  Thesis: "boids" classically means N agents; on a fullscreen-quad
-  pipeline, the same physics expressed on an Eulerian rgba16f field reads
-  identically to the eye. Reynolds's three rules become: alignment =
-  velocity Laplacian; cohesion = pull along density gradient; separation =
-  pressure pushing down the negative-Laplacian along the gradient. Per-
-  finger forcing layers on top.
+  Architecture: two passes. The boids pass holds (pos.xy, vel.xy) in
+  a 32x32 region of an rgba16f ping-pong texture; each frame each
+  boid checks all 999 others (≈1M fetches, fully cache-friendly) and
+  applies the three rules. Display reads u_boids, renders each boid
+  as a pointy isoceles SDF triangle oriented along its velocity.
 
-  Architecture: passes (not layers) — boid-fluid needs persistent
-  rgba16f state across frames; layer-engine v1 has no clean per-layer
-  publish. Sim runs 2 iterations per display frame at 0.4 canvas scale;
-  display reads the sim texture, paints density through the palette,
-  adds velocity-aligned motion streaks and per-finger ring/core glyphs.
-
-  Inputs:
-    - u_touches[8]  → per-finger position (px), age (s), active flag.
-    - u_touch_count → switches between real fingers and ghost orbiters.
-    - u_mouse       → not consumed directly; gestures wraps mouse on
-                      pointerdown, so click-and-drag = one finger.
-
-  This piece introduced multi-touch uniforms to the runtime — see
-  studio/runtime.mjs and studio/gestures.mjs for the contract.
+  Per-pixel cost: 1000 texelFetch + early-out when the boid's bounding
+  circle doesn't cover this pixel. Display render_scale: 0.5 keeps it
+  under the bandwidth ceiling on phone GPUs.
 
   No audio.
 duration: 60
-render_scale: 0.7
+render_scale: 0.5
 uniforms: []
 published_at: null
 passes:
-  - name: simulate
-    shader: sim.frag
-    target:
-      format: rgba16f
-      ping_pong: true
-      scale: 0.4
-    inputs:
-      u_state: simulate
-    iterations: 2
   - name: boids
     shader: boids.frag
     target:
       format: rgba16f
       ping_pong: true
-      scale: 0.05
+      scale: 0.1
     inputs:
-      u_state: simulate
       u_boids: boids
   - name: display
     shader: shader.frag
     target: screen
     inputs:
-      u_state: simulate
       u_boids: boids
-rendered_at: '2026-05-10T14:20:26.137Z'
+rendered_at: '2026-05-10T14:46:07.635Z'
