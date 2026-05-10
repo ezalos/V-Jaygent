@@ -1,27 +1,55 @@
-// ABOUTME: 100 Lagrangian boids swimming in the Eulerian velocity field. Stored as
-// ABOUTME: a 10x10 region of an rgba16f ping-pong texture; (rg) = pos uv, (ba) = vel.
+// ABOUTME: 100 Lagrangian boids — direct finger-orbit forcing + Reynolds separation +
+// ABOUTME: torus-wrapped position. Stored in a 10x10 region of an rgba16f ping-pong tex.
 #version 300 es
 precision highp float;
 
 uniform vec2      u_resolution;
 uniform float     u_time;
 uniform int       u_frame;
-uniform sampler2D u_state;   // sim field — read .gb for velocity, .a for affinity
+uniform sampler2D u_state;   // sim field — read .gb (vel) for a tiny "current"
 uniform sampler2D u_boids;   // self ping-pong
+
+uniform vec4 u_touches[8];
+uniform int  u_touch_count;
 
 #include "math.glsl"
 #include "noise.glsl"
 
 out vec4 fragColor;
 
-const int   NUM_BOIDS  = 100;
-const float DT         = 0.04;
+const int   NUM_BOIDS = 100;
+const float DT        = 0.04;
+
+// Same ghost generator as sim.frag / shader.frag — keeps the three in sync.
+bool sampleFinger(int i, out vec2 fingerUv, out float age, out float gain) {
+    if (i < u_touch_count) {
+        vec4 t = u_touches[i];
+        if (t.w < 0.5) return false;
+        fingerUv = t.xy / u_resolution;
+        age      = t.z;
+        gain     = 1.0;
+        return true;
+    }
+    int g = i - u_touch_count;
+    if (g >= 4 || i >= 8) return false;
+    float fi = float(g);
+    float fx = 0.077 + 0.029 * fi;
+    float fy = 0.061 + 0.041 * fi;
+    float ax = 0.34 + 0.05 * sin(u_time * 0.07 + fi * 1.7);
+    float ay = 0.27 + 0.05 * cos(u_time * 0.09 + fi * 2.3);
+    fingerUv = vec2(
+        0.5 + ax * sin(TAU * fx * u_time + fi * PHI * 1.7),
+        0.5 + ay * sin(TAU * fy * u_time + fi * PHI * 2.9)
+    );
+    age = mod(u_time + fi * 1.7, 6.5);
+    gain = (u_touch_count > 0) ? 0.5 : 1.0;
+    return true;
+}
 
 void main() {
     ivec2 myCoord = ivec2(gl_FragCoord.xy);
     int   id      = myCoord.y * 10 + myCoord.x;
 
-    // Outside the 10x10 boid grid: write zero (those texels are unused).
     if (myCoord.x >= 10 || myCoord.y >= 10 || id >= NUM_BOIDS) {
         fragColor = vec4(0.0);
         return;
@@ -30,50 +58,89 @@ void main() {
     float fi = float(id);
 
     if (u_frame == 0) {
-        // Scatter initial positions across the canvas.
         vec2 hp = hash22(vec2(fi * 0.137 + 1.7, fi * 0.273 + 5.3));
         fragColor = vec4(hp, 0.0, 0.0);
         return;
     }
 
-    // Read previous (pos.xy, vel.xy)
     vec4 self = texelFetch(u_boids, myCoord, 0);
     vec2 pos  = self.xy;
     vec2 vel  = self.zw;
 
-    // Sample the field at the boid's current position.
-    vec4 fieldS   = texture(u_state, pos);
-    vec2 fieldVel = fieldS.gb;
-    float fieldD  = fieldS.r;
+    // ---- Direct finger forcing — orbital, not collapsing.
+    // Mostly-tangential force with a light radial component. Boids that
+    // wander near a finger curve around it like a moon, then escape.
+    vec2 fingerAcc = vec2(0.0);
+    for (int i = 0; i < 8; i++) {
+        vec2  fUv;
+        float fAge;
+        float fGain;
+        if (!sampleFinger(i, fUv, fAge, fGain)) continue;
 
-    // Light coupling to the field — boids keep most of their own momentum
-    // so they don't all collapse onto the same attractor streamline. The
-    // field is a SUGGESTION, not a leash.
-    vel = mix(vel, fieldVel, 0.18);
+        // Toroidal distance — shortest delta on the wrapped canvas.
+        vec2 d = fUv - pos;
+        d -= floor(d + 0.5);
+        float r2 = dot(d, d) + 5e-4;
+        float r  = sqrt(r2);
+        vec2  nrm  = d / r;
+        vec2  perp = vec2(-nrm.y, nrm.x);
 
-    // Anti-clustering: when a boid finds itself in a high-density cell, it
-    // gets a sideways shove perpendicular to its motion, scaled by how
-    // crowded it is. Reads as "boid felt the crowd and dodged".
-    float crowd = smoothstep(0.4, 1.4, fieldD);
-    vec2  perp  = vec2(-vel.y, vel.x);
-    float side  = (hash21(vec2(fi, floor(u_time * 6.0))) - 0.5) * 2.0;
-    vel += perp * side * crowd * 0.45;
+        // Falloff dies fast outside the orbit radius — local effect, not a
+        // canvas-wide gravity well.
+        float falloff = 1.0 / (40.0 * r2 + 0.4);
 
-    // Per-boid wobble — bigger than v1's so single-finger sessions don't
-    // funnel every boid into one cluster around the lone attractor.
-    vec2 wobble = (hash22(vec2(fi * 1.7, u_time * 1.1)) - 0.5);
-
-    // Minimum-speed kick: a stalled boid in dead space picks a random heading
-    // so the swarm keeps populating the canvas instead of pooling at edges.
-    if (length(vel) < 0.05) {
-        vec2 kick = (hash22(vec2(fi * 3.1, u_time * 0.7)) - 0.5);
-        vel += kick * 0.4;
+        // Tangent dominates → orbit. Tiny radial → keeps them in orbit
+        // range without ever fully collapsing in.
+        fingerAcc += (perp * 1.4 + nrm * 0.12) * falloff * fGain;
     }
 
-    pos += vel * DT * 0.85 + wobble * 0.009;
+    // ---- Reynolds separation — boids repel from nearby boids.
+    // Each boid checks all 99 others; quadratic but only 10k fetches/frame
+    // total since boids pass is 100 fragments. The repulsion uses toroidal
+    // distance so wrap-around neighbours still count.
+    const float SEP_RADIUS  = 0.07;        // ~7% of canvas
+    const float SEP_RADIUS2 = SEP_RADIUS * SEP_RADIUS;
+    vec2 sepAcc = vec2(0.0);
+    for (int j = 0; j < NUM_BOIDS; j++) {
+        if (j == id) continue;
+        ivec2 jc = ivec2(j % 10, j / 10);
+        vec4  other = texelFetch(u_boids, jc, 0);
+        vec2  op    = other.xy;
 
-    // Wrap on edges — boids never "leave"; they re-enter on the other side.
-    pos = fract(pos);
+        vec2 d = pos - op;
+        d -= floor(d + 0.5);
+        float r2 = dot(d, d);
+        if (r2 < SEP_RADIUS2) {
+            float r = sqrt(r2 + 1e-6);
+            // Linear falloff — strongest at contact, zero at SEP_RADIUS.
+            float strength = (SEP_RADIUS - r) / SEP_RADIUS;
+            sepAcc += (d / r) * strength * strength * 1.6;
+        }
+    }
+
+    // ---- Tiny "current" coupling to the velocity field — boids drift along
+    // existing streamlines but don't lock onto them.
+    vec2 fieldVel = texture(u_state, pos).gb;
+
+    // ---- Integrate
+    vel += DT * (fingerAcc + sepAcc);
+    vel  = mix(vel, fieldVel, 0.05);    // very weak field bias, not a leash
+
+    // Per-boid wobble keeps the swarm visually broken up.
+    vec2 wobble = (hash22(vec2(fi * 1.7, u_time * 1.1)) - 0.5);
+
+    // Minimum-speed kick — stalled boids pick a random heading.
+    if (length(vel) < 0.06) {
+        vec2 kick = (hash22(vec2(fi * 3.1, u_time * 0.7)) - 0.5);
+        vel += kick * 0.5;
+    }
+
+    // Velocity cap so the orbits stay readable.
+    float speed = length(vel);
+    if (speed > 1.6) vel *= 1.6 / speed;
+
+    pos += vel * DT * 0.85 + wobble * 0.008;
+    pos  = fract(pos);   // torus wrap
 
     fragColor = vec4(pos, vel);
 }
