@@ -288,8 +288,8 @@ void main() {
         // local profile height (so spike *shafts* tilt outward → flanks
         // catch light differently from the apex).
         float dProfile_dtheta = (
-            spikeProfile(theta + 0.02, spikePhase, spikeCount, p, ampNow * 6.0)
-          - spikeProfile(theta - 0.02, spikePhase, spikeCount, p, ampNow * 6.0)
+            spikeProfile(theta + 0.02, spikePhase, spikeCount, p, ampNow * 6.0, latticeOrder)
+          - spikeProfile(theta - 0.02, spikePhase, spikeCount, p, ampNow * 6.0, latticeOrder)
         ) / 0.04;
         float dh_dtheta = dProfile_dtheta * ampNow;
         // Tangential slope contribution: tilts N around the rim.
