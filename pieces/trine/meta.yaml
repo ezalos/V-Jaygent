@@ -1,0 +1,53 @@
+title: Trine
+slug: trine
+created: 2026-05-10T15:25:28.389Z
+notes: |
+  Three-body Newtonian gravity. Three point masses pull on each
+  other under softened inverse-square (Plummer ε ≈ 0.04). Symplectic
+  Euler integration. Toroidal world — bodies leaving an edge re-enter
+  on the opposite side and the trails draw across the seam.
+
+  The cursor — when present — adds a fourth pull-source heavier than
+  the bodies, perturbing the dance without joining it. With no
+  cursor, the system runs as classic 3-body chaos.
+
+  Architecture: three passes — `simulate` (4×1 rgba16f ping-pong
+  holding pos+vel for 3 bodies, 2 substeps per frame), `trail` (rgba16f
+  accumulator at 0.55 canvas scale; one body per RGB channel, 0.992
+  per-frame decay), `display` (palette tint + live-body pinpoints).
+
+  Per-body palette: gold / ember / mauve-rose. Three distinct hues
+  inside the warm family so each body's trajectory reads separately
+  without leaving the palette.
+
+  No audio.
+duration: 60
+render_scale: 0.7
+uniforms: []
+published_at: null
+passes:
+  - name: simulate
+    shader: sim.frag
+    target:
+      format: rgba16f
+      ping_pong: true
+      scale: 0.02
+    inputs:
+      u_state: simulate
+    iterations: 2
+  - name: trail
+    shader: trail.frag
+    target:
+      format: rgba16f
+      ping_pong: true
+      scale: 0.55
+    inputs:
+      u_state: simulate
+      u_trail: trail
+  - name: display
+    shader: shader.frag
+    target: screen
+    inputs:
+      u_state: simulate
+      u_trail: trail
+rendered_at: '2026-05-10T15:33:25.830Z'
