@@ -60,15 +60,19 @@ try {
   // Click the stage to unlock audio (no-op if the piece has none) and let
   // the runtime finish its initial compile + first few frames.
   await page.click('#stage').catch(() => {});
-  // The click parks Playwright's virtual cursor at stage center, which
-  // keeps cursor-reactive pieces in their "hand on the canvas" branch
-  // indefinitely. Dispatch a mousemove whose (clientX, clientY) map to the
-  // runtime's mouse=(0,0) idle sentinel — so inspected frames represent
-  // the published-clip state, not a held hand.
+  // The click leaves Playwright's virtual cursor at stage centre AND fires
+  // a pointerdown that the runtime's canvas handler reads as
+  // mouse=[centerX, centerY]. The runtime tracks the cursor via
+  // `pointermove` events on window — NOT `mousemove` — so dispatch a
+  // pointermove whose (clientX, clientY) maps to the runtime's idle
+  // sentinel mouse=(0,0). Earlier versions sent MouseEvent('mousemove')
+  // here; that event has no listener and silently leaves u_mouse near
+  // canvas centre, contaminating cursor-reactive layers in inspect frames.
   await page.evaluate(() => {
     const c = document.getElementById('stage');
     if (!c) return;
-    window.dispatchEvent(new MouseEvent('mousemove', {
+    window.dispatchEvent(new PointerEvent('pointermove', {
+      pointerType: 'mouse',
       clientX: 0,
       clientY: c.clientHeight,
     }));

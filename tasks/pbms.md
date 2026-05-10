@@ -51,4 +51,8 @@ initialization before line 786 is evaluated, the reference is in the
 temporal dead zone. Fix: hoist the `let autoplayArmed = false` above
 `attachAudio`, or move the declaration to the top of the file alongside
 the other module-level `let`s (around lines 91-98).
-**Status:** open
+**Status:** fixed — `let autoplayArmed = false;` now lives at
+`studio/runtime.mjs:184`, well before the line 493 top-level await. The
+remaining post-await module declarations (`idleTimer` line 2048, the
+`helpXxxEl` consts line 2081-2085) are only read inside post-boot event
+handlers, so they're not in TDZ during initialisation.

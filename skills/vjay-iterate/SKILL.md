@@ -821,11 +821,54 @@ unit. Commit happens in step 3.
   passes.
 - Show the user a before/after comparison listing score deltas and
   probe deltas from the first critique to the last.
+- **Write `pieces/<slug>/scorecard.md`** — a single-page summary that
+  lives WITH the piece (not buried in `brainstorming/critiques/`) so a
+  future glance at the piece directory tells you where it stands.
+  Format:
+
+  ```markdown
+  # <slug> — scorecard
+
+  Last iterated: YYYY-MM-DD (run <RUN_ID>, <N> iterations)
+  Latest verdict: <chef-doeuvre|ship-it|needs-tweak|structural-rethink|premise-wrong>
+  Claim check: <pass|fail>
+
+  ## Probe counts (latest critique)
+  - Mesmerizing: N/5
+  - Interaction: N/7   (or "n/a — not cursor-reactive")
+  - Music: N/4         (or "n/a — silent piece")
+  - Song-level: N/6    (or "n/a — no analysis JSON")
+  - Dual-input: N/7    (or "n/a — single-channel")
+  - Layered: N/8       (or "n/a — monolithic shader")
+
+  ## Dimension scores (latest)
+  | palette | composition | motion | intensity | depth | form |
+  |---------|-------------|--------|-----------|-------|------|
+  | X/5     | X/5         | X/5    | X/5       | X/5   | X/5  |
+
+  ## Deltas (first → last critique this run)
+  | metric             | first | last | Δ  |
+  |--------------------|-------|------|----|
+  | mesmerizing_passes | …     | …    | …  |
+  | claim_check        | …     | …    | …  |
+  | <each scored dim>  | …     | …    | …  |
+
+  ## Most recent fix
+  Dimension: <dim>
+  What:      <one-line summary of last applied top_fix>
+
+  Latest critique: brainstorming/critiques/<slug>-v<N>.md
+  ```
+
+  Overwrite the file each run; git history holds the prior scorecards.
+  This is the file `bin/audit-piece.mjs` and any future "which pieces
+  are at chef-d'oeuvre" tooling can scan cheaply.
 - Propose a single bundled commit with the shader changes, all the
-  per-iteration critiques, fresh inspect PNGs, AND the refreshed
-  rollup markdown.
+  per-iteration critiques, fresh inspect PNGs, the refreshed rollup
+  markdown, AND the new/updated scorecard.
   ```
   git add pieces/<slug>/shader.frag pieces/<slug>/inspect \
+          pieces/<slug>/scorecard.md \
           brainstorming/critiques/<slug>-v*.md \
           brainstorming/runs/<slug>.md
   git commit -m "<slug>: iterated refinement pass — <N> iterations
