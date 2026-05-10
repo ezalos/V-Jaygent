@@ -46,9 +46,19 @@ passes:
     inputs:
       u_state: simulate
     iterations: 2
+  - name: boids
+    shader: boids.frag
+    target:
+      format: rgba16f
+      ping_pong: true
+      scale: 0.05
+    inputs:
+      u_state: simulate
+      u_boids: boids
   - name: display
     shader: shader.frag
     target: screen
     inputs:
       u_state: simulate
-rendered_at: '2026-05-10T11:52:21.927Z'
+      u_boids: boids
+rendered_at: '2026-05-10T11:58:38.232Z'

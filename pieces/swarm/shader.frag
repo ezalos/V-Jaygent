@@ -6,6 +6,7 @@ precision highp float;
 uniform vec2      u_resolution;
 uniform float     u_time;
 uniform sampler2D u_state;
+uniform sampler2D u_boids;
 
 uniform vec4 u_touches[8];
 uniform int  u_touch_count;
@@ -126,6 +127,34 @@ void main() {
     // ---- Finger glyphs ----
     // Bright ring + crosshair at every active finger so the viewer knows
     // where their input lands. Ring radius pulses with finger age.
+    // ---- 100 boids (Lagrangian particles swimming in the velocity field).
+    // Each boid is splatted as a small disc tinted by the sim's affinity at
+    // its position — boids passing through finger zones take that finger's
+    // colour; boids in neutral cells fall back to the slow palette drift.
+    for (int i = 0; i < 100; i++) {
+        ivec2 bc = ivec2(i % 10, i / 10);
+        vec4  b  = texelFetch(u_boids, bc, 0);
+        vec2  bp = b.xy;
+        vec2  bv = b.zw;
+
+        vec2  d   = (uv - bp) * vec2(aspect, 1.0);
+        float r2  = dot(d, d);
+
+        // Disc: tight Gaussian. Slight axial stretch along velocity so
+        // fast-moving boids leave a comet streak instead of a perfect blob.
+        float radius = 0.0055;
+        float speed  = length(bv);
+        float along  = speed > 1e-4 ? abs(dot(d, bv) / speed) : 0.0;
+        float r2e    = r2 + along * 0.6 * along * 0.6;  // squash along motion
+        float disc   = exp(-r2e / (radius * radius));
+
+        // Colour from the field's affinity at the boid's position.
+        float aff   = texture(u_state, bp).a;
+        vec3  bcol  = fingerPalette(aff + drift);
+
+        col += bcol * disc * (1.4 + 0.8 * saturate(speed * 0.6));
+    }
+
     for (int i = 0; i < 8; i++) {
         vec2  fUv;
         float fAge;
