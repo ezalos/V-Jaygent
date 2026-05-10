@@ -6,93 +6,90 @@ notes: |
   Ofra Haza — *Father Ocean (Ben Böhmer Remix)*. 123 BPM, D major,
   476s, 8 sections.
 
-  Thesis: three ferrofluid planets orbit each other under gravity.
-  As magnetism rises with the music, conical Rosensweig spikes erupt
-  from their surfaces and reach toward each other and the cursor;
-  the field of magnetic potential between them streamers and deforms
-  the dark velvet space. Gravity sets the dance, magnetism sets the
+  Thesis: four ferrofluid bodies (plus the cursor as a 5th when active)
+  ride real Keplerian orbits. As magnetism rises with the music, sharp
+  Rosensweig spikes erupt outward from their dark-steel surfaces and
+  reach toward neighbours and the cursor. Gravity sets the dance —
+  including slingshots and tight periapsis tangos — magnetism sets the
   texture, the music sets the magnetism.
 
   Two coupled physics:
 
-  1. Closed-form Keplerian orbits — 3 planets. Inner pair period
-     31s (16 bars at 123 BPM); wide moon 73s. Audio mid perturbs
-     orbital phase so beats nudge the choreography. p0/p1 share a
-     drifting barycenter; p2 sweeps wider on a y-squashed ellipse.
+  1. Real Keplerian orbits — 4 bodies + cursor as a 5th when active.
+     Inner binary on a high-eccentricity ellipse (e=0.55→0.82 across
+     the drop), period 31s = 16 bars at 123 BPM. Slow at apoapsis,
+     fast at periapsis (Kepler's 2nd law via 2-term eccentric-anomaly
+     expansion). Wide moon at 73s, e=0.42. Wanderer at 53s, e=0.62.
+     Bass strongly perturbs phase (1.2 rad wobble at peak); kick
+     events deflect the binary's periapsis axis. Drop section
+     elongates orbits dramatically — "the music slingshots them".
 
   2. Magnetic potential field (sim_field, rgba16f ping-pong, half-res,
-     2 sub-steps/frame). Scalar phi diffused by 5-point Laplacian,
-     decayed at .985/frame (half-life ≈ 1.4s — section-3's 5s
-     breakdown reads as a clear field decay). Sources:
-       - planet centers: positive monopoles
+     1 sub-step/frame). Scalar phi diffused by 5-point Laplacian,
+     decayed at .985/frame. Gradient cached in .gb so display takes
+     ONE texture sample instead of five. Sources:
+       - body centers: positive monopoles
        - cursor: NEGATIVE monopole (drags spikes toward the finger)
-       - kick: flux impulse at one cycling planet
+       - kick: flux impulse at one cycling body
        - downbeat: expanding ring of flux from centre
-       - white keys: positive at matched planet (spikes intensify)
-       - black keys: negative at matched planet (spikes smooth)
+       - white keys: positive (spikes intensify); black: negative
 
-  Ferrofluid surface — rendered procedurally in display from the
-  field. Per-planet 14-spike sin-lattice in θ-space, domain-warped
-  by fbm so spikes wobble organically. Pole bias toward the planet's
-  strongest neighbour: spikes denser along the dipole axis.
-  Amplitude = max(0, |phi(planet)| · 1.4 − 0.04) — sub-threshold the
-  surface stays a smooth metal blob, super-threshold the rim erupts.
+  Ferrofluid surface — rendered procedurally from the field. Per-body
+  14-spike sin-lattice in θ-space, pow 4 for crisp triangular peaks,
+  cheap inline hash jitter so spikes wobble organically. Pole bias
+  toward the body's strongest neighbour. Amplitude =
+  max(0, |phi(body)| · 1.6 − 0.05) gated by sectionMag — sub-threshold
+  stays a smooth metal blob; super-threshold the rim erupts.
+
+  Render is dark-steel-with-warm-specular-tip: NO outside-the-
+  silhouette glow halo, only inside-rim warm specular that tracks the
+  spike peaks. Sachiko Kodama palette discipline.
 
   Tidal bridge: opSmin's k coefficient rises sharply at periapsis
-  (sep < 0.18). The two paired planets stretch toward each other
-  through the smooth-min gap and a warm ember thread visibly draws
-  along the segment.
-
-  Display strata:
-    coarsest: dark graphite substrate + field-line streamers (fbm
-              rotated by field gradient direction)
-    coarse:   ferrofluid SDF — smooth-min'd 3 blobs with spike rims
-    medium:   sodium-orange rim glow at field-active boundaries;
-              tidal-bridge ember thread between paired planets
-    fine:     downbeat radial ring; cursor warm halo; 15 keyboard
-              glow rays from key positions to matched planet
+  (sep < 0.16). The binary stretches into a peanut and a warm ember
+  thread draws ALONG (not around) the segment, gated to inside-the-
+  blob.
 
   Section narrative — magnetism arc:
     0 (0–62s)    dormant: smooth liquid-metal blobs, no spikes
     1 (62–94s)   first spikes wake; field begins to curl
     2 (94–230s)  groove orbit; spikes pulse with bass
     3 (230–235s) breakdown — magnetism cuts; blobs go smooth (5s)
-    4 (235–297s) DROP — full Rosensweig field; spikes everywhere
-    5 (297–362s) peak coupling — spike streamers, tidal bridge fires
-    6 (362–472s) cooling — spikes recede, orbit continues warm
+    4 (235–297s) DROP — eccentricity spikes; full Rosensweig field
+    5 (297–362s) peak coupling — tight periapsis tango, ember bridge
+    6 (362–472s) cooling — spikes recede, orbit relaxes
     7 (472–476s) stillness
 
   Multi-input bindings:
-    cursor   → roving NEGATIVE magnet on the field; drags spike
-               orientation toward your finger; warm halo always on.
-               Idle: synthetic wandering ghost-source so the piece
-               self-plays in inspect/preview.
-    keyboard → 15-key piano-on-QWERTY. Each key cycles to a planet
-               (i mod 3). White (a..l) injects positive magnetic
-               pulse → planet bristles. Black (w/e/t/y/u/o)
-               injects negative pulse → planet smooths. Each press
-               also draws a warm beam from the keyboard position to
-               the matched planet.
-    audio    → bass: field strength multiplier
-               mid:  orbital phase perturbation
-               high: micro-ripple on ferrofluid surface, planet
-                     radius pulse, spike-amp gain
-               kick: flux impulse at cycling planet
-               downbeat: realigning radial flux pulse + ring
-               section_id: narrative magnetism level (table above)
+    cursor   → roving negative magnet on the field; idle: synthetic
+               wandering ghost-source so the piece self-plays. When
+               active, the cursor IS a 5th body in the SDF — a soft
+               warm blob trailing your finger.
+    keyboard → 15-key piano-on-QWERTY. Each key cycles to a body
+               (i mod 4). White injects positive magnetic pulse →
+               bristles. Black injects negative pulse → smooths.
+               Pressed keys add a warm halo at every body.
+    audio    → bass: field strength + orbital phase wobble (visible
+                     acceleration on drops)
+               mid:  binary orient + wide-moon phase nudge
+               high: micro-ripple, planet radius pulse, spike-amp gain
+               kick: flux impulse at cycling body + slingshot deflect
+               downbeat: realigning radial flux pulse + warm ring
+               section_id: narrative magnetism level + e-boost on drop
                section_progress: smooth ramps within sections
                song_progress: palette warmth nudge across the song
 
   Couplings (proves "physics, not skin"):
-    planet positions → field sources → spike amplitude in display
-    field gradient → field streamers in space
-    cursor → field → spike orientation in display
-    audio_bass → field strength → spike density
-    pair separation → smin-k → tidal bridge geometry
+    body positions → field sources → spike amplitude in display
+    field gradient → background streamer direction (inline jitter)
+    cursor → field + 5th SDF body → directly visible
+    audio_bass → field + orbital phase
+    pair separation → smin-k → tidal-bridge geometry
+    section eccentricity boost → orbit shape
 
   Press Shift+H for the keyboard controls panel.
 duration: 476
-render_scale: 1
+render_scale: 0.7
 audio: audio.mp3
 audio_features:
   - beat
@@ -109,10 +106,10 @@ passes:
       scale: 0.5
     inputs:
       u_state: simulate_field
-    iterations: 2
+    iterations: 1
   - name: display
     shader: shader.frag
     target: screen
     inputs:
       u_field_state: simulate_field
-rendered_at: '2026-05-10T07:49:48.214Z'
+rendered_at: '2026-05-10T08:07:39.959Z'
