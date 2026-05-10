@@ -1,0 +1,64 @@
+title: Ferrofluid
+slug: ferrofluid
+created: 2026-05-10T19:00:00.000Z
+notes: |
+  Ferrofluid surface under a moving magnetic dipole. The cursor IS the
+  dipole — its position drives the field, the dipole moment rotates
+  slowly so the field's anisotropy sweeps the surface, and bass scales
+  the strength so audio (when present) makes it more energetic without
+  ever taking control. Where the field-energy gradient is high enough,
+  the fluid erupts in Rosensweig spikes against gravity; where it's
+  weak, surface tension flattens it back.
+
+  Architecture (passes:, not layers:):
+
+    1. simulate — rgba16f ping-pong at half resolution. Holds the
+       height field h(x,y) in .r and a slow-tension echo in .g. Each
+       frame: Laplacian smoothing (D=0.18) + dipole forcing
+       (alpha * |B|^2) + cubic damping (-beta * h^3) + linear
+       restoring force (-G * h). Sub-stepped 4× per frame for stable
+       spike formation.
+
+    2. display — reads the stabilised height field. Treats h(x,y) as
+       an actual height surface, computes gradient → normal, shades
+       Lambertian + specular. Ember palette darkest at the troughs,
+       gold at the peak rims. Slow-tension echo lights spike trails
+       so passages of the cursor leave glowing residue for ~2 seconds.
+
+  Input wiring:
+    cursor (primary)  → dipole position; the moment vector rotates on
+                        u_time so the spike pattern doesn't lock to a
+                        single orientation; strength rises with audio
+                        bass on top of a baseline so the piece works
+                        silent.
+    audio (optional)  → u_audio_bass scales the cursor dipole
+                        strength; u_audio_mid scales the procedural
+                        idle dipole. No analysis JSON, no section
+                        state machine — additive only.
+    idle behaviour    → when the cursor is at u_mouse=(0,0), the
+                        cursor dipole is zero and a procedural
+                        Lissajous-orbit dipole keeps the surface
+                        deforming. Piece self-plays.
+
+  Answers VISION.md open question #2 ("Ferrofluid under a moving
+  dipole — needs lib/dipole.glsl kernel — next after ferment") and
+  contributes to open question #7 ("when does simulation become
+  composition?"): when the user IS one of the driving fields.
+duration: 30
+render_scale: 1
+passes:
+  - name: simulate
+    shader: sim.frag
+    target:
+      format: rgba16f
+      ping_pong: true
+      scale: 0.5
+    inputs:
+      u_state: simulate
+    iterations: 8
+  - name: display
+    shader: shader.frag
+    target: screen
+    inputs:
+      u_state: simulate
+rendered_at: '2026-05-10T07:42:27.096Z'
