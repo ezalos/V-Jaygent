@@ -61,4 +61,4 @@ passes:
     inputs:
       u_state: simulate
       u_boids: boids
-rendered_at: '2026-05-10T11:58:38.232Z'
+rendered_at: '2026-05-10T12:03:49.371Z'
