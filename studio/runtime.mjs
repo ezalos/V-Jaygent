@@ -206,6 +206,14 @@ let keyboardSynth  = null;
 // 15 entries: 9 white keys (a..l) + 6 black keys (w e t y u o). Matches
 // keyboard-music.mjs's KEY_ORDER length.
 const ZERO_KEYS = new Float32Array(15);
+
+// Multi-touch uniform buffer — up to 8 simultaneous fingers. Layout per slot:
+// (xy = pixel coords in target space, z = age in seconds, w = active 1.0/0.0).
+// On desktop the live mouse becomes touch[0] when the cursor is over the canvas
+// so single-finger pieces "just work" without input-mode forks.
+const MAX_TOUCHES = 8;
+const TOUCHES_BUF = new Float32Array(MAX_TOUCHES * 4);
+let touchCount = 0;
 let audioSource    = null;
 let audioAnalyser  = null;
 let audioFreqData  = null;
@@ -603,6 +611,10 @@ function setUniform1fv(name, arr) {
 function setUniform2fv(name, arr) {
   const loc = currentUniforms[name] ??= gl.getUniformLocation(currentProgram, name);
   if (loc !== null) gl.uniform2fv(loc, arr);
+}
+function setUniform4fv(name, arr) {
+  const loc = currentUniforms[name] ??= gl.getUniformLocation(currentProgram, name);
+  if (loc !== null) gl.uniform4fv(loc, arr);
 }
 
 function applyCustomUniform(u) {
@@ -1008,6 +1020,33 @@ function setStandardUniforms(vw, vh, now) {
   const _pan = gestures.getPan();
   setUniform2f('u_pan',       _pan[0], _pan[1]);
   setUniform1f('u_tap_pulse', tapPulse);
+
+  // Multi-touch — feed every active pointer into u_touches[8] as
+  // (x, y, age_seconds, 1.0). Slots past the active count get w=0 so
+  // shaders can iterate `if (u_touches[i].w > 0.5)`. Coordinates are
+  // scaled into the target's pixel space (same convention as u_mouse).
+  const live = gestures.getPointers();
+  const nowMs = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+  touchCount = Math.min(live.length, MAX_TOUCHES);
+  for (let i = 0; i < MAX_TOUCHES; i++) {
+    const o = i * 4;
+    if (i < touchCount) {
+      const p = live[i];
+      // Pointer y is top-origin in DOM; flip to bottom-origin to match u_mouse.
+      const y = canvas.clientHeight - p.y;
+      TOUCHES_BUF[o + 0] = p.x * mx;
+      TOUCHES_BUF[o + 1] = y * my;
+      TOUCHES_BUF[o + 2] = Math.max(0, (nowMs - p.startT) * 1e-3);
+      TOUCHES_BUF[o + 3] = 1.0;
+    } else {
+      TOUCHES_BUF[o + 0] = 0;
+      TOUCHES_BUF[o + 1] = 0;
+      TOUCHES_BUF[o + 2] = 0;
+      TOUCHES_BUF[o + 3] = 0;
+    }
+  }
+  setUniform4fv('u_touches',     TOUCHES_BUF);
+  setUniform1i('u_touch_count',  touchCount);
   setUniform2fv('u_ball_pos',     billiards.posArray);
   setUniform1fv('u_ball_hit',     billiards.hitArray);
   setUniform2fv('u_ball_hit_pos', billiards.hitPosArray);

@@ -93,6 +93,17 @@ export function createGestureTracker(opts = {}) {
     return { x: p.x, y: p.y };
   }
 
+  // Snapshot of every live pointer — used to feed multi-touch uniforms.
+  // Order is insertion order (Map iteration). Caller treats `t` as the
+  // start timestamp so it can derive an "age" uniform.
+  function getPointers() {
+    const out = [];
+    for (const [id, p] of pointers) {
+      out.push({ id, x: p.x, y: p.y, startT: p.startT });
+    }
+    return out;
+  }
+
   function reset() {
     pointers.clear();
     pinch = null;
@@ -105,6 +116,7 @@ export function createGestureTracker(opts = {}) {
     movePointer,
     removePointer,
     getPrimary,
+    getPointers,
     getZoom: () => zoom,
     getPan:  () => [pan[0], pan[1]],
     setRefSize(n) { cfg.refSize = Math.max(1, n); },
