@@ -212,14 +212,29 @@ Write `brainstorming/pieces/<slug>.md` with:
 - **Canonical-name check.** If the brief names a classical algorithm
   or technique — "boids", "reaction-diffusion", "Stam fluid",
   "Voronoi", "Verlet", "hyperbolic tiling", "Julia set", "Game of
-  Life" — write down the textbook definition (one paragraph from
-  Wikipedia or a primary reference). The default implementation is
-  the canonical form. Do NOT silently reinterpret it as a clever
-  variant on the runtime's preferred architecture. This was the
-  swarm-2026-05-10 failure mode: brief said "boids", piece shipped
-  as an Eulerian boid-fluid, took ~10 turns of back-and-forth to
-  rewrite into actual Reynolds. See
+  Life", "ferrofluid / Rosensweig", "Bénard convection",
+  "Faraday waves" — write down the textbook definition (one
+  paragraph from Wikipedia or a primary reference). The default
+  implementation is the canonical form. Do NOT silently reinterpret
+  it as a clever variant on the runtime's preferred architecture.
+  This was the swarm-2026-05-10 failure mode: brief said "boids",
+  piece shipped as an Eulerian boid-fluid, took ~10 turns of
+  back-and-forth to rewrite into actual Reynolds. See
   `~/.claude/projects/-home-ezalos-42-V-Jaygent/memory/feedback_canonical_algorithm_brief.md`.
+
+  **PDE-length-scale check (sub-rule for canonical pattern-forming
+  systems).** When the canonical name is a *spatial-pattern-forming*
+  PDE — Rosensweig hex spikes, Bénard convection rolls, Faraday
+  wave tongues, Turing reaction-diffusion — verify that the
+  reduced PDE you're about to write has a critical wavenumber
+  baked in (Swift-Hohenberg `(∇²+k_c²)²` term, or explicit hex/stripe
+  modulation of the forcing gated by a smoothstep over a critical
+  amplitude). Reduced models with only `lap`/identity/cubic terms
+  saturate into flat mesas, NOT the visible pattern. See
+  `~/.claude/projects/-home-ezalos-42-V-Jaygent/memory/feedback_pde_needs_length_scale.md`.
+  This was the ferrohands-2026-05-10 v1 failure: PDE shipped as
+  flat puddles instead of hex spikes; one bundled fix added the
+  hex modulation + bifurcation gate.
 - Form candidates: 2-3 concrete technical shapes (e.g., "curl-noise
   smoke", "hyperbolic tiling", "Julia set parameter walk"). For each
   candidate, note which `lib/` modules it would lean on — that's a
