@@ -2,25 +2,22 @@ title: Swarm
 slug: swarm
 created: 2026-05-10T11:35:39.786Z
 notes: |
-  1000 Reynolds boids. Three rules, in order: separation, alignment,
-  cohesion (per the original 1987 paper). Toroidal world — boids that
-  leave one edge re-enter on the opposite. No field, no finger
-  forcing, no per-boid lifespan, no palette wedges. Single warm tone
-  with a brighter tip; the only thing on screen is the flock.
+  1000 Reynolds boids — separation, alignment, cohesion. Toroidal
+  world (boids that leave one edge re-enter on the opposite). No
+  field, no fingers, no lifespan. Single warm tone with a brighter
+  tip; the only thing on screen is the flock.
 
-  Architecture: two passes. The boids pass holds (pos.xy, vel.xy) in
-  a 32x32 region of an rgba16f ping-pong texture; each frame each
-  boid checks all 999 others (≈1M fetches, fully cache-friendly) and
-  applies the three rules. Display reads u_boids, renders each boid
-  as a pointy isoceles SDF triangle oriented along its velocity.
-
-  Per-pixel cost: 1000 texelFetch + early-out when the boid's bounding
-  circle doesn't cover this pixel. Display render_scale: 0.5 keeps it
-  under the bandwidth ceiling on phone GPUs.
+  Architecture: three passes. (1) `boids` updates each agent — each
+  frame each boid scans all 999 others (a tight 1M-fetch loop, fully
+  cache-friendly). (2) `bins` buckets the boids into a 32×32 spatial
+  grid, storing up to 4 boid IDs per cell — gives display a constant
+  per-pixel cost. (3) `display` reads the 3×3 cells around each
+  pixel, fetches at most ~36 nearby boids, and renders each as a
+  pointy SDF triangle oriented along velocity.
 
   No audio.
 duration: 60
-render_scale: 0.5
+render_scale: 0.4
 uniforms: []
 published_at: null
 passes:
@@ -32,9 +29,18 @@ passes:
       scale: 0.1
     inputs:
       u_boids: boids
+  - name: bins
+    shader: bins.frag
+    target:
+      format: rgba16f
+      ping_pong: false
+      scale: 0.1
+    inputs:
+      u_boids: boids
   - name: display
     shader: shader.frag
     target: screen
     inputs:
       u_boids: boids
-rendered_at: '2026-05-10T14:46:07.635Z'
+      u_bins: bins
+rendered_at: '2026-05-10T15:05:15.293Z'
