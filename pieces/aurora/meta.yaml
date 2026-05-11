@@ -1,0 +1,64 @@
+title: Aurora
+slug: aurora
+created: 2026-05-11T07:59:17.700Z
+architecture: C
+testability: pure-self-play
+notes: |
+  ## Brief gates (vjay-new-piece §1b + §1c)
+  canonical_ref: ferment   # closest sibling — both are state-bearing ping-pong fields with cursor injection
+  eye_landing_candidates:
+    - 2-4 dominant ribbon curls (dye filaments)
+    - cursor swirl vortex (visible spiral when dragged)
+    - ribbon merge/split events (filaments folding)
+  warm_cycle: [near-black, wine, ember, amber, cream]
+  idle_behaviour: "curl-noise velocity field keeps advecting density; soft source
+    band continuously re-injects dye at the top of the frame; ribbons drift,
+    fold, and dissipate without any input"
+  arch_rationale: |
+    Stam-style advected scalar field. Cursor disruption requires state across
+    frames (otherwise the swirl deforms a freshly-recomputed pattern, invisible
+    next frame). "Ribbons keep flowing" requires density persistence + advection
+    by a velocity field. Wrong choices: A — no persistence, cursor disruption
+    can't take. B — ribbons aren't discrete agents. D — would blur ribbon
+    identity into hazy aggregate. E — u_history is rgba8 polluted, not clean.
+
+  ## Algorithm
+
+  Sim pass: backward-trace Stam advection of a scalar density field.
+    - Velocity v(x,t) = curl(psi_fbm) — divergence-free by construction
+      (Bridson 2007); 2-octave fbm streamfunction with slow time drift.
+    - Cursor swirl adds rotational velocity around u_mouse, gaussian falloff.
+    - Source band re-injects density at the top quarter of the frame,
+      modulated by slow-drifting noise so injection patches drift along it.
+    - Decay 0.992/frame — half-life ~1.4s at 60fps.
+
+  Display pass: density -> smoothstep ribbon contour -> warmCycle palette.
+    - Density gradient (Sobel) gates a rim highlight on ribbon edges.
+    - Dusk-sky substrate (wine -> rust gradient) always painted so the
+      frame is never empty.
+    - Cursor heat overlay visually anchors the cursor mark.
+
+  ## Bindings
+  - Mouse: drag to inject a counterclockwise swirl that twists existing
+    ribbons. omega=2.4, sigma=0.18 in world units.
+  - No audio (theme-only piece).
+duration: 30
+render_scale: 1
+uniforms: []
+published_at: null
+passes:
+  - name: simulate
+    shader: sim.frag
+    target:
+      format: rgba16f
+      ping_pong: true
+      scale: 0.5
+    inputs:
+      u_state: simulate
+    iterations: 2
+  - name: display
+    shader: shader.frag
+    target: screen
+    inputs:
+      u_state: simulate
+rendered_at: '2026-05-11T08:07:00.673Z'
