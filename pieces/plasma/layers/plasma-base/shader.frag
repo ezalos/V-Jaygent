@@ -1,5 +1,6 @@
-// ABOUTME: Canonical 4-term sin plasma (Yusuke Endoh / 80s demoscene), mapped
-// ABOUTME: through an iqCosine palette with slow autonomous hue drift. Self-plays.
+// ABOUTME: Plasma-lamp discharge field — N branching filaments radiate from a
+// ABOUTME: central electrode through polar-warped noise. Strobe flicker, dark
+// ABOUTME: violet ambient, magenta core / cyan-white tips. Self-plays.
 #version 300 es
 precision highp float;
 
@@ -8,47 +9,94 @@ uniform float u_time;
 
 out vec4 fragColor;
 
-// iqCosine — copied from brainstorming/snippets/iqCosine. Phase tweaked to
-// 0.00 / 0.20 / 0.55 so the palette runs magenta → amber → cyan instead of
-// the canonical 0/120/240 rainbow; reads warmer + less rainbow-cliché.
-vec3 iqCosine(float t) {
-    vec3 a = vec3(0.52, 0.46, 0.50);
-    vec3 b = vec3(0.45, 0.45, 0.45);
-    vec3 c = vec3(1.00, 1.00, 1.00);
-    vec3 d = vec3(0.00, 0.20, 0.55);
-    return a + b * cos(6.28318 * (c * t + d));
+#define TAU 6.28318530718
+#define N_ARCS 7.0
+
+// Cheap hash for per-fragment flicker grain — plasma lamps strobe at line
+// frequency, individual filaments crackle stochastically on top.
+float hash21(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
 }
 
 void main() {
-    // Centred coords, normalised on the short axis. Scale ×2 so the
-    // plasma sin frequencies (×8) match a few full cycles across the
-    // shorter dimension — readable on a phone, not a sea of microstripes.
     vec2 p = (gl_FragCoord.xy - 0.5 * u_resolution.xy)
            / min(u_resolution.x, u_resolution.y);
-    p *= 2.0;
+    p *= 2.0;                                  // p in roughly [-aspect, aspect] x [-1, 1]
 
-    float t = u_time;
+    float r = length(p);
+    float a = atan(p.y, p.x);
 
-    // Four canonical plasma terms.
-    // 1) cartesian X  2) cartesian Y at slightly different rate
-    // 3) diagonal     4) radial-from-orbiting-source
-    vec2  cen = vec2(0.55 * sin(t * 0.31), 0.45 * cos(t * 0.27));
-    float v   = sin(p.x * 8.0 + t);
-    v        += sin(p.y * 8.0 + t * 1.13);
-    v        += sin((p.x + p.y) * 6.0 + t * 0.71);
-    v        += sin(length(p - cen) * 12.0 + t * 1.4);
-    v        *= 0.25;             // normalise to ~[-1, 1]
+    // Stepped time — AC arc discharge looks stepped, not smooth. 28Hz
+    // matches a 60Hz mains rectified ×2 plus harmonic jitter; fast enough
+    // to read as "alive electricity", slow enough to actually see.
+    float tStep = floor(u_time * 28.0) / 28.0;
+    float tCont = u_time;
 
-    // Map to palette parameter in [0, 1] with slow autonomous hue drift
-    // so the field is alive even with a frozen plasma value.
-    float pal = 0.5 + 0.5 * v + 0.05 * t;
+    // Polar-domain angular warp. Multi-octave so filaments forking and
+    // branching falls out naturally. The inner sin terms make the
+    // filament path jitter both with radius (along-arc wobble) and angle
+    // (cross-arc fork). Higher amplitudes = more chaos.
+    float a_warp = a;
+    a_warp += sin(r * 4.5 + tCont * 1.7
+                + sin(a * 3.0 + tStep * 4.0) * 1.4) * 0.55;
+    a_warp += sin(r * 9.0 + tCont * 2.3
+                + sin(a * 5.0 + tStep * 6.7) * 1.8) * 0.30;
+    a_warp += sin(r * 17.0 + tCont * 3.1
+                + sin(a * 7.0 + tStep * 9.1) * 2.0) * 0.16;
+    a_warp += sin(r * 31.0 - tCont * 4.7) * 0.08;
 
-    vec3 col = iqCosine(pal);
+    // Quantize warped angle to N filament slots. Distance to nearest slot
+    // boundary = how close this fragment is to a filament centerline.
+    float aSlot = a_warp * (N_ARCS / TAU);
+    float dSlot = abs(fract(aSlot) - 0.5) * (TAU / N_ARCS);
 
-    // Vignette + house gamma (VISION.md: pow 0.85..0.92).
+    // Per-filament stochastic flicker — pick a random brightness per
+    // (filament-index, time-step). This makes individual arcs blink
+    // independently rather than the whole field flashing in unison.
+    float arcId = floor(aSlot);
+    float flicker = 0.35 + 0.85 * hash21(vec2(arcId, floor(tStep * 47.0)));
+
+    // Glow profile: tight angular falloff, smooth radial fade so
+    // filaments thin out toward the glass. The exp(-d * 38.0) gives a
+    // hot core with a soft halo.
+    float radialFade = smoothstep(1.6, 0.05, r);
+    float arc = exp(-dSlot * 38.0) * radialFade * flicker;
+
+    // Per-fragment crackle — fine grain noise on top so arcs look like
+    // real ionised gas, not a clean line.
+    float crackle = hash21(gl_FragCoord.xy + tStep * 200.0);
+    arc *= 0.75 + 0.5 * crackle;
+
+    // Central electrode — bright nucleus where all filaments originate.
+    // Inner spike + outer halo; the spike pulses at line frequency.
+    float pulse   = 0.85 + 0.15 * sin(u_time * 18.0);
+    float nucleus = exp(-r * 16.0) * 1.6 * pulse
+                  + exp(-r * 5.0)  * 0.30;
+
+    // Plasma-lamp palette: deep cool violet ambient (the inert-gas tint
+    // before discharge), magenta along arc bodies, cyan-white at hot
+    // peaks (where ionisation is densest).
+    vec3 ambient = vec3(0.025, 0.010, 0.055);
+    vec3 body    = vec3(0.95, 0.30, 1.00);          // magenta filament
+    vec3 tip     = vec3(0.70, 0.90, 1.00);          // cyan-white peak
+    vec3 core    = vec3(1.00, 0.70, 1.00);          // electrode
+
+    vec3 col = ambient;
+    col += body * arc * 0.85;
+    col += tip  * pow(arc, 3.0) * 1.20;
+    col += core * nucleus;
+
+    // Subtle bloom-ish boost on bright fragments — the strongest arcs
+    // bleed into surrounding pixels because real plasma is bright
+    // enough to saturate the eye locally.
+    col += vec3(0.55, 0.30, 0.70) * smoothstep(0.55, 1.6, arc) * 0.55;
+
+    // Vignette + house gamma per VISION.md.
     vec2 pv = (gl_FragCoord.xy - 0.5 * u_resolution.xy)
             / min(u_resolution.x, u_resolution.y);
-    col *= 1.0 - 0.25 * dot(pv, pv);
+    col *= 1.0 - 0.45 * dot(pv, pv);
 
-    fragColor = vec4(pow(max(col, 0.0), vec3(0.90)), 1.0);
+    fragColor = vec4(pow(max(col, 0.0), vec3(0.88)), 1.0);
 }

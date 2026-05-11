@@ -1,5 +1,6 @@
-// ABOUTME: Per-touch ripple displacement of u_below + tactile halo. Mobile +
-// ABOUTME: desktop click+drag both feed u_touches[8]; mouse-hover does NOT.
+// ABOUTME: Touch attractor — bright noise-warped filament leaps from electrode
+// ABOUTME: to each finger touching the "glass". Plus a glass-contact glow halo
+// ABOUTME: at the touch point. The signature plasma-lamp interaction.
 #version 300 es
 precision highp float;
 
@@ -12,72 +13,120 @@ uniform sampler2D u_below;
 
 out vec4 fragColor;
 
+#define TAU 6.28318530718
+
+float hash21(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+}
+
+// Distance from fragment p to a noise-warped segment from origin to T.
+// Segment is jittered perpendicularly along its length so the filament
+// reads as ionised arc rather than straight line. Returns absolute
+// perpendicular distance plus a falloff factor for fragments off the
+// segment ends.
+float arcDistance(vec2 p, vec2 T, float jitterPhase) {
+    float L   = length(T);
+    if (L < 1e-4) return 1e6;
+    vec2  dir = T / L;
+    vec2  nrm = vec2(-dir.y, dir.x);
+
+    float along = clamp(dot(p, dir), 0.0, L);
+    float perp  = dot(p, nrm);
+
+    // Two-octave noise displacement of the centerline. Fast time
+    // variance + position-dependent phase makes the arc thrash like a
+    // real Tesla discharge.
+    float wob = sin(along * 18.0 + jitterPhase * 3.7) * 0.05
+              + sin(along * 41.0 - jitterPhase * 6.1) * 0.022
+              + sin(along *  7.0 + jitterPhase * 2.1) * 0.030;
+
+    // Per-segment crackle — high-freq noise so the arc looks granular
+    // rather than a smooth ribbon.
+    float grain = (hash21(vec2(along * 80.0, floor(jitterPhase * 60.0))) - 0.5) * 0.012;
+
+    float perpW = perp - wob - grain;
+
+    // End-clamp falloff — fragments past T still contribute a small
+    // amount but fade fast so the arc has a clean tip.
+    float along_full = dot(p, dir);
+    float endFade = 1.0;
+    if (along_full > L) endFade = exp(-(along_full - L) * 22.0);
+    if (along_full < 0.0) endFade = exp( along_full * 22.0);
+
+    return abs(perpW) / max(endFade, 1e-3);
+}
+
 void main() {
-    vec2 uv     = gl_FragCoord.xy / u_resolution.xy;
+    vec2  uv     = gl_FragCoord.xy / u_resolution.xy;
     float aspect = u_resolution.x / u_resolution.y;
 
-    // Aspect-corrected coords for radial math (so a touch radiates a
-    // round ripple regardless of portrait/landscape — important for
-    // mobile orientation flips).
-    vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
+    // Aspect-corrected world coords matching plasma-base. Origin =
+    // electrode at center.
+    vec2 p = (uv - 0.5) * vec2(aspect, 1.0) * 2.0;
 
-    // Per-layer-interactivity contract: touch is primary, but held keys
-    // also amplify the ripple so the cursor and keyboard cross-couple
-    // here instead of staying in separate layers. Sum envelopes across
-    // 15 keys, soft-clamped so a chord doesn't make the field explode.
+    // Held keys overdrive the discharge — more current = thicker, brighter
+    // arcs to fingers. Soft-clamped sum so chord-bashing doesn't blow out.
     float keyAmp = 0.0;
     for (int k = 0; k < 15; k++) keyAmp += u_keys[k];
-    keyAmp = 1.0 + 0.6 * (keyAmp / (1.0 + keyAmp));   // 1.0 .. 1.6
+    keyAmp = 1.0 + 0.8 * (keyAmp / (1.0 + keyAmp));
 
-    vec2 displace = vec2(0.0);
-    vec3 halo     = vec3(0.0);
+    vec3 below = texture(u_below, uv).rgb;
+    if (dot(below, vec3(1.0)) < 0.01) {
+        below = vec3(0.025, 0.010, 0.055);
+    }
+
+    vec3 arcs = vec3(0.0);
+    vec3 halo = vec3(0.0);
+
+    // Stepped time — the touch arc flickers in sync with the base
+    // discharge field so the whole piece feels electrically coherent.
+    float tStep = floor(u_time * 32.0) / 32.0;
 
     for (int i = 0; i < 8; i++) {
         if (i >= u_touch_count) break;
         vec4 t = u_touches[i];
         if (t.w < 0.5) continue;
 
+        // Touch position in matching world coords.
         vec2 tUv = t.xy / u_resolution.xy;
-        vec2 tP  = (tUv - 0.5) * vec2(aspect, 1.0);
+        vec2 T   = (tUv - 0.5) * vec2(aspect, 1.0) * 2.0;
 
-        vec2  d   = p - tP;
-        float r   = length(d);
-        vec2  dir = d / max(r, 1e-5);
+        // Fresh touches get the fattest, brightest arc. After release,
+        // age (t.z) decays the arc smoothly so a finger lift leaves a
+        // brief "afterglow" rather than snapping off.
+        float fresh = exp(-t.z * 1.6);
 
-        // Fresh touches push hardest; after release `t.z` (age in
-        // seconds) climbs and exp-decays the displacement. The 0.06
-        // reach is empirical — at 720p this is ~10% of the short axis,
-        // big enough to read but doesn't dominate.
-        float fresh = exp(-t.z * 1.4);
-        float reach = 0.06 * fresh;
+        // Stochastic per-frame phase — different jitterPhase per
+        // (touch, time-step) makes the same touch arc look like a
+        // sequence of distinct discharge events rather than one
+        // continuous wiggle.
+        float jp = u_time + 13.0 * float(i) + 7.0 * tStep;
 
-        // Ripple = travelling sin wave centred on the touch. The
-        // negative sign on `u_time` makes the wave radiate outward.
-        float wave = sin(r * 28.0 - u_time * 5.5);
+        float d   = arcDistance(p, T, jp);
+        float core = exp(-d * 90.0);                     // hot centerline
+        float wide = exp(-d * 22.0);                     // soft halo
 
-        // Falloff so the displacement stays inside a finite annulus and
-        // doesn't perturb the whole frame for every touch.
-        float falloff = exp(-r * 8.0);
+        // Independent stochastic flicker per touch arc.
+        float fl = 0.55 + 0.55 * hash21(vec2(float(i), floor(tStep * 53.0)));
 
-        displace += dir * reach * wave * falloff * keyAmp;
+        float intensity = fresh * keyAmp * fl;
 
-        // Tactile halo — bright 0.04-radius ring at the contact point
-        // so the viewer sees the touch was registered before the
-        // ripple visibly builds (~3 frames of latency otherwise).
-        float ring = smoothstep(0.10, 0.04, r) * (0.30 + 0.70 * fresh);
-        halo += vec3(1.00, 0.85, 0.55) * ring;
+        arcs += vec3(0.70, 0.90, 1.00) * core * 1.40 * intensity;
+        arcs += vec3(0.95, 0.30, 1.00) * wide * 0.55 * intensity;
+
+        // Glass-contact halo at the touch point itself — the spot
+        // where the filament hits the inside of the glass and bursts.
+        // Bigger and brighter than the arc body so the eye lands there.
+        float r2c = length(p - T);
+        float ringInner = smoothstep(0.025, 0.000, r2c);
+        float ringOuter = smoothstep(0.110, 0.025, r2c);
+        halo += vec3(0.95, 0.55, 1.00) * ringOuter * 0.45 * (0.30 + 0.70 * fresh);
+        halo += vec3(1.00, 0.95, 1.00) * ringInner * 1.00 * (0.30 + 0.70 * fresh);
     }
 
-    // Sample u_below at displaced uv. Bottom-layer-fallback contract
-    // (layers/README.md §"Required behaviours" rule 2): if u_below is
-    // empty (this layer rendered standalone), fall back to a sane
-    // colour so smoke tests don't see garbage.
-    vec3 below = texture(u_below, uv + displace).rgb;
-    if (dot(below, vec3(1.0)) < 0.01) {
-        below = vec3(0.20, 0.10, 0.30);
-    }
-
-    vec3 col = below + halo * 0.6;
+    vec3 col = below + arcs + halo;
 
     fragColor = vec4(col, 1.0);
 }
