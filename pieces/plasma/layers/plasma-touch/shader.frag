@@ -35,12 +35,13 @@ float arcDistance(vec2 p, vec2 T, float jitterPhase) {
     float along = clamp(dot(p, dir), 0.0, L);
     float perp  = dot(p, nrm);
 
-    // Two-octave noise displacement of the centerline. Fast time
-    // variance + position-dependent phase makes the arc thrash like a
-    // real Tesla discharge.
-    float wob = sin(along * 18.0 + jitterPhase * 3.7) * 0.05
-              + sin(along * 41.0 - jitterPhase * 6.1) * 0.022
-              + sin(along *  7.0 + jitterPhase * 2.1) * 0.030;
+    // Four-octave noise displacement of the centerline. Pushed ×1.7
+    // vs v1 — Louis wanted more chaos. Fast time variance + position-
+    // dependent phase makes the arc thrash like a real Tesla discharge.
+    float wob = sin(along *  7.0 + jitterPhase * 2.1) * 0.055
+              + sin(along * 18.0 + jitterPhase * 3.7) * 0.085
+              + sin(along * 41.0 - jitterPhase * 6.1) * 0.040
+              + sin(along * 73.0 + jitterPhase * 9.3) * 0.020;
 
     // Per-segment crackle — high-freq noise so the arc looks granular
     // rather than a smooth ribbon.
@@ -80,9 +81,10 @@ void main() {
     vec3 arcs = vec3(0.0);
     vec3 halo = vec3(0.0);
 
-    // Stepped time — the touch arc flickers in sync with the base
-    // discharge field so the whole piece feels electrically coherent.
-    float tStep = floor(u_time * 32.0) / 32.0;
+    // Stepped time — match the base layer's 60Hz Tesla cadence (slightly
+    // higher 65Hz so touch arcs feel fractionally more frantic than the
+    // ambient field).
+    float tStep = floor(u_time * 65.0) / 65.0;
 
     for (int i = 0; i < 8; i++) {
         if (i >= u_touch_count) break;
@@ -105,8 +107,8 @@ void main() {
         float jp = u_time + 13.0 * float(i) + 7.0 * tStep;
 
         float d   = arcDistance(p, T, jp);
-        float core = exp(-d * 90.0);                     // hot centerline
-        float wide = exp(-d * 22.0);                     // soft halo
+        float core = exp(-d * 55.0);                     // hot centerline (thicker)
+        float wide = exp(-d * 14.0);                     // soft halo (wider)
 
         // Independent stochastic flicker per touch arc.
         float fl = 0.55 + 0.55 * hash21(vec2(float(i), floor(tStep * 53.0)));

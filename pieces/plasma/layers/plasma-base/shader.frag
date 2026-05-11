@@ -10,7 +10,7 @@ uniform float u_time;
 out vec4 fragColor;
 
 #define TAU 6.28318530718
-#define N_ARCS 7.0
+#define N_ARCS 5.0
 
 // Cheap hash for per-fragment flicker grain — plasma lamps strobe at line
 // frequency, individual filaments crackle stochastically on top.
@@ -28,24 +28,25 @@ void main() {
     float r = length(p);
     float a = atan(p.y, p.x);
 
-    // Stepped time — AC arc discharge looks stepped, not smooth. 28Hz
-    // matches a 60Hz mains rectified ×2 plus harmonic jitter; fast enough
-    // to read as "alive electricity", slow enough to actually see.
-    float tStep = floor(u_time * 28.0) / 28.0;
+    // Stepped time — AC arc discharge looks stepped, not smooth. 60Hz
+    // matches a real Tesla coil's discharge cadence; the eye reads each
+    // step as a distinct "zap" rather than smooth animation.
+    float tStep = floor(u_time * 60.0) / 60.0;
     float tCont = u_time;
 
-    // Polar-domain angular warp. Multi-octave so filaments forking and
-    // branching falls out naturally. The inner sin terms make the
-    // filament path jitter both with radius (along-arc wobble) and angle
-    // (cross-arc fork). Higher amplitudes = more chaos.
+    // Polar-domain angular warp. Five octaves so filaments fork and
+    // branch into chaos. The inner sin terms couple radius and angle so
+    // a filament's path twists both along its length and laterally.
+    // Pushed amplitudes ×1.5 vs. v1 — Louis wanted more chaos.
     float a_warp = a;
-    a_warp += sin(r * 4.5 + tCont * 1.7
-                + sin(a * 3.0 + tStep * 4.0) * 1.4) * 0.55;
-    a_warp += sin(r * 9.0 + tCont * 2.3
-                + sin(a * 5.0 + tStep * 6.7) * 1.8) * 0.30;
+    a_warp += sin(r *  4.5 + tCont * 1.7
+                + sin(a * 3.0 + tStep * 4.0) * 2.0) * 0.85;
+    a_warp += sin(r *  9.0 + tCont * 2.3
+                + sin(a * 5.0 + tStep * 6.7) * 2.6) * 0.50;
     a_warp += sin(r * 17.0 + tCont * 3.1
-                + sin(a * 7.0 + tStep * 9.1) * 2.0) * 0.16;
-    a_warp += sin(r * 31.0 - tCont * 4.7) * 0.08;
+                + sin(a * 7.0 + tStep * 9.1) * 3.0) * 0.30;
+    a_warp += sin(r * 31.0 - tCont * 4.7
+                + sin(a * 11.0 + tStep * 13.0) * 3.4) * 0.18;
 
     // Quantize warped angle to N filament slots. Distance to nearest slot
     // boundary = how close this fragment is to a filament centerline.
@@ -53,25 +54,27 @@ void main() {
     float dSlot = abs(fract(aSlot) - 0.5) * (TAU / N_ARCS);
 
     // Per-filament stochastic flicker — pick a random brightness per
-    // (filament-index, time-step). This makes individual arcs blink
-    // independently rather than the whole field flashing in unison.
+    // (filament-index, time-step). Fast hash step rate so individual
+    // arcs blink wildly even within a single visible frame.
     float arcId = floor(aSlot);
-    float flicker = 0.35 + 0.85 * hash21(vec2(arcId, floor(tStep * 47.0)));
+    float flicker = 0.30 + 0.95 * hash21(vec2(arcId, floor(tStep * 95.0)));
 
-    // Glow profile: tight angular falloff, smooth radial fade so
-    // filaments thin out toward the glass. The exp(-d * 38.0) gives a
-    // hot core with a soft halo.
+    // Glow profile: angular falloff thickened ×3 vs first version (38→13)
+    // so each filament reads as a fat plasma channel, not a hairline.
+    // Radial fade keeps the rim of the bulb dim.
     float radialFade = smoothstep(1.6, 0.05, r);
-    float arc = exp(-dSlot * 38.0) * radialFade * flicker;
+    float arc = exp(-dSlot * 13.0) * radialFade * flicker;
 
     // Per-fragment crackle — fine grain noise on top so arcs look like
-    // real ionised gas, not a clean line.
+    // real ionised gas, not a clean line. Higher contrast (0.55..1.45)
+    // reads as more frantic crackle, the "real plasma" signature.
     float crackle = hash21(gl_FragCoord.xy + tStep * 200.0);
-    arc *= 0.75 + 0.5 * crackle;
+    arc *= 0.55 + 0.90 * crackle;
 
     // Central electrode — bright nucleus where all filaments originate.
-    // Inner spike + outer halo; the spike pulses at line frequency.
-    float pulse   = 0.85 + 0.15 * sin(u_time * 18.0);
+    // Inner spike + outer halo; the spike pulses at line frequency
+    // (32Hz, double-rectified mains feel).
+    float pulse   = 0.80 + 0.20 * sin(u_time * 32.0);
     float nucleus = exp(-r * 16.0) * 1.6 * pulse
                   + exp(-r * 5.0)  * 0.30;
 

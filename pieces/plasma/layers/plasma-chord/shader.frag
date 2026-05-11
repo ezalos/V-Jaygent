@@ -35,8 +35,8 @@ void main() {
     float r = length(p);
     float a = atan(p.y, p.x);
 
-    // Stepped time — match the discharge cadence of plasma-base.
-    float tStep = floor(u_time * 28.0) / 28.0;
+    // Stepped time — match plasma-base's 60Hz Tesla cadence.
+    float tStep = floor(u_time * 60.0) / 60.0;
 
     // Each held key claims a fixed angle slot around the electrode and
     // sustains a filament there. Press-events (u_key_event) flash that
@@ -62,9 +62,11 @@ void main() {
         dA = atan(sin(dA), cos(dA));
 
         // Per-key noise wobble so even key-driven arcs look ionised,
-        // not painted-on radial spokes.
-        float wob = sin(r * 14.0 + tStep * 9.0 + fi * 2.3) * 0.06
-                  + sin(r * 28.0 - tStep * 7.0 + fi * 1.7) * 0.025;
+        // not painted-on radial spokes. Three octaves, ×1.7 amplitude
+        // vs v1 — Louis wanted more chaos.
+        float wob = sin(r *  6.0 + tStep * 4.5 + fi * 2.9) * 0.045
+                  + sin(r * 14.0 + tStep * 9.0 + fi * 2.3) * 0.100
+                  + sin(r * 28.0 - tStep * 7.0 + fi * 1.7) * 0.045;
         float dW  = abs(dA - wob);
 
         // Glow falls off radially so key arcs don't reach to the corners.
@@ -74,8 +76,9 @@ void main() {
         // settles to the hold envelope.
         float pop = 1.0 + 1.8 * u_key_event[i];
 
-        float core = exp(-dW * 55.0) * radialFade * env * pop;
-        float wide = exp(-dW * 18.0) * radialFade * env * pop * 0.30;
+        // Thicker arcs vs v1 (55→32 core, 18→12 halo).
+        float core = exp(-dW * 32.0) * radialFade * env * pop;
+        float wide = exp(-dW * 12.0) * radialFade * env * pop * 0.30;
 
         // Whites lean cyan-white; blacks lean magenta-violet so the two
         // groups are visually distinct.
