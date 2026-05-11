@@ -1,5 +1,5 @@
-// ABOUTME: Ferrohands display — gradient-to-normal embossing of the simulated
-// ABOUTME: height field, ember palette, per-finger fresnel halo for tactile feedback.
+// ABOUTME: Ferrohands display — dark ferrofluid drop on a warm sunset background,
+// ABOUTME: silhouette rim catches highlights, spike protrusions throw specular.
 #version 300 es
 precision highp float;
 
@@ -13,109 +13,108 @@ uniform sampler2D u_state;
 
 out vec4 fragColor;
 
-// Per-piece warm palette — same family as pieces/ferrofluid (cream / amber /
-// ember / wine / mauve, near-black violet at the floor) but with a slightly
-// hotter mid-band so peaks under fingertips read as "molten" rather than
-// merely lit. Five-stop, near-black at t=0 to pale gold at t=1.
-vec3 ferroPalette(float t) {
-    t = clamp(t, 0.0, 1.0);
-    vec3 c0 = vec3(0.014, 0.006, 0.020);   // near-black violet
-    vec3 c1 = vec3(0.180, 0.040, 0.045);   // wine
-    vec3 c2 = vec3(0.580, 0.155, 0.045);   // ember (hotter)
-    vec3 c3 = vec3(0.965, 0.520, 0.150);   // amber
-    vec3 c4 = vec3(1.000, 0.890, 0.620);   // pale gold
-    if (t < 0.30) return mix(c0, c1, t * 3.3333);
-    if (t < 0.55) return mix(c1, c2, (t - 0.30) * 4.0);
-    if (t < 0.80) return mix(c2, c3, (t - 0.55) * 4.0);
-    return                mix(c3, c4, (t - 0.80) * 5.0);
+// Background palette — warm sunset behind the drop. Pre-Reinhard values
+// pushed high (>1.0) so after tonemap + gamma the sky lands at a clearly
+// readable warm orange/amber, giving the dark drop a real silhouette to
+// pop against.
+vec3 skyPalette(vec2 uv) {
+    vec3 top     = vec3(0.620, 0.180, 0.220);   // wine — visible, not near-black
+    vec3 horizon = vec3(1.700, 0.620, 0.180);   // hot orange (clipped by Reinhard)
+    vec3 bottom  = vec3(2.400, 1.250, 0.480);   // bright amber
+    float t = uv.y;
+    if (t > 0.55) return mix(horizon, top, (t - 0.55) / 0.45);
+    return mix(bottom, horizon, t / 0.55);
 }
+
+// Ferrofluid fluid colour — real ferrofluid is iron-oxide-black with a
+// subtle metallic sheen. Near-black body, slightly warmer in the spike
+// peaks where specular catches the light.
+vec3 fluidBody(float h, float specHint) {
+    vec3 ink   = vec3(0.012, 0.008, 0.018);   // near-black violet
+    vec3 sheen = vec3(0.180, 0.080, 0.045);   // dim wine sheen on peaks
+    return mix(ink, sheen, smoothstep(0.20, 0.80, h)) + vec3(specHint);
+}
+
+// Drop-presence threshold. Below this h, no fluid — just sky. Sharp
+// boundary so the drop reads as a discrete object.
+const float H_FLUID = 0.16;
 
 void main() {
     vec2 uv = gl_FragCoord.xy / u_resolution.xy;
-
-    // Sample the gradient at the SIM texture's native texel size — the
-    // display upsamples, so stepping by a display-texel reads less than
-    // one source-texel into the sim and the bilinear filter smears it
-    // into mush.
     vec2 simTexel = 1.0 / vec2(textureSize(u_state, 0));
 
     vec4  st = texture(u_state, uv);
     float h  = st.r;
-    float sH = st.g;
 
-    // Surface gradient via central differences. Factor of 80 turns
-    // h-units (~[-0.2, 1.4]) into a normal slope that gives recognisable
-    // embossing — bigger means sharper relief, peaks catch specular at
-    // the rim.
+    // ---- background --------------------------------------------------
+    vec3 sky = skyPalette(uv);
+
+    // ---- surface gradient (for normal + spike rims) ------------------
     float hx = texture(u_state, uv + vec2(simTexel.x, 0.0)).r
              - texture(u_state, uv - vec2(simTexel.x, 0.0)).r;
     float hy = texture(u_state, uv + vec2(0.0, simTexel.y)).r
              - texture(u_state, uv - vec2(0.0, simTexel.y)).r;
-    vec3  N  = normalize(vec3(-hx * 80.0, -hy * 80.0, 1.0));
+    vec3  N  = normalize(vec3(-hx * 70.0, -hy * 70.0, 1.0));
 
-    // Two-light setup: warm key from upper-left at low angle so peaks
-    // throw long shadows; cooler-warm fill from below-right at low
-    // intensity so troughs aren't dead black.
-    vec3  L     = normalize(vec3(-0.45, 0.65, 0.62));
+    // ---- lighting ---------------------------------------------------
+    // Warm key from upper-left (matches the sunset). Cool fill from
+    // below to keep underside of spikes from going pure black.
+    vec3  L     = normalize(vec3(-0.40, 0.70, 0.55));
     vec3  Fdir  = normalize(vec3( 0.20,-0.40, 0.30));
     float kKey  = max(dot(N, L), 0.0);
-    float kFill = max(dot(N, Fdir), 0.0) * 0.25;
+    float kFill = max(dot(N, Fdir), 0.0) * 0.20;
 
-    // Palette mapping: combine current height with slow-tension echo so
-    // recently-touched regions glow even after the surface relaxes.
-    // Baseline 0.16 puts quiet substrate near the wine/violet floor of
-    // the 5-stop ramp; mesas push up through ember/amber to gold under
-    // active fingers.
-    float pal  = clamp(h * 0.65 + 0.16 + sH * 0.22, 0.0, 1.0);
-    vec3  body = ferroPalette(pal);
+    // Specular — the metallic-mirror sheen that distinguishes ferrofluid
+    // from any other dark inky liquid. Tight Phong lobe over peaked
+    // regions; gated by h so the smooth puddle body doesn't sparkle, only
+    // the spike crests do.
+    vec3  R      = reflect(-L, N);
+    float specL  = pow(max(R.z, 0.0), 28.0);
+    float specG  = smoothstep(0.40, 0.95, h);
+    float specHint = specL * specG * 0.55;
 
-    // Rim highlight where surface gradient is steep — spike edges catch
-    // a brighter palette band, reading as glowing crests rather than
-    // flat hills.
-    float gradMag = length(vec2(hx, hy));
-    float rim     = smoothstep(0.020, 0.085, gradMag);
-    body         += ferroPalette(min(pal + 0.18, 0.99)) * rim * 0.55;
+    vec3 fluid = fluidBody(h, specHint);
+    fluid *= (0.50 * kKey + kFill + 0.18);
+    fluid += vec3(1.00, 0.85, 0.55) * specL * specG * 0.90;
 
-    vec3 col = body * (0.55 * kKey + kFill + 0.20);
+    // ---- silhouette mask + rim --------------------------------------
+    // Smoothstep around H_FLUID gives a clean drop boundary. The rim is
+    // a thin band ON the boundary that catches a warm highlight — this
+    // is the bright "wet edge" you see on real ferrofluid drops.
+    float drop = smoothstep(H_FLUID - 0.04, H_FLUID + 0.04, h);
 
-    // Specular sheen — ferrofluid's metallic-mirror signature. Tight
-    // Phong lobe over peak normals, gated by h so flat regions don't
-    // sparkle.
-    vec3  R    = reflect(-L, N);
-    float spec = pow(max(R.z, 0.0), 36.0);
-    col       += vec3(1.0, 0.95, 0.78) * spec * 0.45 * smoothstep(0.05, 0.40, h);
+    // Rim: peak just at the silhouette, falling off both ways. The rim
+    // is what makes the drop's outline glow against the warm sky.
+    float rim    = exp(-pow((h - H_FLUID) / 0.05, 2.0)) * length(vec2(hx, hy));
+    vec3  rimCol = vec3(1.00, 0.65, 0.30);
 
-    // ---- Per-finger fresnel halo --------------------------------------
-    // Tactile feedback: under each active finger, add a small bright halo
-    // so the viewer sees "yes, the system saw my touch" before the spike
-    // physics catches up (~3 frames). The halo is gated by spike height
-    // so it only fires where the field is actually building — not a
-    // pure cursor-decoration overlay. Closed brief: this is the ONE
-    // affordance for the touch interaction model.
+    // Composite: sky behind the drop, fluid where the drop is, plus the
+    // rim along the boundary.
+    vec3 col = mix(sky, fluid, drop);
+    col += rimCol * rim * 6.0;
+
+    // ---- per-finger pinpoint glow (tactile feedback) ----------------
+    // Tiny bright dot under each active finger so the viewer sees that
+    // their touch was registered before the spike physics catches up
+    // (~3 frames). Fades fast so it's a poke, not a permanent overlay.
     float aspect = u_resolution.x / u_resolution.y;
     vec2  pWorld = (uv - 0.5) * vec2(aspect, 1.0);
-    vec3  halo   = vec3(0.0);
     for (int i = 0; i < 8; i++) {
         if (i >= u_touch_count) break;
         vec4 t = u_touches[i];
         if (t.w < 0.5) continue;
-        vec2  tN     = t.xy / u_resolution.xy;
-        vec2  tWorld = (tN - 0.5) * vec2(aspect, 1.0);
-        float r      = length(pWorld - tWorld);
-        // Tight 0.04-radius halo, fades over 0.10. Stronger for fresh
-        // touches (matches the strength-kick in the sim).
-        float fresh = exp(-t.z * 6.0);
-        float ring  = smoothstep(0.10, 0.04, r) * (0.35 + 0.65 * fresh);
-        halo += vec3(1.00, 0.78, 0.42) * ring;
+        vec2 tN     = t.xy / u_resolution.xy;
+        vec2 tWorld = (tN - 0.5) * vec2(aspect, 1.0);
+        float r     = length(pWorld - tWorld);
+        float dot   = exp(-r * 80.0) * exp(-t.z * 4.0);
+        col += vec3(1.00, 0.78, 0.42) * dot * 0.65;
     }
-    // Gate by local height so the halo lights actual rising fluid, not
-    // empty space — preserves the "structure honesty" claim.
-    col += halo * smoothstep(0.0, 0.18, h) * 0.55;
 
     col = reinhard(col);
 
-    // Vignette + house gamma per VISION.md (pow 0.85..0.92, never raw RGB).
+    // Subtle vignette + house gamma per VISION.md. Lighter than usual so
+    // the warm sky stays warm to the corners.
     vec2 pv = (gl_FragCoord.xy - 0.5 * u_resolution.xy) / min(u_resolution.x, u_resolution.y);
-    col   *= 1.0 - 0.30 * dot(pv, pv);
-    fragColor = vec4(pow(max(col, 0.0), vec3(0.90)), 1.0);
+    col   *= 1.0 - 0.15 * dot(pv, pv);
+    fragColor = vec4(pow(max(col, 0.0), vec3(0.88)), 1.0);
 }

@@ -1,5 +1,5 @@
-// ABOUTME: Multi-touch ferrofluid sim — up to 8 finger dipoles drive the height
-// ABOUTME: field h(x,y), Laplacian smoothing + cubic damping cap Rosensweig spikes.
+// ABOUTME: Ferrohands sim — central ferrofluid drop, fingers act as magnets that
+// ABOUTME: bulge the drop toward them and erupt Rosensweig spike protrusions.
 #version 300 es
 precision highp float;
 
@@ -12,38 +12,30 @@ uniform sampler2D u_state;
 
 #include "diffusion.glsl"
 #include "math.glsl"
-#include "dipole.glsl"
 
 out vec4 fragColor;
 
-// Tuned constants. Same family as pieces/ferrofluid (single-cursor) — with
-// 8 dipoles summing into E we keep ALPHA modest, lean on E_CAP to bound
-// the singular cores, and let BETA*h³ cap the peaks. DT small enough that
-// the substrate is stable under a five-finger chord.
-const float D       = 0.20;   // surface tension diffusion
-const float G       = 0.05;   // gravity (linear restoring force)
-const float ALPHA   = 1.45;   // dipole energy → height coupling
-const float BETA    = 4.50;   // cubic damping (peak ceiling)
-const float DT      = 0.18;   // sub-step
-const float TAU_INV = 0.030;  // slow-tension follow rate
-const float E_CAP   = 7.0;    // |B|² cap near singular dipole cores
-const float H_HI    = 1.40;
-const float H_LO    = -0.20;
+// Surface tension + gravity tuning. The drop's BODY is held at reservoir(p)
+// by a strong gravity-toward-rest term; cubic damping only caps SPIKES
+// (the part of h that protrudes above the body), so the body itself can
+// settle at reservoir without the cubic ceiling fighting it.
+const float D       = 0.18;   // surface tension diffusion
+const float G       = 0.55;   // gravity-toward-rest (strong, snaps body to reservoir)
+const float ALPHA   = 1.20;   // forcing → height coupling
+const float BETA    = 3.50;   // cubic damping on (h - rest), caps spike protrusions
+const float DT      = 0.18;
+const float TAU_INV = 0.030;
+const float E_CAP   = 4.0;
+const float H_HI    = 1.80;
+const float H_LO    = -0.10;
 
-// Hex-lattice spike-spacing factor. Real ferrofluid Rosensweig pattern has a
-// capillary length λ = 2π√(σ/ρg) — spikes lock to a hex lattice with that
-// pitch. Our reduced PDE has no critical wavenumber on its own, so we INJECT
-// the length scale by modulating the magnetic forcing with a hex pattern.
-// HEX_PERIOD in world units (frame is [-aspect/2, aspect/2] × [-0.5, 0.5]).
-// 0.045 → ~22 cells across a 16:9 frame — visible-discrete spike clusters
-// without aliasing at half-resolution sim. HEX_FLOOR keeps the inter-spike
-// substrate from dying entirely (real ferrofluid still has surface texture
-// between cones).
-const float HEX_PERIOD = 0.045;
-const float HEX_FLOOR  = 0.18;
+// Hex-lattice spike-spacing factor (capillary length scale). Same trick as
+// the previous version, but now only the SPIKE PROTRUSION layer is
+// modulated — the puddle body stays smooth (real ferrofluid drops are
+// smooth except where the magnetic field pulls spikes out of them).
+const float HEX_PERIOD = 0.040;
+const float HEX_FLOOR  = 0.20;
 
-// Hex lattice value at p — sum of three cosines along axes 60° apart. Peaks
-// (=1) at lattice nodes, troughs (=0) between them. Returns [HEX_FLOOR, 1].
 float hexLattice(vec2 p) {
     float k  = TAU / HEX_PERIOD;
     vec2  a1 = vec2(1.0, 0.0);
@@ -55,28 +47,36 @@ float hexLattice(vec2 p) {
     return mix(HEX_FLOOR, 1.0, 0.5 + 0.5 * s);
 }
 
-// Per-finger dipole strength. Fresh touches (age < 0.4s) get a kick so a
-// quick tap registers as a discrete spike-burst; settles to a baseline so a
-// held finger maintains a stable spike. Age comes from u_touches[i].z.
-float fingerStrength(float age) {
-    float kick = exp(-age * 6.0) * 0.045;   // <~0.5s burst
-    return 0.075 + kick;                     // baseline 0.075
+// Central reservoir — defines the drop's REST SHAPE (where h wants to sit
+// when no fingers are pulling). Used in the gravity term: h relaxes
+// toward reservoir(p) instead of toward zero. Soft bowl strong in the
+// middle, falls smoothly to zero at the rim.
+//
+// Critical: reservoir is the BODY of the drop, not part of the magnetic
+// forcing. Magnetic forcing only comes from fingers — that way spikes
+// fire only where a finger is, not everywhere on the drop.
+float reservoir(vec2 p) {
+    float r = length(p);
+    float bowl = smoothstep(0.30, 0.06, r);
+    return bowl * 0.85;   // baseline drop thickness
 }
 
-// Per-finger moment-vector angle. Each finger's anisotropy rotates at a
-// slightly different rate (offset by index phase) so adjacent fingers
-// don't spike in lockstep — a five-finger chord shows visible polyrhythm
-// in spike orientation.
-vec2 fingerMoment(float fi, float t) {
-    float ang = t * (0.35 + 0.07 * fi) + fi * 1.7 + 0.5 * sin(t * 0.21 + fi);
-    return vec2(cos(ang), sin(ang));
+// Per-source magnetic pull — a tight Gaussian, NOT 1/r². Real magnets'
+// field decays as 1/r³ and the relevant pattern-forming forcing decays
+// even faster, so a Gaussian gives the "spike cluster directly under
+// each finger" look without the body dragging across the whole canvas.
+// Width scaled so a finger lifts h dramatically within ~0.06 world units
+// and is essentially zero past 0.15.
+float magnetPull(vec2 p, vec2 src, float strength) {
+    vec2  d = p - src;
+    float r2 = dot(d, d);
+    return strength * exp(-r2 * 110.0);
 }
 
 void main() {
     vec2 uv    = gl_FragCoord.xy / u_resolution.xy;
     vec2 texel = 1.0 / u_resolution.xy;
 
-    // Cold start — flat surface, no slow-tension memory.
     if (u_frame == 0) {
         fragColor = vec4(0.0);
         return;
@@ -86,70 +86,72 @@ void main() {
     float h     = state.r;
     float slowH = state.g;
 
-    // Aspect-corrected centred frame. Dipole positions live in [-aspect/2,
-    // aspect/2] × [-0.5, 0.5] so field math is geometric, independent of
-    // simulation resolution.
     float aspect = u_resolution.x / u_resolution.y;
     vec2  p      = (uv - 0.5) * vec2(aspect, 1.0);
 
-    // ---- accumulate field-energy from all active touches -------------
-    float E = 0.0;
+    // ---- magnetic pull from each touch -------------------------------
+    // Each finger is a magnet held above the petri dish. The pull is
+    // radial (Coulomb 1/r²), reaching across the drop to deform its
+    // boundary. The closest-finger distance is tracked separately —
+    // it's what gates the SPIKE phase below (spikes erupt directly
+    // under each finger, not everywhere the pull-field reaches).
+    float E       = 0.0;
+    float minDist = 99.0;   // distance to nearest active finger
+
     for (int i = 0; i < 8; i++) {
         if (i >= u_touch_count) break;
         vec4 t = u_touches[i];
         if (t.w < 0.5) continue;
 
-        // touch xy is in target pixel space (sim target is half-res, so
-        // u_resolution here matches the touch space exactly).
-        vec2 tN     = t.xy / u_resolution.xy;
-        vec2 mWorld = (tN - 0.5) * vec2(aspect, 1.0);
+        vec2 tN   = t.xy / u_resolution.xy;
+        vec2 srcW = (tN - 0.5) * vec2(aspect, 1.0);
 
-        float fi = float(i);
-        vec2  n  = fingerMoment(fi, u_time);
-        float q  = fingerStrength(t.z);
-        E += dipoleEnergy(p, mWorld, n, q);
+        float fresh = exp(-t.z * 5.0);
+        float q     = 1.40 + 0.80 * fresh;   // big — Gaussian peak is now ~q
+        E      += magnetPull(p, srcW, q);
+        minDist = min(minDist, length(p - srcW));
     }
 
     // ---- headless / no-touch fallback --------------------------------
-    // When u_touch_count == 0 (e.g. inspect.mjs, idle desktop), self-play
-    // with three Lissajous-orbit dipoles. Coprime rates so the trajectory
-    // never repeats; tightly-spaced sources lift ambient field high enough
-    // for ferrofluid action to stay visible.
     if (u_touch_count == 0) {
+        // Orbiters trace tight paths INSIDE the drop body (reservoir bowl
+        // extends to r≈0.30) so the spike clusters form on top of the
+        // visible puddle, not in empty sky.
         float t = u_time;
-        vec2  m1 = 0.32 * vec2(cos(t * 0.19),       sin(t * 0.27 + 1.1));
-        vec2  m2 = 0.27 * vec2(cos(t * 0.13 + 2.4), sin(t * 0.21 - 0.5));
-        vec2  m3 = 0.21 * vec2(cos(t * 0.31 + 4.7), sin(t * 0.17 + 3.0));
-        vec2  n1 = vec2(cos(t * 0.31 + 2.3), sin(t * 0.31 + 2.3));
-        vec2  n2 = vec2(cos(t * 0.23 - 1.7), sin(t * 0.23 - 1.7));
-        vec2  n3 = vec2(cos(t * 0.41 + 0.8), sin(t * 0.41 + 0.8));
-        float qIdle = 0.022;
-        E += dipoleEnergy(p, m1, n1, qIdle)
-           + dipoleEnergy(p, m2, n2, qIdle * 0.85)
-           + dipoleEnergy(p, m3, n3, qIdle * 0.70);
+        vec2 m1 = 0.16 * vec2(cos(t * 0.21),       sin(t * 0.27 + 1.2));
+        vec2 m2 = 0.13 * vec2(cos(t * 0.17 + 2.4), sin(t * 0.19 - 0.5));
+        E      += magnetPull(p, m1, 1.20);
+        E      += magnetPull(p, m2, 1.00);
+        minDist = min(minDist, length(p - m1));
+        minDist = min(minDist, length(p - m2));
     }
 
     E = min(E, E_CAP);
 
-    // Inject the missing capillary length scale, AND model the supercritical-
-    // pitchfork bifurcation Cowley-Rosensweig actually predicts: smooth
-    // flat-fluid phase below the critical field strength, hex-modulated
-    // spike phase above. The smoothstep gives a clean threshold without a
-    // hard discontinuity (which would alias). Below E_CRIT the substrate
-    // stays smooth; above, the hex lattice pins spike formation at the
-    // capillary-length pitch.
-    const float E_CRIT = 0.32;
-    float spikePhase = smoothstep(E_CRIT, E_CRIT * 1.7, E);
+    // ---- supercritical pitchfork: hex spikes only DIRECTLY UNDER
+    // each finger. Real Rosensweig spikes form where the held magnet
+    // is, not everywhere its field reaches. spikeProximity falls off
+    // sharply with distance to the nearest finger — at minDist > 0.10
+    // (world units) the spike modulation is essentially off, so the
+    // drop body stays smooth and only the area immediately under each
+    // finger erupts in hex cones.
+    float spikeProximity = exp(-minDist * 16.0);
+    const float E_CRIT   = 0.55;
+    float spikePhase     = smoothstep(E_CRIT, E_CRIT * 1.6, E) * spikeProximity;
     E = mix(E, E * hexLattice(p), spikePhase);
 
-    // ---- Cowley-Rosensweig height-field update -----------------------
-    //   dh/dt = D*lap(h)  -  G*h  +  alpha*|B|^2  -  beta*h^3
-    float lap = laplacian(u_state, uv, texel, 0);
-    float dh  = D * lap - G * h + ALPHA * E - BETA * h * h * h;
+    // ---- height-field PDE: gravity pulls h toward the RESERVOIR shape,
+    // and cubic damping only acts on the SPIKE portion (h above rest).
+    // This way the drop body sits at reservoir without the cubic
+    // ceiling fighting gravity, and spikes erupting above the body
+    // still get capped.
+    //   dh/dt = D·lap(h) − G·(h − rest) + α·E − β·max(h−rest, 0)³
+    float rest  = reservoir(p);
+    float spike = max(h - rest, 0.0);
+    float lap   = laplacian(u_state, uv, texel, 0);
+    float dh    = D * lap - G * (h - rest) + ALPHA * E - BETA * spike * spike * spike;
     h = clamp(h + DT * dh, H_LO, H_HI);
 
-    // Slow-tension memory — display uses this to brighten "spike trails"
-    // so the path of a moving finger leaves a glowing residue (~2s).
     slowH += TAU_INV * (h - slowH);
 
     fragColor = vec4(h, slowH, E, 1.0);

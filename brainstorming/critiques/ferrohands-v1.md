@@ -138,3 +138,77 @@ Headless FPS: 20–58 across the run (mature-state ~20). Well above
 the ~30-fps midrange-phone proxy threshold for steady state.
 
 Shipping.
+
+---
+
+## v2 — discrete drop on warm sunset (2026-05-11)
+
+Louis's feedback after v1.1: "looks gore." The hex-clusters-on-flat-
+substrate read as wounds/viscera rather than as a discrete ferrofluid
+drop. The brief was always "interactive fingers TRUE ferrofluid art"
+and the canonical mental image is a single dark coherent puddle on
+a lit petri dish, with spikes erupting under a held magnet. v1.1 was
+"magnetised regions of a planar fluid sheet" — wrong topology.
+
+### Architectural rewrite
+
+1. **Drop body**: a static `reservoir(p)` defines the drop's rest
+   shape (smoothstep bowl centred on screen, max h=0.85). The PDE
+   gravity term now pulls h toward `reservoir(p)` rather than zero,
+   so the body sits at its rest shape when no finger is pulling.
+2. **Cubic damping on (h − rest)**, not on h itself. So the body
+   doesn't fight gravity to reach reservoir; only spike protrusions
+   above the body get the cubic ceiling.
+3. **Magnetic forcing E carries finger pull only** (not reservoir).
+   Each finger's pull is now a TIGHT GAUSSIAN (`exp(-r²·110)`), not
+   a 1/r² Coulomb attractor. The body stays compact; pull only
+   affects fluid within ~0.10 world units of each finger.
+4. **Hex spike modulation gated by distance to nearest finger**
+   (`exp(-minDist·16)`), not just by E magnitude. Spikes erupt
+   directly under each finger — canonical Rosensweig — rather
+   than everywhere the field reaches.
+5. **Display inverted**: drop is dark (near-black violet ink, real
+   ferrofluid colour) on a warm sunset gradient (wine→hot ember→
+   bright amber). Sky pre-Reinhard values >1.0 so the dark drop
+   has real silhouette contrast after tonemap.
+6. **Wet rim** along the silhouette catches a warm highlight band
+   — the visible "wet edge" of a real ferrofluid drop.
+
+### Frame read
+
+- All five frames show a discrete dark drop on a warm sunset sky.
+- Drop shape evolves (pear, teardrop, lobe) as the headless
+  orbiters move.
+- Hex spike clusters visible inside the drop where each orbiter
+  is — small but distinct cone forests.
+- Specular highlights along the drop rim and on spike crests.
+- FPS reads ~30+ steady-state.
+
+### Updated scores (v2)
+
+| Dim | v1.1 | v2 | delta |
+|---|---|---|---|
+| Palette | 4 | 4 | 0 |
+| Composition | 4 | 5 | +1 (single coherent subject, deforming) |
+| Motion | 3 | 4 | +1 (drop shape evolves; spikes shimmer) |
+| Intensity | 4 | 4 | 0 (warm sky vs dark drop = full range) |
+| Depth | 4 | 4 | 0 |
+| Form | 3 | 4 | +1 (now reads as an OBJECT, not a field) |
+
+**Avg: 4.2.** Iconic ferrofluid drop achieved. Spikes are small in
+headless inspect (only 2 weak orbiters) but will scale dramatically
+with real finger pulls (q=1.40 vs orbiter q=1.20).
+
+### Lessons captured
+
+- "Spikes everywhere E > critical" gave hex texture across the
+  whole body. Fix: gate spike modulation by *distance to nearest
+  finger* (`exp(-minDist·k)`), not just field magnitude. This is
+  the canonical Rosensweig physics — spikes form under the magnet,
+  not everywhere its field reaches.
+- Cubic damping at the body level fights the gravity-restore;
+  apply it only to `max(h − rest, 0)` so the body sits at rest
+  while spikes still get capped.
+- Tight Gaussian pull (`exp(-r²·k)`) > 1/r² for "discrete drop +
+  local finger effect". 1/r² lets the drop drag across the canvas
+  toward distant fingers, which is wrong for a held puddle.
