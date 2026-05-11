@@ -16,7 +16,7 @@ out vec4 fragColor;
 const int   N_BODIES    = 3;
 const float G           = 0.30;
 const float SOFT2       = 0.04 * 0.04;     // Plummer ε² — kills singularities at close approach
-const float DT          = 0.012;
+const float DT          = 0.004;
 const float CURSOR_MASS = 5.0;
 
 void main() {

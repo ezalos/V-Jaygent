@@ -31,7 +31,7 @@ void main() {
     // when the body moves faster than its splat radius per frame. The
     // step size matches the bodies pass: DT * iterations(2). This keeps
     // the trail in sync with the actual integration.
-    const float TRAIL_LOOKBACK = 0.012 * 2.0;   // matches sim DT * iterations
+    const float TRAIL_LOOKBACK = 0.004 * 2.0;   // matches sim DT * iterations
     const float INV_SUBS       = 1.0 / float(SUBSPLATS);
 
     for (int i = 0; i < 3; i++) {
