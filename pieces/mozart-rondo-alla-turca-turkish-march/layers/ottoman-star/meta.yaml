@@ -1,0 +1,10 @@
+name: ottoman-star
+identity: "8-pointed Ottoman girih star — focal rosette"
+default_blend: replace
+
+uniforms:
+  base_radius:   { type: float, default: 0.18 }
+  rim_softness:  { type: float, default: 0.014 }
+
+reads:
+  - u_below
