@@ -13,8 +13,9 @@ uniform sampler2D u_state;
 
 out vec4 fragColor;
 
-const float R_BALL = 0.32;
-const float DISP   = 0.13;     // h → outward displacement scale (world units)
+const float R_BALL = 0.064;    // small core — spikes radiate several R_BALL outward
+const float DISP   = 0.32;     // h → outward displacement scale (big — small ball,
+                               // dramatic spikes; total reach R_BALL + DISP*h_max ≈ 0.40)
 
 // Background — dark warm void with a subtle vertical gradient. The
 // levitating ball floats in front of this, dark on dark, distinguishable

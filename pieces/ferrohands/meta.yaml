@@ -2,11 +2,12 @@ title: Ferrohands
 slug: ferrohands
 created: 2026-05-10T15:30:16.169Z
 notes: |
-  Levitating ferrofluid sphere. A dark coherent ball floats in a warm
-  void; up to 8 simultaneous fingers act as magnets that pull spikes out
-  of the sphere's surface. Where each finger is, the silhouette extends
-  outward and erupts in a hex-packed cluster of Rosensweig spike cones.
-  The smooth body relaxes back when fingers lift.
+  Levitating ferrofluid sphere — small core, big spikes. A tiny dark
+  ball floats in a warm void; up to 8 simultaneous fingers act as
+  magnets that pull dramatic radial spike clusters out of the
+  sphere's surface in all directions at once. Each finger erupts a
+  hex-packed cluster of Rosensweig cone tips that extends 3-5 core
+  radii outward. The smooth body relaxes back when fingers lift.
 
   Closed brief — no audio, no keyboard, no extra layers. The interaction
   model is the entire point.
@@ -44,9 +45,10 @@ notes: |
                           the silhouette outward at that angle.
     no audio           -> closed brief.
     idle behaviour     -> when u_touch_count == 0 (headless inspect,
-                          idle desktop), three orbit-just-outside
-                          phantom magnets pull spikes around the
-                          sphere over time so the piece self-plays.
+                          idle desktop), four evenly-distributed
+                          orbit-just-outside phantom magnets pull
+                          spike clusters on all sides simultaneously
+                          so the piece self-plays.
 duration: 60
 render_scale: 1
 passes:
@@ -65,3 +67,4 @@ passes:
     inputs:
       u_state: simulate
 published_at: null
+rendered_at: '2026-05-11T01:05:01.184Z'
