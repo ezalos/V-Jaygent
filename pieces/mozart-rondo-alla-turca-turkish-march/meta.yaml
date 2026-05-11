@@ -9,104 +9,84 @@ audio_features:
   - key
 time_source: audio
 duration: 212
-render_scale: 0.7
-architecture: E
+render_scale: 0.85
+architecture: A
 notes: |
   Mozart, *Rondo Alla Turca* (Allegretto, K. 331 mvt 3), 211.8s,
   123 BPM, A major (with the famous A-minor refrain). 8 sections
   detected by `bin/analyze-audio.mjs`; 94 downbeats.
 
-  Thesis: an illuminated Ottoman rosette. A central 8-pointed
-  girih star (intersection of two 45°-rotated squares) holds the
-  centre. Four coprime tooth-wheels (7/11/13/17 teeth) at radii
-  0.30 → 0.62 ring it. The rondo form is made visible: at every
-  section flip the star and the inner three rings SNAP back to a
-  recognisable pose (rotation = 0, palette flips), then drift
-  through the episode until the next refrain returns them home.
+  Iteration 2 (2026-05-12) — rebuilt as a monolithic single-shader
+  piece in the `throb` family after the v1 layer-stack version
+  collapsed into uniform warm-on-warm soup (see blocked.md +
+  v2 critique). Caravaggio-tight cream-against-near-black contrast.
+  Throws away the girih thesis; delivers the music's physicality
+  instead — the Turkish March IS percussion. The left-hand staccato
+  bass IS the kick, the right-hand triplet ornaments ARE the
+  cymbals, the bar boundaries ARE the rotating cross.
 
-  Layer stack (bottom → top):
+  Architecture A (monolithic single-shader). All composition lives
+  in one `shader.frag`. No layers/, no haze, no warm-mid washes.
+  Deep ember radial gradient (max L ~0.04) holds the ground;
+  cream geometry against it is the only high-luminance feature.
 
-  1. solid-warm           warm vertical gradient (global)
-  2. haze-drift           slow domain-warped fbm; mid-band warps the
-                          field, section-progress drifts the phase.
-                          Screen-blended over the base. (piece-local)
-  3. ottoman-star         THE FOCAL ELEMENT. 8-pointed girih star.
-                          Bar-phase rotation, downbeat scale impulse,
-                          palette flips per section_id (gold ↔ ember
-                          — rondo refrain vs episode). Section-flip
-                          snap + post-flash. (piece-local)
-  4. coprime-wheels-turca Four outer rings at coprime tooth counts
-                          7/11/13/17. Each on its own clock (bar /
-                          section / beat / mid). Cursor wind bows
-                          ring radii in cursor azimuth. Snap on
-                          section flip. Max-blend over the star.
-                          (piece-local)
-  5. triplet-bloom        Petal blooms at the 8 star tips, fired by
-                          u_audio_high (right-hand triplet runs).
-                          Per-key bloom slot at 15 angular positions
-                          for keyboard players. Screen-blended.
-                          (piece-local)
-  6. vignette-grain       Warm vignette + 1/f grain. Reads u_below.
-                          Replace. (piece-local)
+  Geometric vocabulary:
+    - 8-arm rotating cross — bar-phase rotation, downbeat scale
+      impulse, palette flip per `u_section_id` (cream for refrains,
+      ember for episodes). Snaps to angle 0 on every section flip
+      (rondo recapitulation made visible).
+    - Beat ring — expanding cream ring on every beat. Radius =
+      beat_phase × 1.05; thickness fades with phase. Bass amplitude
+      brightens. Kick transient adds a punch.
+    - Bar ring — bigger cream ring on every downbeat. Radius =
+      bar_phase × 1.15. Pre-tension squeeze before section change.
+    - High-band sparks — 8 angular slots fire per-beat; hash-driven
+      per-slot fire decision (random subset each beat). High and
+      cymbal amplitudes brighten — Mozart's right-hand triplet runs
+      become the audible-as-spark texture.
+    - Per-key sparks — each held key fires a bright cream spark at
+      its angular slot (15-key piano-on-QWERTY). Per-key
+      distinctness — different keys produce visibly different
+      sparks at different angles.
 
-  Audio bindings (PASS shapes — geometric, never bass-on-glow):
-    - u_audio_bass        → ottoman-star scale impulse
-                          → ring-radius pulse on coprime wheels
-    - u_audio_mid         → haze warp amount
-                          → ring 3 (P=13) rotation rate
-    - u_audio_high        → triplet-bloom intensity at star tips
-                          → vignette-grain level
-    - u_downbeat          → ottoman-star scale punch
-    - u_bar_phase         → ottoman-star rotation (1 rev / bar)
-                          → wheel ring 0 (P=7) rotation
-    - u_beat_phase        → wheel ring 2 (P=11) rotation snap
-    - u_section_progress  → wheel ring 1 (P=11) rotation
-                          → haze drift phase
-    - u_section_id        → ottoman-star palette flip (gold ↔ ember)
-    - u_to_section_change → pre-tension squeeze on star + rings
-    - u_song_progress     → wheel + haze palette ramp through warm
-                            cycle
+  Audio bindings (all PASS shapes — geometric, never bass-on-glow):
+    - u_audio_bass        → cross arm length, beat-ring brightness
+    - u_audio_kick        → cross arm width, beat-ring punch
+    - u_audio_high        → spark amplitude
+    - u_audio_cymbal      → spark transient punch
+    - u_downbeat          → cross scale impulse
+    - u_bar_phase         → cross rotation (1 rev/bar), bar-ring radius
+    - u_beat_phase        → beat-ring radius
+    - u_section_id        → cross palette flip (cream ↔ ember)
+    - u_section_progress  → snap-to-angle-0 on section flip + post-flash
+    - u_to_section_change → pre-tension squeeze on cross
+    - u_song_progress     → ground deepening toward outro,
+                            slow palette tint within each family
 
-  Cursor (u_mouse): wind azimuth + magnitude bows the four outer
-  rings in the cursor's direction; faster rings bow more so the wind
-  ripples visibly inward. Disjoint from audio's main parameters
-  (audio drives star + rotations; cursor only touches outer ring
-  radii) — Pattern B from audio-cursor-together.md.
+  Cursor (u_mouse): cursor pulls the cross center toward itself
+  (~0.20 world-units max offset). Idle (u_mouse=(0,0)) → no
+  offset, cross stays centered.
 
-  Keyboard (15 keys, piano-on-QWERTY): each key adds a bloom at its
-  fixed angular slot around the star + a tooth on ring (k % 4).
-  Per-key distinctness — pressing different keys produces different
-  visible effects, not the same effect from any key. Press Shift+H
+  Keyboard (15 keys): each held key fires a bright cream spark at
+  its angular slot. Per-key distinctness preserved. Press Shift+H
   for the controls panel.
 
-  Polyrhythm of clocks (12+ distinct sources across 6 layers):
-  u_time, u_bar_phase, u_beat_phase, u_section_progress, u_section_id,
-  u_downbeat, u_to_section_change, u_audio_bass, u_audio_mid,
-  u_audio_high, u_mouse, u_keys[15], u_song_progress.
+  Polyrhythm of clocks (10+ distinct sources):
+  u_time, u_bar_phase, u_beat_phase, u_section_progress,
+  u_section_id, u_downbeat, u_to_section_change, u_audio_bass,
+  u_audio_kick, u_audio_high, u_audio_cymbal, u_mouse, u_keys[15],
+  u_song_progress.
 
   Arc (sections, 123 BPM):
-    [0–5s]    silence / pickup        — dim ember field
-    [5–31s]   refrain A (theme)       — gold star, rings spinning up
-    [31–98s]  episode 1               — palette → ember; rings drift
-    [98–113s] refrain return          — SNAP back to gold
+    [0–5s]    silence / pickup        — ground only, faint cross
+    [5–31s]   refrain A (theme)       — cream cross, bright rings
+    [31–98s]  episode 1               — ember palette, sparks active
+    [98–113s] refrain return          — SNAP back to cream
     [113–143s] episode 2              — ember
-    [143–188s] climactic A peak       — bright gold + cream highlights
+    [143–188s] climactic A peak       — bright cream + post-flash
+                                        on every section snap
     [188–194s] cadenza                — pre-tension squeeze
-    [194–212s] coda + ending          — ramp toward near-black
-layers:
-  - layer: court-ground
-    blend: normal
-  - layer: haze-drift
-    blend: screen
-    uniforms:
-      haze_strength: 0.10
-  - layer: ottoman-star
-    blend: replace
-  - layer: coprime-wheels-turca
-    blend: max
-  - layer: triplet-bloom
-    blend: screen
-  - layer: vignette-grain
-    blend: replace
+    [194–212s] coda + ending          — ground deepens to black,
+                                        cross retracts to thin lines
 published_at: null
-rendered_at: '2026-05-11T14:13:49.642Z'
+rendered_at: '2026-05-11T23:30:27.036Z'

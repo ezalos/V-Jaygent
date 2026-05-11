@@ -1,9 +1,0 @@
-name: triplet-bloom
-identity: "fast-decay petal blooms at star tips"
-default_blend: screen
-
-uniforms:
-  tip_radius: { type: float, default: 0.22 }
-
-reads:
-  - u_below

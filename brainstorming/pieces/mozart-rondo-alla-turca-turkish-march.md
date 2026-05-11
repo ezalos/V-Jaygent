@@ -162,3 +162,70 @@ viewer can play counter-melodies over Mozart.
   driven snap? Both touch ring radii. The mediator: snap takes
   ~0.3s, cursor wind is constant — they're floor/ceiling not
   additive.
+
+## Iteration 2 (2026-05-12) — architecture rebuild
+
+V1 layer-stack hit `structural-rethink` (see `mozart-...-march-v2.md`
++ `mozart-...-march-blocked.md`). Six warm-cycle layers compressed
+into uniform mid-warm beige with < 0.15 luminance contrast — the
+geometry rendered correctly but read as ambient texture, not figure.
+
+Per Louis's call, doing **option 2 + option 3 combined**:
+**rebuild as monolithic (architecture A) AND reframe into the throb
+family.** Same slug, same audio, same title. Throws away the girih
+thesis; delivers the Turkish March as **percussion-as-light**.
+
+### Brief gates (revised)
+
+```yaml
+canonical_ref: throb              # percussion-driven geometry — kick→ring,
+                                   # cymbal→sparks, snare→rotating cross
+eye_landing_candidates:
+  - 8-arm rotating cross at center — bar-phase rotation, downbeat
+    scale impulse, palette per section
+  - cream beat ring expanding from center on every beat
+  - cream bar ring on every downbeat (bigger, brighter)
+  - 8 cream sparks at angular slots, hash-fired per beat,
+    amplitude = right-hand triplet cymbal/high band
+warm_cycle: [near-black, deep-ember, ember, amber, cream]
+                                   # Caravaggio-tight: ground L<0.05,
+                                   # geometry cream L>0.85, no mid-tones
+idle_behaviour: |
+  Cross still rotates on time-driven clock. Synthetic kick at
+  beat_phase fires the beat ring even with no audio. Ground
+  ember radial gradient is always there. Frame-0 reads as
+  centred cream cross on dim ember ground.
+architecture: A                   # monolithic single-shader — full
+                                   # control of contrast without
+                                   # layer-stack blend compression
+arch_rationale: |
+  Layer-stack architecture E (v1) was the wrong choice — six
+  same-warm-family layers compressed into uniform beige mush
+  per the Phase 2 critique. Architecture A gives per-pixel
+  control of figure/ground luminance: ground at L<0.05, cream
+  geometry at L>0.85, ZERO mid-tones. Closest sibling: throb
+  (per-band transient onsets paint distinct geometry on
+  near-black ground). Multi-input (cursor + keyboard + audio
+  + section state) all live in the one shader; section state
+  machine drives the cross palette flip + snap.
+```
+
+### What's preserved from v1
+
+- The audio analysis JSON (sections, beats, downbeats, key)
+- The thesis of "rondo recapitulation made visible" — section
+  flips snap the cross back to angle 0 + post-flash
+- Multi-input richness (cursor + keys + audio + section state)
+- The polyrhythm of clocks (10+ distinct sources)
+
+### What's thrown away
+
+- The girih star (replaced by 8-arm cross — simpler, brighter,
+  reads at distance)
+- The four coprime tooth-wheels (replaced by per-beat rings —
+  same polyrhythm idea, but expanding outward instead of
+  rotating in place)
+- The haze layer (gone — was part of the v1 contrast collapse)
+- The layer stack itself (gone — single shader replaces it)
+- The triplet-bloom petal-tip layer (replaced by hash-fired
+  spark slots — cleaner, faster decay, more visible)
