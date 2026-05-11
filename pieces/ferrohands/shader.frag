@@ -1,5 +1,5 @@
-// ABOUTME: Ferrohands display — dark ferrofluid drop on a warm sunset background,
-// ABOUTME: silhouette rim catches highlights, spike protrusions throw specular.
+// ABOUTME: Display for the levitating ferrofluid sphere — sphere SDF extended
+// ABOUTME: by the displacement field, sphere normals + bumps, dark warm void behind.
 #version 300 es
 precision highp float;
 
@@ -13,108 +13,126 @@ uniform sampler2D u_state;
 
 out vec4 fragColor;
 
-// Background palette — warm sunset behind the drop. Pre-Reinhard values
-// pushed high (>1.0) so after tonemap + gamma the sky lands at a clearly
-// readable warm orange/amber, giving the dark drop a real silhouette to
-// pop against.
-vec3 skyPalette(vec2 uv) {
-    vec3 top     = vec3(0.620, 0.180, 0.220);   // wine — visible, not near-black
-    vec3 horizon = vec3(1.700, 0.620, 0.180);   // hot orange (clipped by Reinhard)
-    vec3 bottom  = vec3(2.400, 1.250, 0.480);   // bright amber
-    float t = uv.y;
-    if (t > 0.55) return mix(horizon, top, (t - 0.55) / 0.45);
-    return mix(bottom, horizon, t / 0.55);
+const float R_BALL = 0.32;
+const float DISP   = 0.13;     // h → outward displacement scale (world units)
+
+// Background — dark warm void with a subtle vertical gradient. The
+// levitating ball floats in front of this, dark on dark, distinguishable
+// only by its rim highlights and surface lighting. Reads as "midnight
+// chamber, magnet-trap glow."
+vec3 voidBg(vec2 uv) {
+    vec3 top    = vec3(0.020, 0.008, 0.022);
+    vec3 bottom = vec3(0.080, 0.030, 0.050);
+    return mix(bottom, top, uv.y);
 }
 
-// Ferrofluid fluid colour — real ferrofluid is iron-oxide-black with a
-// subtle metallic sheen. Near-black body, slightly warmer in the spike
-// peaks where specular catches the light.
-vec3 fluidBody(float h, float specHint) {
-    vec3 ink   = vec3(0.012, 0.008, 0.018);   // near-black violet
-    vec3 sheen = vec3(0.180, 0.080, 0.045);   // dim wine sheen on peaks
-    return mix(ink, sheen, smoothstep(0.20, 0.80, h)) + vec3(specHint);
+// Ferrofluid surface tone — near-black ink with a deep wine sheen on lit
+// faces. ALL brightness above this comes from specular and rim highlights.
+vec3 ferrofluidColor(float lit) {
+    vec3 ink   = vec3(0.018, 0.010, 0.024);
+    vec3 sheen = vec3(0.165, 0.060, 0.045);
+    return mix(ink, sheen, lit);
 }
-
-// Drop-presence threshold. Below this h, no fluid — just sky. Sharp
-// boundary so the drop reads as a discrete object.
-const float H_FLUID = 0.16;
 
 void main() {
     vec2 uv = gl_FragCoord.xy / u_resolution.xy;
     vec2 simTexel = 1.0 / vec2(textureSize(u_state, 0));
+    float aspect = u_resolution.x / u_resolution.y;
+    vec2  p      = (uv - 0.5) * vec2(aspect, 1.0);
+    float r      = length(p);
 
     vec4  st = texture(u_state, uv);
     float h  = st.r;
 
     // ---- background --------------------------------------------------
-    vec3 sky = skyPalette(uv);
+    vec3 col = voidBg(uv);
 
-    // ---- surface gradient (for normal + spike rims) ------------------
-    float hx = texture(u_state, uv + vec2(simTexel.x, 0.0)).r
-             - texture(u_state, uv - vec2(simTexel.x, 0.0)).r;
-    float hy = texture(u_state, uv + vec2(0.0, simTexel.y)).r
-             - texture(u_state, uv - vec2(0.0, simTexel.y)).r;
-    vec3  N  = normalize(vec3(-hx * 70.0, -hy * 70.0, 1.0));
+    // ---- effective sphere radius at this angular position ------------
+    // The displacement field h extends the silhouette outward where
+    // magnets are pulling. Inside r < R_eff: ferrofluid sphere (with
+    // possibly extended silhouette). Outside: void.
+    float R_eff = R_BALL + max(h, 0.0) * DISP;
+    float dist  = r - R_eff;
 
-    // ---- lighting ---------------------------------------------------
-    // Warm key from upper-left (matches the sunset). Cool fill from
-    // below to keep underside of spikes from going pure black.
-    vec3  L     = normalize(vec3(-0.40, 0.70, 0.55));
-    vec3  Fdir  = normalize(vec3( 0.20,-0.40, 0.30));
-    float kKey  = max(dot(N, L), 0.0);
-    float kFill = max(dot(N, Fdir), 0.0) * 0.20;
+    // Smooth boundary so the silhouette has anti-aliased pixels.
+    float inBall = smoothstep(0.005, -0.005, dist);
 
-    // Specular — the metallic-mirror sheen that distinguishes ferrofluid
-    // from any other dark inky liquid. Tight Phong lobe over peaked
-    // regions; gated by h so the smooth puddle body doesn't sparkle, only
-    // the spike crests do.
-    vec3  R      = reflect(-L, N);
-    float specL  = pow(max(R.z, 0.0), 28.0);
-    float specG  = smoothstep(0.40, 0.95, h);
-    float specHint = specL * specG * 0.55;
+    if (inBall > 0.001) {
+        // ---- 3D sphere normal --------------------------------------
+        // Treat the visible disc as a sphere of radius R_eff. At pixel
+        // p, the surface normal points outward from the sphere center.
+        // For r close to R_eff (rim), the normal is nearly horizontal;
+        // at the centre, it points straight at the camera.
+        float r_norm = clamp(r / R_eff, 0.0, 1.0);
+        float z      = sqrt(max(0.0, 1.0 - r_norm * r_norm));
+        vec3  sphereN = normalize(vec3(p / R_eff, z));
 
-    vec3 fluid = fluidBody(h, specHint);
-    fluid *= (0.50 * kKey + kFill + 0.18);
-    fluid += vec3(1.00, 0.85, 0.55) * specL * specG * 0.90;
+        // ---- surface bumps from h gradient -------------------------
+        // The displacement field has spatial structure (hex spikes
+        // under each magnet). Project the gradient of h into the
+        // tangent plane of the sphere, perturb the normal so spike
+        // crests catch specular highlights and shadow troughs cleanly.
+        float hx = texture(u_state, uv + vec2(simTexel.x, 0.0)).r
+                 - texture(u_state, uv - vec2(simTexel.x, 0.0)).r;
+        float hy = texture(u_state, uv + vec2(0.0, simTexel.y)).r
+                 - texture(u_state, uv - vec2(0.0, simTexel.y)).r;
+        vec3 bump = vec3(-hx, -hy, 0.0) * 60.0;
+        vec3 N    = normalize(sphereN + bump);
 
-    // ---- silhouette mask + rim --------------------------------------
-    // Smoothstep around H_FLUID gives a clean drop boundary. The rim is
-    // a thin band ON the boundary that catches a warm highlight — this
-    // is the bright "wet edge" you see on real ferrofluid drops.
-    float drop = smoothstep(H_FLUID - 0.04, H_FLUID + 0.04, h);
+        // ---- lighting ----------------------------------------------
+        // Warm key from upper-left; cooler-warm fill from below; ambient
+        // lifts the dark side just enough to read as a sphere.
+        vec3  L     = normalize(vec3(-0.45, 0.62, 0.55));
+        vec3  Fdir  = normalize(vec3( 0.30,-0.45, 0.30));
+        float kKey  = max(dot(N, L), 0.0);
+        float kFill = max(dot(N, Fdir), 0.0) * 0.32;
+        float kAmb  = 0.16;
+        float lit   = clamp(0.55 * kKey + kFill + kAmb, 0.0, 1.0);
 
-    // Rim: peak just at the silhouette, falling off both ways. The rim
-    // is what makes the drop's outline glow against the warm sky.
-    float rim    = exp(-pow((h - H_FLUID) / 0.05, 2.0)) * length(vec2(hx, hy));
-    vec3  rimCol = vec3(1.00, 0.65, 0.30);
+        vec3 fluid = ferrofluidColor(lit);
 
-    // Composite: sky behind the drop, fluid where the drop is, plus the
-    // rim along the boundary.
-    vec3 col = mix(sky, fluid, drop);
-    col += rimCol * rim * 6.0;
+        // Specular crown — tight Phong on spike crests for the
+        // metallic-mirror sheen that says "ferrofluid". Gated by spike
+        // height so the smooth body doesn't sparkle.
+        vec3  R     = reflect(-L, N);
+        float specL = pow(max(R.z, 0.0), 30.0);
+        float specG = smoothstep(0.20, 0.90, h);
+        fluid      += vec3(1.00, 0.85, 0.55) * specL * specG * 1.20;
+
+        // Gradient rim — bright thin band along steep slopes (the wet
+        // edge of each spike cone).
+        float gradMag = length(vec2(hx, hy));
+        float spikeRim = smoothstep(0.025, 0.080, gradMag);
+        fluid         += vec3(1.00, 0.62, 0.28) * spikeRim * 0.55;
+
+        col = mix(col, fluid, inBall);
+
+        // Silhouette wet rim — thin warm band right at the boundary
+        // where the sphere meets the void. Reads as the "edge of the
+        // levitating drop."
+        float silhouette = smoothstep(-0.012, -0.001, dist) *
+                           smoothstep( 0.005, -0.001, dist);
+        col += vec3(1.00, 0.55, 0.22) * silhouette * 0.70;
+    }
 
     // ---- per-finger pinpoint glow (tactile feedback) ----------------
-    // Tiny bright dot under each active finger so the viewer sees that
-    // their touch was registered before the spike physics catches up
-    // (~3 frames). Fades fast so it's a poke, not a permanent overlay.
-    float aspect = u_resolution.x / u_resolution.y;
-    vec2  pWorld = (uv - 0.5) * vec2(aspect, 1.0);
+    // Tiny bright dot under each active finger so a phone user sees
+    // their touch was registered. Fades fast.
     for (int i = 0; i < 8; i++) {
         if (i >= u_touch_count) break;
         vec4 t = u_touches[i];
         if (t.w < 0.5) continue;
-        vec2 tN     = t.xy / u_resolution.xy;
-        vec2 tWorld = (tN - 0.5) * vec2(aspect, 1.0);
-        float r     = length(pWorld - tWorld);
-        float dot   = exp(-r * 80.0) * exp(-t.z * 4.0);
-        col += vec3(1.00, 0.78, 0.42) * dot * 0.65;
+        vec2  tN     = t.xy / u_resolution.xy;
+        vec2  tWorld = (tN - 0.5) * vec2(aspect, 1.0);
+        float rd     = length(p - tWorld);
+        float pin    = exp(-rd * 65.0) * exp(-t.z * 4.0);
+        col += vec3(1.00, 0.78, 0.42) * pin * 0.75;
     }
 
     col = reinhard(col);
 
-    // Subtle vignette + house gamma per VISION.md. Lighter than usual so
-    // the warm sky stays warm to the corners.
+    // Subtle vignette + house gamma per VISION.md.
     vec2 pv = (gl_FragCoord.xy - 0.5 * u_resolution.xy) / min(u_resolution.x, u_resolution.y);
-    col   *= 1.0 - 0.15 * dot(pv, pv);
+    col   *= 1.0 - 0.20 * dot(pv, pv);
     fragColor = vec4(pow(max(col, 0.0), vec3(0.88)), 1.0);
 }
