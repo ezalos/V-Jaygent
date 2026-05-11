@@ -115,16 +115,27 @@ human-readable table so future sessions can see what changed.
 
 For each iteration:
 
-#### 2a. Capture fresh frames
+#### 2a. Capture fresh frames + run machine lints
 
 ```
-node bin/inspect.mjs <slug> 4 8
-node bin/runs.mjs log $RUN_ID --event inspect --iteration <N> --status ok --data '{"frames":4}'
+node bin/inspect-music.mjs <slug>             # section-anchored frames + peak clip
+node bin/lint-palette.mjs <slug>              # warm-cycle check
+node bin/lint-idle.mjs <slug>                 # idle-survival check
+node bin/lint-composition.mjs <slug>          # quadrant / axis balance
+node bin/audit-piece.mjs <slug>               # static anti-pattern audit
+node bin/runs.mjs log $RUN_ID --event inspect --iteration <N> --status ok --data '{"frames":5}'
 ```
 
-Writes `pieces/<slug>/inspect/frame-*.png`. Read each one yourself —
-you want to know what the critic is seeing, and frames change each
-iteration as the shader changes.
+Writes `pieces/<slug>/inspect-music/music-*.png` (section-anchored when
+the piece has audio.analysis.json; audio-time-spread or wall-clock
+otherwise). Read each one yourself — you want to know what the critic
+is seeing, and frames change each iteration as the shader changes.
+
+**Lint failures are first-priority fixes.** If any of the four lints
+FAILs, the critic's top_fix must target that lint failure before any
+rubric dimension. Don't grade rubric dimensions when machine checks
+are red — the piece will fail at a coarser level than any dimension
+captures.
 
 #### 2b. Spawn the critic agent
 
@@ -145,6 +156,28 @@ A piece that scores 5s across every rubric dimension but isn't
 mesmerizing is a failed piece. A piece that scores 3s everywhere but
 locks the eye for three minutes is a success. Your allegiance is to
 the eye, not the checklist.
+
+**BIAS GUARD (added 2026-05-11 after murmuration stress-test):** Critics
+historically over-grade. When you see frames that "look fine" at a
+glance, default to the LOWER score, not the higher. If you're tempted
+to give a dimension a 4, check whether the piece would survive being
+shown next to apollonian-foam / braid / cirrus in a side-by-side. If it
+loses the side-by-side, the dimension is at most 3. Round DOWN, not up.
+
+**Reference frames (added 2026-05-11).** Before grading, look at these
+chef-d'oeuvre frames as your calibration anchors. Pieces that don't
+reach this bar in their respective dimensions get scored honestly low,
+not generously average:
+- /home/ezalos/42/V-Jaygent/pieces/apollonian-foam/inspect-music/*.png
+  (Depth 5 reference, Palette 5 reference)
+- /home/ezalos/42/V-Jaygent/pieces/braid/inspect-music/*.png
+  (Composition 5 reference, Mesmerizing 5/5 reference)
+- /home/ezalos/42/V-Jaygent/pieces/cirrus/inspect-music/*.png
+  (Motion 5 reference — polyrhythm visible across section anchors)
+- /home/ezalos/42/V-Jaygent/pieces/eclipse/inspect-music/*.png
+  (Depth 5 + Intensity reference, fractal-interior void)
+
+Read 1-2 frames from each. Now grade the candidate against THAT bar.
 
 # Read, in this order
 
@@ -233,11 +266,21 @@ the eye, not the checklist.
     Dual-input probes (see taste.md §"VJ lenses / Interaction
     agency / Dual-input probes"). Skip for single-channel pieces.
 
-12. Each of the 4 frames at
-    /home/ezalos/42/V-Jaygent/pieces/<slug>/inspect/frame-*.png
-    Actually look. Your observations must cite specific frame numbers.
+12. Each of the section-anchored frames at
+    /home/ezalos/42/V-Jaygent/pieces/<slug>/inspect-music/music-*.png
+    Actually look. The filename includes the section label
+    (intro/verse/peak/quiet/outro) when audio analysis exists — use it
+    to verify the piece reads differently across the song's structure.
+    Your observations must cite specific frame numbers.
 
-13. Any previous critique at
+13. Lint reports from the most recent run (palette / idle / composition
+    / audit). If any FAIL is present, the top_fix MUST address it
+    before any rubric dimension. Lint reds beat rubric polish.
+
+14. The reference frames listed in the bias guard above. Read 1-2 from
+    each chef-d'oeuvre piece. Compare the candidate to that bar.
+
+15. Any previous critique at
     /home/ezalos/42/V-Jaygent/brainstorming/critiques/<slug>-v*.md
     So you know what has already been tried and don't re-propose it.
 
@@ -540,6 +583,20 @@ audio-driven pieces look static in headless because audio
 doesn't autoplay. See the memory entry "Time-series probes when
 iterating" for the playwright pattern (frames at t=1.5/3.5/6/12s,
 pixel delta between consecutive frames).
+
+**Stills under-grade high-frequency motion (added 2026-05-11
+after cirrus iter 3).** If the piece already has per-beat or
+sub-beat jitter / wobble (>2 Hz), each inspect-music PNG samples
+ONE phase of the oscillation and reads as "locked" even though
+the running piece shimmers. Before declaring "still static" and
+proposing more chaos, do TWO things: (a) watch
+`pieces/<slug>/inspect-music/clip-peak.mp4` — that's the right
+artefact for grading liveness, not the stills; (b) cross-frame
+compare adjacent stills for tooth-position / position ghosting
+between frames — if you see doubling or position shift between
+otherwise "locked" frames, the motion IS there, just not in any
+single frame. See
+`~/.claude/projects/-home-ezalos-42-V-Jaygent/memory/feedback_stills_under_grade_motion.md`.
 
 ## Claim check
 
