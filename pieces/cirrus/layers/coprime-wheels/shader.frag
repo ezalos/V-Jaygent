@@ -18,6 +18,7 @@ uniform float u_beat_phase;
 uniform float u_bar_phase;
 uniform float u_section_progress;
 uniform float u_song_progress;
+uniform int   u_section_id;
 uniform sampler2D u_below;
 uniform float u_keys[15];
 uniform float u_key_event[15];
@@ -62,6 +63,30 @@ void main() {
     float windMag = clamp(length(mouse), 0.0, 1.5);
     float windAng = (windMag > 0.0) ? atan(mouse.y, mouse.x) : 0.0;
 
+    // Section-driven ring-centre drift — during the final ~35% of each section
+    // (pre-peak build), ring centres orbit away from the origin, destabilising
+    // the locked-mandala geometry. Rings snap back at the section flip
+    // (sp resets near 0 on downbeat). This is the per-section macro motion
+    // that the v2-i1 critique flagged as missing.
+    float buildIntensity = smoothstep(0.65, 1.0, sp);
+    float driftPhase = ba * TAU;
+    vec2 driftCentre = vec2(cos(driftPhase), sin(driftPhase)) * 0.040 * buildIntensity;
+    c -= driftCentre * 2.0;
+
+    // Peak-section per-beat radial wobble — section 4 is Cirrus's 65-second
+    // climax; the rings pulse their radii on each beat so the peak reads as
+    // alive, not as the most-locked moment. v2-i2 fix.
+    float isPeak = (u_section_id == 4) ? 1.0 : 0.0;
+    float beatWobble = isPeak * 0.030 * cos(bp * TAU);
+
+    // Always-on per-beat angular jitter — small phase noise fired every beat
+    // song-wide so even calm section centres show continuous subtle rotation
+    // instability. Keeps the mandala alive even at intro / verse-mid / outro-
+    // mid frames. Drift + peak wobble layer on top during punctuated moments.
+    // v2-i3 fix (Louis: "too static, not chaos enough").
+    float jitterPhase = sin(bp * TAU * 2.0 + sp * 0.5) * 0.025
+                      + cos(bp * TAU * 3.0 + ba * 1.7) * 0.012;
+
     float r = length(c);
     float ang = atan(c.y, c.x);
 
@@ -88,14 +113,17 @@ void main() {
         // Bow ring radius in wind direction; faster rings bow more
         float bow = windMag * 0.030 * (float(i) + 1.0) / 5.0;
         float radialDelta = bow * cos(ang - windAng);
-        float Ri_eff = Ri + radialDelta;
+        // Section build also inflates ring radii — adds to the scatter.
+        // Peak-section wobble pulses every beat (v2-i2 fix).
+        float Ri_eff = Ri + radialDelta + length(driftCentre) + beatWobble;
 
         // Soft annulus mask
         float dr = abs(r - Ri_eff);
         float ringMask = smoothstep(Wi * 1.6, 0.0, dr);
 
-        // Tooth phase: cosine softened so each tooth occupies more of the ring
-        float toothPhase = ang * P + omega[i];
+        // Tooth phase: cosine softened so each tooth occupies more of the ring.
+        // Per-beat angular jitter (v2-i3) adds always-on liveness.
+        float toothPhase = ang * P + omega[i] + jitterPhase;
         float tc = max(cos(toothPhase), 0.0);
         float toothShape = pow(tc, 2.5);
 
