@@ -1,11 +1,11 @@
 # mozart-rondo-alla-turca-turkish-march — scorecard
 
-Last iterated: 2026-05-12 (run R-20260512-mozart-iter-v3, 3 iterations)
+Last iterated: 2026-05-12 (run R-mozart-iter-v4, 4 iterations)
 Latest verdict: **ship-it**
 Claim check: pass
 
-## Probe counts (latest critique)
-- Mesmerizing: 4/5
+## Probe counts (latest critique — v4)
+- Mesmerizing: **5/5**  ← chef-d'oeuvre threshold; verdict still ship-it
 - Interaction: 7/7
 - Music: 4/4
 - Song-level: 5/6
@@ -15,33 +15,37 @@ Claim check: pass
 ## Dimension scores (latest)
 | palette | composition | motion | intensity | depth | form |
 |---------|-------------|--------|-----------|-------|------|
-| 5/5     | 4/5         | 4/5    | 4/5       | 3/5   | 4/5  |
+| 5/5     | 5/5         | 5/5    | 4/5       | 4/5   | 4/5  |
 
-## Deltas (v1 layer-stack → v3 monolithic)
-| metric              | v1 (layer-stack) | v3 (monolithic) | Δ    |
-|---------------------|------------------|-----------------|------|
-| verdict             | structural-rethink | ship-it       | +    |
-| claim_check         | fail             | pass            | +    |
-| mesmerizing_passes  | 0/5              | 4/5             | +4   |
-| palette_cohesion    | 3                | 5               | +2   |
-| composition         | 1                | 4               | +3   |
-| motion              | 1                | 4               | +3   |
-| intensity           | 1                | 4               | +3   |
-| depth               | 1                | 3               | +2   |
-| form_ending         | 1                | 4               | +3   |
+## Deltas (v3 → v4)
+| metric              | v3    | v4    | Δ  |
+|---------------------|-------|-------|----|
+| mesmerizing_passes  | 4/5   | 5/5   | +1 |
+| prediction probe    | weak  | pass  | +  |
+| mystery probe       | fail  | pass  | +  |
+| composition         | 4     | 5     | +1 |
+| motion              | 4     | 5     | +1 |
+| depth               | 3     | 4     | +1 |
+| recapitulation      | weak  | weak  | 0  |
 
-Composite: +20 points across 6 dimensions. Probe gain: +4 mesmerizing,
-+7 cursor, +2 music, +3 song-level, +6 dual-input.
+## Most recent fix (v3 → v4)
+Dimension: prediction probe + mystery probe (mesmerizing)
+What:      Per-beat per-arm length reshuffle via hash21(arm_idx, beat_idx);
+           per-bar hold-or-spin gate (35% of bars hold cross stationary);
+           per-beat ring fire/direction/curve variation (70% fire, 45%
+           inward-contracting, mix of linear/ease-out curves); per-section
+           rotation rate ∈ [0.55, 1.60] revs per bar with random direction;
+           sweep arc with non-uniform angular velocity (sin+cos sum).
+Why:       v3 had constant bar-phase rotation — Louis caught the critic
+           over-grading prediction: weak when "rotation legible after one
+           frame" is the FAIL signature per taste.md. v4 breaks the
+           rate-lock structurally; the cross is a different shape every
+           beat (not just rotated), and ring behaviour is hash-gated.
 
-## Most recent fix
-Dimension: structural — architecture rebuild
-What:      v1 was layer-stack (architecture E) with 6 warm-cycle layers
-           that compressed to uniform mid-warm soup (warm-on-warm collapse).
-           v3 is monolithic (architecture A) with cream-on-near-black
-           Caravaggio contrast + throb-family percussion-as-light idiom.
-           Threw away the girih thesis; delivered the music's physicality.
+## Iteration history
+- v1 (2026-05-11) — layer-stack, structural-rethink, claim fail
+- v2 (2026-05-11) — critic confirmed structural-rethink with diagnosis
+- v3 (2026-05-12) — monolithic rebuild, ship-it (over-graded on prediction)
+- v4 (2026-05-12) — predictability fix, ship-it with 5/5 probes
 
-Latest critique: brainstorming/critiques/mozart-rondo-alla-turca-turkish-march-v3.md
-Earlier:         brainstorming/critiques/mozart-rondo-alla-turca-turkish-march-v1.md (first-person)
-                 brainstorming/critiques/mozart-rondo-alla-turca-turkish-march-v2.md (critic, structural-rethink)
-                 brainstorming/critiques/mozart-rondo-alla-turca-turkish-march-blocked.md (handback)
+Latest critique: brainstorming/critiques/mozart-rondo-alla-turca-turkish-march-v4.md

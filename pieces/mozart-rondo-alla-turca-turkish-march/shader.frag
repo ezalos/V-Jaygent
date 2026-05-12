@@ -28,6 +28,8 @@ uniform float u_downbeat;
 uniform float u_section_progress;
 uniform float u_to_section_change;
 uniform int   u_section_id;
+uniform int   u_bar_index;
+uniform int   u_beat_index;
 uniform float u_song_progress;
 uniform float u_keys[15];
 uniform float u_key_event[15];
@@ -46,22 +48,22 @@ vec3 ember_palette(float t) {
     return mix(vec3(0.55, 0.10, 0.05), vec3(1.00, 0.55, 0.20), t);
 }
 
-// 8-arm cross with ASYMMETRIC arm lengths so rotation is visible. The
-// primary cross is full-length (arm_len); the rotated 45° cross is
-// shorter (arm_len * 0.72) — breaks the 8-fold symmetry just enough that
-// a quarter-bar rotation reads as a different pose.
-float sd8ArmCross(vec2 p, float arm_len, float arm_w) {
-    float d1 = min(
-        sdSegment(p, vec2(0.0, -arm_len), vec2(0.0, arm_len)),
-        sdSegment(p, vec2(-arm_len, 0.0), vec2(arm_len, 0.0))
-    ) - arm_w;
-    vec2 q = mat2(cos(PI*0.25), -sin(PI*0.25), sin(PI*0.25), cos(PI*0.25)) * p;
-    float short_arm = arm_len * 0.72;
-    float d2 = min(
-        sdSegment(q, vec2(0.0, -short_arm), vec2(0.0, short_arm)),
-        sdSegment(q, vec2(-short_arm, 0.0), vec2(short_arm, 0.0))
-    ) - arm_w * 0.85;
-    return min(d1, d2);
+// 8-arm cross with PER-ARM asymmetric lengths driven by hash on (arm, beat).
+// Each beat reshuffles which arms are long vs short — breaks the rate-lock
+// of pure rotation. The cross looks like a different shape every beat,
+// not just a rotated version of the same shape.
+float sd8ArmCrossChaotic(vec2 p, float base_len, float arm_w, float beat_seed) {
+    float d = 1e6;
+    for (int i = 0; i < 8; i++) {
+        // Per-arm random length scale ∈ [0.45, 1.10]
+        float h = hash21(vec2(float(i) * 1.7, beat_seed));
+        float L = base_len * mix(0.45, 1.10, h);
+        float W = arm_w * mix(0.85, 1.20, hash21(vec2(float(i), beat_seed + 3.7)));
+        float a = float(i) * PI * 0.25;     // every 45°
+        vec2 tip = vec2(cos(a), sin(a)) * L;
+        d = min(d, sdSegment(p, vec2(0.0), tip) - W);
+    }
+    return d;
 }
 
 void main() {
@@ -111,22 +113,48 @@ void main() {
     vec2 cross_center = mw * 0.20 * smoothstep(0.05, 0.5, length(mw));
     vec2 cp = p - cross_center;
 
-    // ---------- 8-arm rotating cross ----------
-    // Bar-phase rotation — one full revolution per bar. On every section flip,
-    // snap angle back to zero (rondo recapitulation).
+    // ---------- 8-arm chaotic cross ----------
+    // Predictability-break: per-section rotation rate + direction; per-bar
+    // hold-or-spin gate; per-beat per-arm length reshuffle. The cross is
+    // never the same shape twice consecutive beats; never the same rate
+    // across consecutive sections; never the same rotation arc twice.
+    int sec  = u_section_id;
+    int bidx = (playing > 0.5) ? u_bar_index  : int(floor(u_time * 0.5));
+    int bbi  = (playing > 0.5) ? u_beat_index : int(floor(u_time * 2.0));
+
+    // Per-section rotation profile: rate ∈ [-1.6, +1.6] revs per bar (sign = direction).
+    float sec_dir  = (hash21(vec2(float(sec) * 0.31, 1.7)) > 0.5) ? 1.0 : -1.0;
+    float sec_rate = mix(0.55, 1.60, hash21(vec2(float(sec) * 1.13, 4.7)));
+
+    // Per-bar hold-or-spin: ~35% of bars HOLD (no rotation, cross stationary).
+    // Holds let the eye breathe; spins surprise the eye-ahead prediction.
+    float hold = step(hash21(vec2(float(bidx) * 0.71, 9.3)), 0.35);
+    float spin_factor = 1.0 - hold;
+
+    // Within a spin-bar, rotation accelerates non-linearly across the bar
+    // (ease-in-out, not linear) — eye can't extrapolate the next pose by
+    // dead reckoning.
+    float ba_eased = ba * ba * (3.0 - 2.0 * ba);
+    float angle = ba_eased * TAU * sec_dir * sec_rate * spin_factor;
+
+    // Section snap still fires.
     float snapWindow = 1.0 - smoothstep(0.0, 0.04, sprog);
-    float angle = ba * TAU;
     angle = mix(angle, 0.0, snapWindow * 0.85);
+
     float ca = cos(angle), sa = sin(angle);
     vec2 cq = mat2(ca, -sa, sa, ca) * cp;
 
-    // Cross scale: base length pulses on downbeat + bass. Pre-tension squeeze
-    // before section changes.
+    // Per-section base scale variation — sections with sec_rate < 1.0 read
+    // bigger (slower-rotating, more time on screen at each pose).
+    float sec_scale = mix(0.85, 1.15, hash21(vec2(float(sec), 12.7)));
     float preTension = 1.0 - smoothstep(0.0, 8.0, toSect);
-    float arm_len = 0.55 * (1.0 + 0.10 * bass + 0.18 * dbeat) * mix(1.0, 0.78, preTension);
-    float arm_w   = 0.018 * (1.0 + 0.30 * dbeat);
+    float arm_base = 0.55 * sec_scale * (1.0 + 0.10 * bass + 0.18 * dbeat) * mix(1.0, 0.78, preTension);
+    float arm_w    = 0.018 * (1.0 + 0.30 * dbeat);
 
-    float cross_d = sd8ArmCross(cq, arm_len, arm_w);
+    // Beat seed reshuffles per-arm length every beat — chaotic scrambling
+    // of which arm points where, with which length.
+    float beat_seed = float(bbi) * 0.137 + float(sec) * 7.31;
+    float cross_d = sd8ArmCrossChaotic(cq, arm_base, arm_w, beat_seed);
     float cross_mask = smoothstep(0.006, -0.004, cross_d);
 
     // Section palette flip — refrain (even section) = cream; episode (odd) = ember.
@@ -138,32 +166,47 @@ void main() {
     float postFlash = (1.0 - smoothstep(0.0, 0.06, sprog)) * float(playing > 0.5);
     cross_col = mix(cross_col, vec3(1.00, 0.95, 0.75), postFlash * 0.6);
 
-    // ---------- beat rings: expanding from center on every beat ----------
-    // TWO concurrent beat rings half a beat out of phase — at any given
-    // moment, two rings are visible at different radii, contributing
-    // more inter-frame motion to the lint sampler.
-    float bp_alt = fract(bp + 0.5);
-    float beat_r1  = bp     * 1.20;
-    float beat_r2  = bp_alt * 1.20;
-    float beat_t1  = 0.015 + 0.022 * (1.0 - bp);
-    float beat_t2  = 0.015 + 0.022 * (1.0 - bp_alt);
-    float beat_b1  = pow(1.0 - bp,     2.0) * (0.45 + 0.55 * bass) + kick * 0.70;
-    float beat_b2  = pow(1.0 - bp_alt, 2.0) * (0.30 + 0.45 * bass);
-    float beat_ring = smoothstep(beat_t1, 0.0, abs(r - beat_r1)) * beat_b1
-                    + smoothstep(beat_t2, 0.0, abs(r - beat_r2)) * beat_b2;
+    // ---------- beat rings: per-beat fire decision + per-beat radius curve ----------
+    // Per-beat hash decides which beats fire rings — some beats fire none,
+    // some fire one outward-expanding, some fire one INWARD-contracting.
+    // Per-beat radius CURVE shape (linear vs ease-out vs spike) is also
+    // hash-driven. The eye can't predict whether the next beat will produce
+    // an expanding ring, a contracting ring, or silence.
+    float h_fire   = hash21(vec2(float(bbi) * 0.91, 31.0));
+    float h_dir    = hash21(vec2(float(bbi) * 0.43, 17.0));
+    float h_curve  = hash21(vec2(float(bbi) * 1.27, 53.0));
+    float fires    = step(0.30, h_fire);                          // 70% of beats fire
+    float ring_dir = (h_dir > 0.55) ? -1.0 : 1.0;                 // 45% inward
+    float bp_curved = mix(bp, sqrt(bp), h_curve);                 // mix linear / ease-out
+    float beat_r   = (ring_dir > 0.0)
+                   ? bp_curved * 1.20                              // outward
+                   : (1.20 - bp_curved * 1.20);                    // inward
+    float beat_thickness = 0.015 + 0.022 * (1.0 - bp);
+    float beat_brightness = pow(1.0 - bp, 2.0) * (0.45 + 0.55 * bass) + kick * 0.70;
+    float beat_ring = smoothstep(beat_thickness, 0.0, abs(r - beat_r))
+                    * beat_brightness * fires;
 
-    // ---------- bar ring: bigger ring on every downbeat ----------
-    float bar_r = ba * 1.30;
+    // ---------- bar ring: directional + curved per bar ----------
+    // Same trick at the bar level: per-bar hash decides direction (out/in)
+    // and curve (linear vs ease-out vs accelerating).
+    float bh_dir   = hash21(vec2(float(bidx) * 0.59, 91.0));
+    float bh_curve = hash21(vec2(float(bidx) * 1.71, 73.0));
+    float bar_dir   = (bh_dir > 0.5) ? -1.0 : 1.0;
+    float ba_curved = mix(ba, ba * ba, bh_curve);
+    float bar_r    = (bar_dir > 0.0)
+                   ? ba_curved * 1.30
+                   : (1.30 - ba_curved * 1.30);
     float bar_thickness = 0.035 + 0.035 * (1.0 - ba);
     float bar_brightness = pow(1.0 - ba, 1.6) * 0.95;
-    float bar_d = abs(r - bar_r);
-    float bar_ring = smoothstep(bar_thickness, 0.0, bar_d) * bar_brightness;
+    float bar_ring = smoothstep(bar_thickness, 0.0, abs(r - bar_r)) * bar_brightness;
 
-    // ---------- perimeter sweep: slow continuous arc rotating outside the cross ----------
-    // Always-on element so headless idle frames pick up motion even when
-    // beat-driven elements happen to be at low-contrast moments.
-    float sweep_ang = u_time * 0.35;                  // ~17s/revolution
-    float sweep_r   = 0.78 + 0.05 * sin(u_time * 0.27);
+    // ---------- perimeter sweep: arc with non-uniform angular velocity ----------
+    // Always-on rotating arc, but its angular VELOCITY varies with time — speeds
+    // up and slows down so the eye can't pre-compute its position. Two slightly-
+    // out-of-sync sin terms create a chaotic-feeling drift even though it's
+    // deterministic.
+    float sweep_ang = u_time * 0.35 + 0.6 * sin(u_time * 0.13) + 0.35 * cos(u_time * 0.27);
+    float sweep_r   = 0.74 + 0.10 * sin(u_time * 0.21);
     float sweep_dr  = abs(r - sweep_r);
     float sweep_dAng = atan(sin(ang - sweep_ang), cos(ang - sweep_ang));
     float sweep_arc = smoothstep(0.025, 0.0, sweep_dr) *
