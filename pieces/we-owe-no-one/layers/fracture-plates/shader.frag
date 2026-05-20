@@ -1,6 +1,6 @@
 #version 300 es
-// ABOUTME: fracture-plates layer — Voronoi tessellation of tempered iron plates;
-// ABOUTME: downbeats strike the lattice, seams flare white-hot then cool to ember.
+// ABOUTME: fracture-plates layer — Voronoi tessellation of tempered iron plates
+// ABOUTME: floating on a hidden molten substrate, struck white-hot on the downbeat.
 precision highp float;
 
 uniform vec2  u_resolution;
@@ -58,6 +58,36 @@ vec2 cellOffset(vec2 id, float driftT, float jolt){
     o += 0.15 * sin(driftT * 0.5 + 6.2831 * hash22(id + 7.0));
     o += jolt * (hash22(id + 19.3) * 2.0 - 1.0);
     return clamp(o, 0.07, 0.93);
+}
+
+// Voronoi F1 + edge distance. Returns (F1, edgeDist, cellId.x, cellId.y).
+// Caches the 3x3 cell offsets so both passes share one set of hashes.
+vec4 voronoi(vec2 q, float driftT, float jolt){
+    vec2 ip = floor(q), fp = fract(q);
+    vec2 cells[9];
+    for (int j = -1; j <= 1; j++)
+        for (int i = -1; i <= 1; i++)
+            cells[(j + 1) * 3 + (i + 1)] = cellOffset(ip + vec2(i, j), driftT, jolt);
+
+    vec2 mr = vec2(0.0), midId = vec2(0.0);
+    float md = 8.0;
+    for (int j = -1; j <= 1; j++)
+        for (int i = -1; i <= 1; i++){
+            vec2 g = vec2(float(i), float(j));
+            vec2 r = g + cells[(j + 1) * 3 + (i + 1)] - fp;
+            float d = dot(r, r);
+            if (d < md){ md = d; mr = r; midId = ip + g; }
+        }
+    float medge = 8.0;
+    for (int j = -1; j <= 1; j++)
+        for (int i = -1; i <= 1; i++){
+            vec2 g = vec2(float(i), float(j));
+            vec2 r = g + cells[(j + 1) * 3 + (i + 1)] - fp;
+            vec2 diff = r - mr;
+            if (dot(diff, diff) > 1e-4)
+                medge = min(medge, dot(0.5 * (mr + r), normalize(diff)));
+        }
+    return vec4(sqrt(md), medge, midId);
 }
 
 void main(){
@@ -125,33 +155,20 @@ void main(){
     jolt += 0.045 * u_downbeat;
     jolt += 0.11 * crater;                  // the cursor re-fractures locally
 
-    // ---- Voronoi: cache the 3x3 cell offsets, then F1 + edge passes ----
-    vec2 ip = floor(q), fp = fract(q);
-    vec2 cells[9];
-    for (int j = -1; j <= 1; j++)
-        for (int i = -1; i <= 1; i++)
-            cells[(j + 1) * 3 + (i + 1)] = cellOffset(ip + vec2(i, j), u_time, jolt);
-
-    vec2 mr = vec2(0.0), midId = vec2(0.0);
-    float md = 8.0;
-    for (int j = -1; j <= 1; j++)
-        for (int i = -1; i <= 1; i++){
-            vec2 g = vec2(float(i), float(j));
-            vec2 r = g + cells[(j + 1) * 3 + (i + 1)] - fp;
-            float d = dot(r, r);
-            if (d < md){ md = d; mr = r; midId = ip + g; }
-        }
-    float medge = 8.0;
-    for (int j = -1; j <= 1; j++)
-        for (int i = -1; i <= 1; i++){
-            vec2 g = vec2(float(i), float(j));
-            vec2 r = g + cells[(j + 1) * 3 + (i + 1)] - fp;
-            vec2 diff = r - mr;
-            if (dot(diff, diff) > 1e-4)
-                medge = min(medge, dot(0.5 * (mr + r), normalize(diff)));
-        }
-    float F1 = sqrt(md);
+    // ---- the iron plates: macro Voronoi ----
+    vec4 vMacro = voronoi(q, u_time, jolt);
+    float F1 = vMacro.x;
+    float medge = vMacro.y;
+    vec2  midId = vMacro.zw;
     float cellH = hash21(midId * 1.31 + 4.7);
+
+    // ---- hidden molten substrate: a finer Voronoi the plates float on ----
+    // glimpsed through the open cracks; its sub-seams reward a close look.
+    vec2 qSub = p * (scale * 2.7) + 31.0;
+    vec4 vSub = voronoi(qSub, u_time * 0.62 + 17.0, jolt * 0.35);
+    float subCore  = 1.0 - smoothstep(0.0, 0.90, vSub.x);
+    float subSeam  = smoothstep(0.060, 0.0, vSub.y);
+    float subGrain = smoothstep(0.130, 0.0, vSub.y);    // faint fracture grain inside plates
 
     // ---- temperature: macro envelope x per-plate spread x core gradient ----
     // master heat — energy arc, intro ramp, and a within-section creep
@@ -165,6 +182,7 @@ void main(){
         * (0.30 + 1.05 * cellH)                             // plate-to-plate cold..white-hot
         * (0.45 + 0.60 * core)                              // domed-plate core gradient
         + 0.16 * hearth + 0.10 * micro;
+    plateTemp += 0.08 * subGrain * macro * master;          // the iron's own grain — look closer
     plateTemp = clamp(plateTemp, 0.0, 1.0);
 
     // ---- seams: bright in the hot zones, dark cracks in cold iron ----
@@ -174,10 +192,20 @@ void main(){
     // flare brightens on the strike, then cools as jolt decays over the bar
     float flare = seam * seamHeat * (0.30 + 3.0 * jolt + 1.6 * u_downbeat + 0.7 * crater);
 
-    // ---- compose: lead always carries a molten band, seam flare on top ----
+    // ---- molten substrate seen through the open cracks ----
+    // the molten cools WITH the forge — master gates it so the breakdown stays dark
+    float crackOpen = smoothstep(0.085, 0.0, medge);        // wider than the seam thread
+    float moltenTemp = clamp(master * (0.62 + 0.55 * subCore) * (0.50 + 0.80 * macro), 0.0, 1.0);
+    vec3 moltenCol = forgeColor(moltenTemp);
+    moltenCol += forgeColor(clamp(0.58 + 0.40 * subSeam, 0.0, 1.0)) * subSeam * 0.40 * macro * master;
+
+    // ---- compose: plates over molten, lead always-on band, strike flare on top ----
     vec3 col = forgeColor(plateTemp * 0.82 + 0.06);
     col *= 0.30 + 0.70 * core + 0.28 * cellH;               // interior shading -> depth
     col = max(col, below * 0.55);                           // hearth glows through cold plates
+    // the plates float on the molten core — it glows out through the cracks
+    col = mix(col, moltenCol, crackOpen * (0.32 + 0.50 * macro));
+    // the white-hot strike flare rides on top of the open crack
     vec3 seamCol = forgeColor(clamp(0.58 + flare, 0.0, 1.0));
     col += seamCol * seam * (0.32 + flare) * (0.22 + macro);
 
