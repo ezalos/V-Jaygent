@@ -6,6 +6,7 @@ audio: audio.mp3
 audio_features:
   - beat
   - sections
+  - stems
   - key
 time_source: audio
 duration: 275
@@ -15,67 +16,68 @@ notes: |
   HIRAES — "We Owe No One" (Solitary, 2022). Melodic death metal,
   86 BPM half-time / ~172 double-time feel, F# major, 4:34.
 
-  The forge. A Voronoi tessellation of tempered iron plates, struck
-  on every downbeat — the crack lattice flares white-hot then cools
-  back to ember while the plates hold their shape. Metal self-forged
-  and unbroken: we owe no one. The warm-only palette is a blackbody
-  curve, so the forge metaphor and the VISION constraint are one
-  thing — cold iron near-black/wine, molten ember -> amber ->
-  white-hot.
+  The forge. A Voronoi tessellation of tempered iron plates on a
+  hidden molten substrate. The iron is unforged in the intro, the
+  band-entry DROP crystallises the lattice, it half-melts under the
+  guitar solo, collapses to cold dark iron in the breakdown, and the
+  post-silence DROP re-ignites it. Metal self-forged and unbroken:
+  we owe no one. Warm-only palette = a blackbody curve.
 
-  Architecture E — 5-layer stack, bottom -> top:
-    1. forge-base       near-black hearth, coal-bed glow rising from
-                        the bottom; breathes on u_energy_smooth,
-                        collapses dark in the breakdown.
-    2. fracture-plates  THE LEAD. Voronoi plates (F1 + edge-distance
-                        seams). Reads u_below for heat-refraction
-                        (the hearth-glow gradient bends the cell
-                        field — geometric coupling). Cursor = the
-                        hammer. replace blend.
-    3. embers           sparks that rise off the hottest plates;
-                        bursts on u_audio_high; rising trails via
-                        u_history. max blend.
-    4. heat-haze        rising fbm displacement of u_below; warp
-                        amount on u_audio_level + u_energy_smooth.
-    5. vignette-grain   warm vignette, bloom roll-off, 1/f grain on
-                        u_audio_high, partial-Reinhard tonemap.
+  Architecture E — 6-layer stack, bottom -> top:
+    1. forge-base       near-black hearth, coal-bed glow. Carries the
+                        sparse intro before the plates exist.
+    2. fracture-plates  THE LEAD. Voronoi plates + molten substrate.
+                        Section state machine: formedness (unforged
+                        intro -> crystallised), the drop shockwave,
+                        the solo melt. replace blend.
+    3. vocal-veins      a braid of white-hot molten veins that ignites
+                        when the singer sings (u_audio_vocals_stem)
+                        and cools away when she rests. screen blend.
+    4. embers           sparks rising off the hottest plates. max blend.
+    5. heat-haze        rising fbm displacement of u_below.
+    6. vignette-grain   warm vignette, bloom, 1/f grain, Reinhard.
 
-  Audio bindings — all geometric (PASS shapes, no audio-on-brightness):
-    - downbeat / bar phase  -> per-cell hammer-jolt displacement
-                               (every seam moves; decays over the bar)
-    - bass                  -> Voronoi cell scale (plates contract)
-    - mid (melodic lead)    -> domain-warp amount of the cell field
-    - high                  -> seam width jitter + ember burst rate
-    - beat phase / index    -> per-beat lattice rock (visible phase-lock)
-    - to-section-change     -> pre-tension lattice squeeze (last 6s)
-    - energy / song progress-> master plate temperature + palette ramp
+  Audio — driven by the Demucs stems (vocals/drums/bass/other), not
+  full-band energy. All bindings geometric (no audio-on-brightness):
+    - drums stem    -> per-cell hammer-jolt displacement
+    - bass stem     -> Voronoi cell scale (plates contract)
+    - other (gtr)   -> molten-substrate surge, dominant in the solo
+    - vocals stem   -> the vocal-veins braid: appears/vanishes with
+                       the singer, recurs every vocal section
+    - mid / high    -> domain warp / seam-width jitter
+    - beat phase    -> per-beat lattice rock (visible phase-lock)
+    - section id    -> the state machine: intro/drop/verse/solo/
+                       breakdown/drop/outro each a distinct visual
+    - to-section-change -> pre-tension lattice squeeze
 
-  Cursor (u_mouse): the hammer. Presence sends a Gaussian shockwave
-  that re-fractures locally — extra jolt + seam ignition around the
-  cursor. Disjoint from audio (audio drives the global lattice; the
-  cursor adds a local crater) so the two never fight on one parameter.
+  Cursor (u_mouse): the hammer — a Gaussian shockwave that
+  re-fractures locally + throws sparks. Disjoint from the audio
+  (audio = global lattice, cursor = local crater).
 
-  Idle: the forge breathes (synthetic energy sine), Voronoi cell
-  centres drift on a Lloyd-relaxation wander, seams glow faint and
-  migrate, lone embers rise. Self-plays with synthetic drivers when
-  u_audio_playing == 0.
+  Arc (stem-derived 9-section analysis JSON):
+    intro 0-6s        opening hit, dark
+    build 6-26s       clean guitar intro — unforged cold iron, no plates
+    DROP 26-31s       band slams in — the lattice crystallises white-hot
+    verse 31-148s     full forge, vocal-veins ignite with the singer
+    solo 148-196s     guitar solo — vocals out, the iron half-melts
+    verse 196-232s    full forge returns, vocals back
+    breakdown 232-254s collapses to cold dark iron + 6s of silence
+    DROP 254-259s     post-silence re-ignition slam
+    outro 259-275s    final blaze, fade to black
 
-  Arc (hand-edited 8-section analysis JSON — the auto-segmenter
-  collapsed the 208s body to one blob): black cold iron -> first
-  strike lights the coals (0.7-24s) -> band enters, lattice ignites
-  (24-48s) -> sustained blaze, hammer on every downbeat (48-198s) ->
-  energy creeps to max, seams whitest (198-232s) -> BREAKDOWN: the
-  forge goes dark, cools to wine/near-black, a lone ember drifts
-  (232-255s) -> re-ignition, final blaze, fade to black (255-275s).
+  Idle: forge breathes, cells drift, faint synthetic vein. Self-plays
+  with synthetic drivers when u_audio_playing == 0.
 layers:
   - layer: forge-base
     blend: normal
   - layer: fracture-plates
     blend: replace
+  - layer: vocal-veins
+    blend: add
   - layer: embers
     blend: max
   - layer: heat-haze
     blend: replace
   - layer: vignette-grain
     blend: replace
-rendered_at: '2026-05-20T18:28:24.853Z'
+rendered_at: '2026-05-20T20:49:58.428Z'

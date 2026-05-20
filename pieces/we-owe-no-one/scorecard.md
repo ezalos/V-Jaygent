@@ -1,43 +1,34 @@
 # we-owe-no-one — scorecard
 
-Last iterated: 2026-05-20 (run R-20260520T190046-we-owe-no-one-iter, 1 critic pass)
-Latest verdict: chef-doeuvre (meets the taste.md bar — see v3 reconciliation note)
-Claim check: pass
+Last reworked: 2026-05-20 (Louis feedback pass — NOT critic-graded since)
+Latest critic verdict: chef-doeuvre (v3 — STALE, pre-rework)
+Claim check: pass (v3)
 
-## Probe counts (latest critique)
-- Mesmerizing: 5/5   (mystery weak → pass)
-- Interaction: 7/7
-- Music: 4/4
-- Song-level: 6/6
-- Dual-input: 6/7
-- Layered: 5/8       (quiet-survives still fails — lead-dominant stack)
+## Status
 
-## Dimension scores (latest)
-| palette | composition | motion | intensity | depth | form |
-|---------|-------------|--------|-----------|-------|------|
-| 5/5     | 4/5         | 4/5    | 4/5       | 5/5   | n/a  |
+The v3 chef-doeuvre grade is stale. Louis watched the piece and called
+it "not good enough" — it looked the same start to end, the drop was
+not found, no vocal element. A substantial rework followed (see the
+2026-05-20 commit "real song structure + vocal element"):
 
-## Deltas (critic v2 → critic v3)
-| metric             | v2    | v3   | Δ   |
-|--------------------|-------|------|-----|
-| mesmerizing_passes | 4     | 5    | +1  |
-| mystery probe      | weak  | pass | ↑   |
-| claim_check        | pass  | pass | =   |
-| depth              | 4     | 5    | +1  |
-| palette/comp/motion/intensity | 5/4/4/4 | 5/4/4/4 | 0 |
-| layered_passes     | 4/8   | 5/8  | +1  |
+- Fixed bin/audio_analyzer/analyze.py so `--stems` works (was broken on
+  torchcodec) → Demucs vocals/drums/bass/other stems.
+- Replaced the section map: 9 stem-derived sections — two DROPS (band
+  entry 26s, post-silence re-entry 254s) and a guitar SOLO (148-196s,
+  vocals absent) that the old energy-only map had missed entirely.
+- New `vocal-veins` layer — bold white-hot braided veins driven by
+  `u_audio_vocals_stem`; appears when the singer sings, recurs every
+  vocal section. `add` blend.
+- `fracture-plates` is now a section state machine: unforged dark iron
+  in the intro, the lattice crystallises at the drop, the iron half-
+  melts into a smooth molten river under the solo, collapses in the
+  breakdown, re-ignites at the second drop. The iron recedes when the
+  singer leads so the vocal-veins blaze.
 
-## Most recent fix
-Dimension: mesmerizing / mystery
-What: hidden molten substrate — a finer second Voronoi the iron plates
-float on, glimpsed through the open cracks, with faint sub-fracture
-grain inside the plates. Added a second structural scale + figure/ground
-depth → mystery weak→pass, depth 4→5, mesmerizing 4/5→5/5.
+Needs a fresh /vjay-iterate pass to re-grade against taste.md.
 
-## Open direction (not blocking chef-doeuvre)
-The layer stack is lead-dominant: fracture-plates carries the whole
-composition, the other four layers are accent (quiet-survives fails).
-Making the supporting layers carry independent composition would make
-this a flagship *layered* piece on top of being a chef-doeuvre.
+## Probe counts (v3 — stale)
+- Mesmerizing: 5/5 · Interaction: 7/7 · Music: 4/4 · Song-level: 6/6
+- Dual-input: 6/7 · Layered: 5/8
 
-Latest critique: brainstorming/critiques/we-owe-no-one-v3.md
+Latest critique: brainstorming/critiques/we-owe-no-one-v3.md (stale)

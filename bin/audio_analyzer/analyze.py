@@ -130,17 +130,17 @@ def stem_separation_and_envelopes(input_path: str):
     import torch
     from demucs.pretrained import get_model
     from demucs.apply import apply_model
-    import torchaudio
 
     model = get_model('htdemucs')
     model.train(False)  # inference mode (equivalent to model.eval())
 
-    waveform, sr = torchaudio.load(input_path)
-    if waveform.shape[0] == 1:
-        waveform = waveform.repeat(2, 1)  # demucs expects stereo
-    if sr != SR_STEMS:
-        waveform = torchaudio.functional.resample(waveform, sr, SR_STEMS)
-        sr = SR_STEMS
+    # Load via librosa, not torchaudio.load — the latter dispatches to
+    # torchcodec, which fails to decode mp3 in this environment. librosa is
+    # already a dependency and decodes mp3 reliably.
+    y_stereo, sr = librosa.load(input_path, sr=SR_STEMS, mono=False)
+    if y_stereo.ndim == 1:
+        y_stereo = np.stack([y_stereo, y_stereo], axis=0)  # demucs expects stereo
+    waveform = torch.from_numpy(np.ascontiguousarray(y_stereo, dtype=np.float32))
 
     with torch.no_grad():
         sources = apply_model(model, waveform[None], device='cpu', progress=False)[0]

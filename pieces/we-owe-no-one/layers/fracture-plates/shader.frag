@@ -1,6 +1,6 @@
 #version 300 es
-// ABOUTME: fracture-plates layer — Voronoi tessellation of tempered iron plates
-// ABOUTME: floating on a hidden molten substrate, struck white-hot on the downbeat.
+// ABOUTME: fracture-plates layer — Voronoi tempered-iron plates on a molten
+// ABOUTME: substrate; unforged in the intro, crystallised at the drop, melting in the solo.
 precision highp float;
 
 uniform vec2  u_resolution;
@@ -8,7 +8,10 @@ uniform float u_time;
 uniform vec2  u_mouse;
 uniform sampler2D u_below;
 uniform float u_audio_playing;
-uniform float u_audio_bass;
+uniform float u_audio_bass_stem;
+uniform float u_audio_drums_stem;
+uniform float u_audio_other_stem;
+uniform float u_audio_vocals_stem;
 uniform float u_audio_mid;
 uniform float u_audio_high;
 uniform float u_downbeat;
@@ -52,7 +55,6 @@ vec3 forgeColor(float t){
 }
 float lum(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }
 
-// cell-point offset within its cell — idle Lloyd-ish drift + per-cell hammer jolt
 vec2 cellOffset(vec2 id, float driftT, float jolt){
     vec2 o = hash22(id);
     o += 0.15 * sin(driftT * 0.5 + 6.2831 * hash22(id + 7.0));
@@ -61,7 +63,6 @@ vec2 cellOffset(vec2 id, float driftT, float jolt){
 }
 
 // Voronoi F1 + edge distance. Returns (F1, edgeDist, cellId.x, cellId.y).
-// Caches the 3x3 cell offsets so both passes share one set of hashes.
 vec4 voronoi(vec2 q, float driftT, float jolt){
     vec2 ip = floor(q), fp = fract(q);
     vec2 cells[9];
@@ -94,35 +95,50 @@ void main(){
     vec2 uv = gl_FragCoord.xy / u_resolution;
     float aspect = u_resolution.x / u_resolution.y;
     float playing = u_audio_playing;
+    vec2 sp = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);  // composition reference
+    float rad = length(sp);
 
-    // ---- inputs: real audio when playing, synthetic drivers when idle ----
-    float bass  = mix(0.30 + 0.26 * sin(u_time * 1.6),       u_audio_bass,  playing);
-    float mid   = mix(0.24 + 0.18 * sin(u_time * 0.9 + 1.0), u_audio_mid,   playing);
-    float high  = mix(0.18 + 0.14 * sin(u_time * 2.7 + 2.0), u_audio_high,  playing);
-    float barPh = mix(fract(u_time * 0.30),                  u_bar_phase,   playing);
-    float beatPh= mix(fract(u_time * 1.20),                  u_beat_phase,  playing);
-    float energy= mix(0.34 + 0.16 * sin(u_time * 0.55),      u_energy_smooth, playing);
+    // ---- inputs: real stems when playing, synthetic drivers when idle ----
+    float bass  = mix(0.30 + 0.26 * sin(u_time * 1.6),       u_audio_bass_stem,  playing);
+    float drums = mix(0.32 + 0.30 * abs(sin(u_time * 1.7)),  u_audio_drums_stem, playing);
+    float other = mix(0.30 + 0.18 * sin(u_time * 0.7),       u_audio_other_stem, playing);
+    float mid   = mix(0.24 + 0.18 * sin(u_time * 0.9 + 1.0), u_audio_mid,        playing);
+    float high  = mix(0.18 + 0.14 * sin(u_time * 2.7 + 2.0), u_audio_high,       playing);
+    float barPh = mix(fract(u_time * 0.30),                  u_bar_phase,        playing);
+    float beatPh= mix(fract(u_time * 1.20),                  u_beat_phase,       playing);
+    float energy= mix(0.34 + 0.16 * sin(u_time * 0.55),      u_energy_smooth,    playing);
     float beatDir = mod(float(u_beat_index), 2.0) * 2.0 - 1.0;
-    float intro = smoothstep(0.0, 0.055, u_song_progress);   // first ~15s ramps up from cold
+    // when the singer leads, the iron recedes so the vocal-veins blaze against it
+    float voicePresent = smoothstep(0.05, 0.30, u_audio_vocals_stem) * playing;
 
-    // screen-space position — the composition reference, stable under the warp
-    vec2 sp = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
+    // ---- section state machine — the piece transforms across the song ----
+    int   sec  = u_section_id;
+    float sp01 = u_section_progress;
+    float isDrop    = (sec == 2 || sec == 7) ? 1.0 : 0.0;
+    float slamFlash = isDrop * exp(-3.0 * sp01);                   // flash lingers into the drop
+    float ringR     = isDrop * sp01 * 1.30;                        // shockwave radius
+    // formedness: 0 = unforged cold iron, 1 = full crystallised lattice
+    float formed;
+    if      (sec <= 0) formed = 0.05;                              // intro hit
+    else if (sec == 1) formed = 0.05 + 0.20 * sp01;                // build: iron waking
+    else if (sec == 2) formed = mix(0.22, 1.0, smoothstep(0.0, 0.55, sp01));  // DROP 1
+    else               formed = 1.0;                              // forged for the rest
+    // DROP 1 crystallises the lattice OUTWARD, behind the expanding shockwave
+    if (sec == 2) formed *= smoothstep(ringR + 0.14, ringR - 0.24, rad);
+    // solo (section 4): vocals out, the iron half-melts under the lead guitar
+    float soloAmt = (sec == 4) ? smoothstep(0.0, 0.06, sp01) * smoothstep(1.0, 0.93, sp01) : 0.0;
 
     // ---- macro composition: two drifting forge-hearts + a hot floor ----
-    // turns a uniform tessellation into a composed field — bright hearts,
-    // cold-iron periphery — so the squint reads a macro light/dark structure.
-    // each section re-seeds the heart configuration, so sections read distinct
-    float secSeed = float(u_section_id) * 1.7;
+    float secSeed = float(sec) * 1.7;
     vec2 h1 = vec2(0.42 * sin(u_time * 0.124 + secSeed), -0.06 + 0.20 * sin(u_time * 0.167 + secSeed));
     vec2 h2 = vec2(0.40 * sin(u_time * 0.091 + 2.4 + secSeed), 0.10 + 0.18 * cos(u_time * 0.143 + secSeed));
     float g1 = exp(-dot(sp - h1, sp - h1) * 3.1);
     float g2 = exp(-dot(sp - h2, sp - h2) * 4.2);
-    float floorGlow = smoothstep(0.62, -0.5, sp.y);          // forge is fiercest low
+    float floorGlow = smoothstep(0.62, -0.5, sp.y);
     float macro = clamp(max(max(g1, 0.74 * g2), 0.40 * floorGlow), 0.0, 1.0);
 
     // ---- coordinate field ----
     vec2 p = sp;
-    // heat-refraction: bend the cell field along the hearth-glow gradient below
     vec3 below = texture(u_below, uv).rgb;
     float e = 2.0 / u_resolution.y;
     float hgx = lum(texture(u_below, uv + vec2(e, 0)).rgb) - lum(texture(u_below, uv - vec2(e, 0)).rgb);
@@ -134,12 +150,10 @@ void main(){
     p += warpAmt * (vec2(fbm(p * 1.3 + u_time * 0.12),
                          fbm(p * 1.3 + u_time * 0.12 + 11.0)) - 0.5);
 
-    // per-beat lattice rock (visible phase-lock)
     float rock = 0.055 * sin(beatPh * PI) * beatDir;
     float cs = cos(rock), sn = sin(rock);
     p = mat2(cs, -sn, sn, cs) * p;
 
-    // pre-tension: lattice squeezes in the last 6s of a section
     float pretension = smoothstep(6.0, 0.0, u_to_section_change);
     float scale = 2.55 * (1.0 - 0.12 * bass) * (1.0 + 0.11 * pretension);
     vec2 q = p * scale;
@@ -150,10 +164,11 @@ void main(){
     vec2 worldP = sp * 2.0;
     float crater = exp(-dot(worldP - mw, worldP - mw) / (0.36 * 0.36));
 
-    // ---- hammer-jolt magnitude (per-cell direction lives in cellOffset) ----
-    float jolt = exp(-3.6 * barPh) * (0.075 + 0.05 * bass);
+    // ---- hammer-jolt: the DRUMS strike the lattice; the drop slams it hard ----
+    float jolt = exp(-3.6 * barPh) * (0.045 + 0.11 * drums);
     jolt += 0.045 * u_downbeat;
-    jolt += 0.11 * crater;                  // the cursor re-fractures locally
+    jolt += 0.11 * crater;
+    jolt += 0.32 * slamFlash;
 
     // ---- the iron plates: macro Voronoi ----
     vec4 vMacro = voronoi(q, u_time, jolt);
@@ -163,51 +178,65 @@ void main(){
     float cellH = hash21(midId * 1.31 + 4.7);
 
     // ---- hidden molten substrate: a finer Voronoi the plates float on ----
-    // glimpsed through the open cracks; its sub-seams reward a close look.
     vec2 qSub = p * (scale * 2.7) + 31.0;
     vec4 vSub = voronoi(qSub, u_time * 0.62 + 17.0, jolt * 0.35);
     float subCore  = 1.0 - smoothstep(0.0, 0.90, vSub.x);
     float subSeam  = smoothstep(0.060, 0.0, vSub.y);
-    float subGrain = smoothstep(0.130, 0.0, vSub.y);    // faint fracture grain inside plates
+    float subGrain = smoothstep(0.130, 0.0, vSub.y);
 
-    // ---- temperature: macro envelope x per-plate spread x core gradient ----
-    // master heat — energy arc, intro ramp, and a within-section creep
-    float master = clamp(0.12 + 1.00 * energy, 0.0, 0.92) * intro
-                   * (0.90 + 0.18 * u_section_progress);
-    float core  = 1.0 - smoothstep(0.0, 0.92, F1);          // hotter toward cell centre
-    float micro = fbm(q * 2.3 + midId) - 0.5;               // hammered-metal grain
+    // ---- temperature ----
+    float master = clamp(0.10 + 0.95 * energy, 0.0, 0.92);
+    master += 0.35 * slamFlash;
+    float core  = 1.0 - smoothstep(0.0, 0.92, F1);
+    float micro = fbm(q * 2.3 + midId) - 0.5;
     float hearth = lum(below);
     float plateTemp = master
-        * (0.10 + 1.05 * macro)                             // WHERE it is hot
-        * (0.30 + 1.05 * cellH)                             // plate-to-plate cold..white-hot
-        * (0.45 + 0.60 * core)                              // domed-plate core gradient
+        * (0.10 + 1.05 * macro)
+        * (0.30 + 1.05 * cellH)
+        * (0.45 + 0.60 * core)
         + 0.16 * hearth + 0.10 * micro;
-    plateTemp += 0.08 * subGrain * macro * master;          // the iron's own grain — look closer
+    plateTemp += 0.08 * subGrain * macro * master;
+    plateTemp *= smoothstep(0.0, 0.55, formed);
     plateTemp = clamp(plateTemp, 0.0, 1.0);
 
-    // ---- seams: bright in the hot zones, dark cracks in cold iron ----
-    float seamW = 0.034 + 0.05 * high * hash21(midId + 1.0);
+    // ---- seams: faint forming cracks in the intro; soft + molten in the solo ----
+    float seamW = 0.034 + 0.05 * high * hash21(midId + 1.0) + 0.075 * soloAmt;
     float seam  = smoothstep(seamW, 0.0, medge);
-    float seamHeat = clamp(0.16 + 1.15 * macro, 0.0, 1.2) * intro;
-    // flare brightens on the strike, then cools as jolt decays over the bar
-    float flare = seam * seamHeat * (0.30 + 3.0 * jolt + 1.6 * u_downbeat + 0.7 * crater);
+    seam *= 1.0 - 0.82 * soloAmt;            // the solo melts the angular cracks away
+    float seamHeat = clamp(0.16 + 1.15 * macro, 0.0, 1.2) * (0.18 + 0.82 * formed);
+    float flare = seam * seamHeat * (0.30 + 3.0 * jolt + 1.6 * u_downbeat + 0.7 * crater + 2.0 * slamFlash);
 
-    // ---- molten substrate seen through the open cracks ----
-    // the molten cools WITH the forge — master gates it so the breakdown stays dark
-    float crackOpen = smoothstep(0.085, 0.0, medge);        // wider than the seam thread
-    float moltenTemp = clamp(master * (0.62 + 0.55 * subCore) * (0.50 + 0.80 * macro), 0.0, 1.0);
+    // ---- molten substrate through the cracks — floods wide open in the solo ----
+    float crackOpen = smoothstep(0.085 + 0.17 * soloAmt, 0.0, medge);
+    float moltenTemp = clamp(master * (0.62 + 0.55 * subCore) * (0.50 + 0.80 * macro)
+                             + 0.50 * soloAmt * other, 0.0, 1.0);
     vec3 moltenCol = forgeColor(moltenTemp);
     moltenCol += forgeColor(clamp(0.58 + 0.40 * subSeam, 0.0, 1.0)) * subSeam * 0.40 * macro * master;
 
-    // ---- compose: plates over molten, lead always-on band, strike flare on top ----
+    // ---- solo: the angular lattice dissolves into a smooth molten river ----
+    // domain-warped turbulent flow, no Voronoi cells — distinct from the
+    // struck plates of the verse; the lead guitar drives the turbulence
+    vec2 fw = vec2(fbm(p * 1.5 + u_time * 0.10),
+                   fbm(p * 1.5 + u_time * 0.10 + 7.3));
+    float flowN = fbm(p * 2.6 + fw * (0.9 + 0.8 * other) + vec2(u_time * 0.22, -u_time * 0.14));
+    float flowTemp = clamp(master * (0.46 + 0.85 * flowN) * (0.42 + 0.90 * macro)
+                           + 0.20 * other, 0.0, 1.0);
+    vec3 flowCol = forgeColor(flowTemp);
+
+    // ---- compose ----
     vec3 col = forgeColor(plateTemp * 0.82 + 0.06);
-    col *= 0.30 + 0.70 * core + 0.28 * cellH;               // interior shading -> depth
-    col = max(col, below * 0.55);                           // hearth glows through cold plates
-    // the plates float on the molten core — it glows out through the cracks
-    col = mix(col, moltenCol, crackOpen * (0.32 + 0.50 * macro));
-    // the white-hot strike flare rides on top of the open crack
+    col *= 0.30 + 0.70 * core + 0.28 * cellH;
+    col = max(col, below * mix(1.0, 0.55, formed));
+    col = mix(col, moltenCol, crackOpen * (0.32 + 0.50 * macro) * max(formed, 0.55 * soloAmt));
     vec3 seamCol = forgeColor(clamp(0.58 + flare, 0.0, 1.0));
     col += seamCol * seam * (0.32 + flare) * (0.22 + macro);
+    col = mix(col, flowCol, soloAmt * 0.95);          // the solo: struck iron -> a molten river
+    col *= mix(1.0, 0.52, voicePresent);              // the iron recedes when the singer leads
+
+    // ---- the drop: a white-hot shockwave ring + a frame-wide ignition flash ----
+    float ringGlow = isDrop * exp(-pow((rad - ringR) * 6.5, 2.0)) * (1.0 - 0.55 * sp01);
+    col += forgeColor(0.95) * ringGlow * 1.05;
+    col += forgeColor(0.90) * slamFlash * 0.42 * (0.4 + macro);
 
     fragColor = vec4(col, 1.0);
 }
