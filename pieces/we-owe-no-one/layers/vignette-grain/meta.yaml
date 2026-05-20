@@ -1,0 +1,8 @@
+name: vignette-grain
+identity: "warm vignette, bloom roll-off and 1/f grain"
+default_blend: replace
+uniforms: {}
+reads:
+  - u_below
+publishes: []
+consumes: []

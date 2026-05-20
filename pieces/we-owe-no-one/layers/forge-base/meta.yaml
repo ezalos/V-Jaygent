@@ -1,0 +1,7 @@
+name: forge-base
+identity: "near-black hearth with a rising coal-bed glow"
+default_blend: normal
+uniforms: {}
+reads: []
+publishes: []
+consumes: []

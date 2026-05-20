@@ -1,0 +1,9 @@
+name: embers
+identity: "rising sparks off the hottest plates"
+default_blend: max
+uniforms: {}
+reads:
+  - u_below
+  - u_history
+publishes: []
+consumes: []

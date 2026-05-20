@@ -1,0 +1,9 @@
+name: heat-haze
+identity: "rising fbm displacement of u_below"
+default_blend: replace
+uniforms: {}
+reads:
+  - u_below
+  - u_history
+publishes: []
+consumes: []

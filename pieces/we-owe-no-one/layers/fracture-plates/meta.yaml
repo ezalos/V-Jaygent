@@ -1,0 +1,8 @@
+name: fracture-plates
+identity: "Voronoi iron plates struck on the downbeat"
+default_blend: replace
+uniforms: {}
+reads:
+  - u_below
+publishes: []
+consumes: []

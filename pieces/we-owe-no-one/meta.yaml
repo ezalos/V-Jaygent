@@ -1,0 +1,81 @@
+title: We Owe No One
+slug: we-owe-no-one
+created: 2026-05-20T18:08:57.988Z
+architecture: E
+audio: audio.mp3
+audio_features:
+  - beat
+  - sections
+  - key
+time_source: audio
+duration: 275
+render_scale: 0.55
+published_at: null
+notes: |
+  HIRAES — "We Owe No One" (Solitary, 2022). Melodic death metal,
+  86 BPM half-time / ~172 double-time feel, F# major, 4:34.
+
+  The forge. A Voronoi tessellation of tempered iron plates, struck
+  on every downbeat — the crack lattice flares white-hot then cools
+  back to ember while the plates hold their shape. Metal self-forged
+  and unbroken: we owe no one. The warm-only palette is a blackbody
+  curve, so the forge metaphor and the VISION constraint are one
+  thing — cold iron near-black/wine, molten ember -> amber ->
+  white-hot.
+
+  Architecture E — 5-layer stack, bottom -> top:
+    1. forge-base       near-black hearth, coal-bed glow rising from
+                        the bottom; breathes on u_energy_smooth,
+                        collapses dark in the breakdown.
+    2. fracture-plates  THE LEAD. Voronoi plates (F1 + edge-distance
+                        seams). Reads u_below for heat-refraction
+                        (the hearth-glow gradient bends the cell
+                        field — geometric coupling). Cursor = the
+                        hammer. replace blend.
+    3. embers           sparks that rise off the hottest plates;
+                        bursts on u_audio_high; rising trails via
+                        u_history. max blend.
+    4. heat-haze        rising fbm displacement of u_below; warp
+                        amount on u_audio_level + u_energy_smooth.
+    5. vignette-grain   warm vignette, bloom roll-off, 1/f grain on
+                        u_audio_high, partial-Reinhard tonemap.
+
+  Audio bindings — all geometric (PASS shapes, no audio-on-brightness):
+    - downbeat / bar phase  -> per-cell hammer-jolt displacement
+                               (every seam moves; decays over the bar)
+    - bass                  -> Voronoi cell scale (plates contract)
+    - mid (melodic lead)    -> domain-warp amount of the cell field
+    - high                  -> seam width jitter + ember burst rate
+    - beat phase / index    -> per-beat lattice rock (visible phase-lock)
+    - to-section-change     -> pre-tension lattice squeeze (last 6s)
+    - energy / song progress-> master plate temperature + palette ramp
+
+  Cursor (u_mouse): the hammer. Presence sends a Gaussian shockwave
+  that re-fractures locally — extra jolt + seam ignition around the
+  cursor. Disjoint from audio (audio drives the global lattice; the
+  cursor adds a local crater) so the two never fight on one parameter.
+
+  Idle: the forge breathes (synthetic energy sine), Voronoi cell
+  centres drift on a Lloyd-relaxation wander, seams glow faint and
+  migrate, lone embers rise. Self-plays with synthetic drivers when
+  u_audio_playing == 0.
+
+  Arc (hand-edited 8-section analysis JSON — the auto-segmenter
+  collapsed the 208s body to one blob): black cold iron -> first
+  strike lights the coals (0.7-24s) -> band enters, lattice ignites
+  (24-48s) -> sustained blaze, hammer on every downbeat (48-198s) ->
+  energy creeps to max, seams whitest (198-232s) -> BREAKDOWN: the
+  forge goes dark, cools to wine/near-black, a lone ember drifts
+  (232-255s) -> re-ignition, final blaze, fade to black (255-275s).
+layers:
+  - layer: forge-base
+    blend: normal
+  - layer: fracture-plates
+    blend: replace
+  - layer: embers
+    blend: max
+  - layer: heat-haze
+    blend: replace
+  - layer: vignette-grain
+    blend: replace
+rendered_at: '2026-05-20T18:28:24.853Z'
