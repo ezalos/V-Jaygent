@@ -214,11 +214,20 @@ basin id* and *L = capture/escape speed*; keep the basin palette warm
 
 ## How to apply in V-Jaygent
 
-- **The piece.** A gravity-basin field is the first piece — Recipe 1
-  as the lead layer, attractor positions wired to `u_mouse` /
-  `u_touches` / `u_audio_*`, capture-speed brightness pumped by beat
-  energy. Per the multi-layer default, pair it with a warm substrate
-  layer and a sub-beat shimmer layer.
+- **The piece — watershed (2026-05-22).** Built as a gravity-basin
+  field first (Recipe 1). It does **not** work in realtime: an
+  integrated gravity / magnetic-pendulum basin needs offline-grade
+  resolution and integration length to resolve the Wada filigree — at
+  realtime fragment-shader budgets it collapses to a soft *marbled*
+  field, never crisp basins (nine renders confirmed it; Recipe 1's
+  dissipative drag in particular kills the chaos the fractal needs).
+  The fix was to pivot to **Recipe 2, the Newton fractal** —
+  intrinsically a crisp Wada fractal, no chaos to coax out, ~10×
+  cheaper, and crisp at one sample/pixel. `pieces/watershed/` is the
+  Newton version: 6+ moving roots, cursor carries a root, the synth
+  places roots. **For any future basin/fractal piece, default to
+  Recipe 2 or 3 (Newton or escape-time), not Recipe 1.** Recipe 1 is
+  honest as offline math; it is the wrong realtime choice.
 - **The critic.** This is graded by the existing `taste.md`
   *Structure-honesty* lens: a piece claiming "basin of attraction"
   must *show* emergent boundary filigree, not a smooth gradient.
