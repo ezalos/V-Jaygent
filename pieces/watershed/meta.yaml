@@ -1,0 +1,71 @@
+title: Watershed
+slug: watershed
+created: 2026-05-22T16:26:44.116Z
+architecture: A
+testability: pure-self-play
+duration: 90
+render_scale: 0.66
+keyboard_synth: true
+notes: |
+  ## Brief gates (vjay-new-piece §1b + §1c)
+  canonical_ref: "Newton fractal — basin of attraction of Newton's
+    method on a moving-root polynomial. See
+    brainstorming/techniques/basins-of-attraction.md Recipe 2.
+    Sibling in canonical-pieces.md: Julia / escape-time fractal."
+  eye_landing_candidates:
+    - bright lake interiors — one per polynomial root
+    - the crisp self-similar bead-chain of the Wada basin boundary
+    - the glowing root cores
+    - the downbeat ring expanding from the dominant root
+  warm_cycle: [near-black, wine, ember, amber, gold, cream]
+  idle_behaviour: "6 roots orbit on an internal clock; the Newton
+    basins reorganize from that motion alone — no cursor/audio/keys
+    needed. Cursor root absent when u_mouse idle."
+  arch_rationale: "A — single-pass per-pixel functional shader. Each
+    pixel iterates Newton's method to a root; that root is its basin.
+    No cross-frame state. (v1-v7 explored E and C: a gravity/pendulum
+    basin needed amortization via a ping-pong buffer, but the Newton
+    fractal is cheap enough — ~30 iterations — to recompute crisp
+    every frame, so the simplest architecture is the right one.)"
+
+  ## Thesis
+  A basin-of-attraction field — every pixel iterates Newton's method
+  on a polynomial whose roots are moving wells; its colour is the root
+  it converges to (hue) and how fast (luminance). The boundary between
+  basins is an intrinsic, crisp, infinitely-detailed Wada fractal that
+  writhes as the roots move. From the 2swap study (2026-05-22).
+
+  ## Build
+  Single shader.frag. Per pixel: z -= 1/sum(1/(z-root_i)) over up to
+  10 roots (6 orbiting spread wide to the frame edges + cursor + 3
+  keyboard), 48-iter cap, early-out on convergence; the nearest root
+  is the basin. Six roots give a dense seam network that weaves the
+  whole frame. Then substrate haze for the deep-boundary void, root
+  glow cores, a downbeat ring that warps the Newton start point,
+  sub-beat shimmer, reinhard. render_scale 0.66 for the iteration
+  budget.
+
+  ## Inputs
+  - Cursor: carries a polynomial root (cream basin) — drag it and the
+    whole Wada partition reorganizes around it. Idle -> root absent.
+  - Keyboard (15-key synth): the 3 most-energized keys each place a
+    root at their own position on an outer ring; basin hued by key
+    index (wine -> gold). Per-key distinct.
+  - Audio: u_audio_bass breathes the orbiting roots' radius (the
+    fractal pulses on a kick); u_audio_level lifts the haze;
+    u_audio_high feeds the shimmer. Theme-only — audio is an additive
+    bonus, never load-bearing. Beat/bar synthesised from u_time.
+
+  ## Palette
+  Warm only: near-black void, then wine -> ember -> amber -> gold ->
+  cream. Basin id sets hue + base luminance; convergence speed adds
+  brightness (fast = bright lake interior, slow = dark fractal vein).
+  Contrast carried by the near-black void, not by cool intrusions.
+
+  ## Arc
+  Self-playing, no fixed ending. Macro envelope: the orbiting roots'
+  radius breathes (~95s period) so the watershed slowly widens and
+  re-tightens — a drifting composition rather than a loop.
+uniforms: []
+published_at: null
+rendered_at: '2026-05-22T18:06:03.870Z'
