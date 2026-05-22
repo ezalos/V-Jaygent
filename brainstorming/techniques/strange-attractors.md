@@ -79,6 +79,14 @@ A de Jong slice with slow parameter modulation (audio mid → `param.w`) makes
 a beautiful **organic, slowly-mutating backdrop** unlike any noise-based
 pattern. Distinct silhouette from fbm.
 
+## See also
+
+`brainstorming/techniques/basins-of-attraction.md` is the cousin
+note. A strange attractor is the *limit set* you plot directly (this
+note). A basin map colors phase space by *which* attractor each
+starting point reaches — destiny, not the destination. 2swap's
+gravity-basin / pendulum / Newton-fractal work is the basin half.
+
 ## References
 
 - de Jong math: <https://www.algosome.com/articles/strange-attractors-de-jong.html>
