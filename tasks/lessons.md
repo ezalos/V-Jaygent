@@ -47,6 +47,10 @@ context, the `Why:` line, and the `How to apply:` rule.
   static feedback loop. (`feedback_layer_authoring_traps.md`)
 - **Plan mode use** — Claude's judgment call; either asking or
   switching autonomously is fine. (`feedback_ask_before_plan_mode.md`)
+- **Realtime basin/fractal pieces** — use the Newton fractal, not
+  integrated gravity dynamics (marbles at realtime res); when a brief
+  names something a reference renders OFFLINE, check the algorithm's
+  realtime fit at the brief stage. (`feedback_realtime_basin_pieces.md`)
 
 ## How to add a new lesson
 
