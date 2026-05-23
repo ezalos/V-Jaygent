@@ -68,8 +68,11 @@ void main() {
     // Pan period ~100s, zoom period ~150s; both slow enough to read
     // as drift, fast enough that inspect frames differ meaningfully.
     float zoom = 1.0 + 0.35 * sin(u_time * 0.040);
-    vec2  pan  = vec2(1.2 * sin(u_time * 0.060),
-                      0.7 * cos(u_time * 0.050));
+    // Slow pan + a beat-scale jitter on top so the field doesn't just
+    // tide, it rocks. Two timescales of liveness layered into the same
+    // axis (per feedback_three_timescales_of_liveness).
+    vec2  pan  = vec2(1.2 * sin(u_time * 0.060) + 0.07 * sin(u_time * 1.8),
+                      0.7 * cos(u_time * 0.050) + 0.05 * cos(u_time * 2.1));
     float t1 = (uv.x - 0.5) * PI * 1.78 * zoom + pan.x;
     float t2 = (uv.y - 0.5) * PI        * zoom + pan.y;
 
@@ -124,9 +127,11 @@ void main() {
     // (max(silhouette*0.30, accent)) applied to a full-frame field.
     vec3 col = warmRamp(hueT) * (0.30 + 0.80 * chaos);
 
-    // sub-beat shimmer — always-on micro motion
-    float sh = (vnoise(uv * 38.0 + u_time * 4.0) - 0.5)
-             * 0.05 * (0.5 + 0.8 * u_audio_high);
+    // sub-beat shimmer — the sea surface rippling. Bumped to be
+    // visibly kinetic instead of sub-perceptual (was 0.05 × 4.0 →
+    // critic v2 flagged motion as "stately drift, not restless").
+    float sh = (vnoise(uv * 38.0 + u_time * 6.0) - 0.5)
+             * 0.12 * (0.5 + 0.8 * u_audio_high);
 
     // slow composition envelope so the frame is never literally static
     col *= 0.85 + 0.15 * sin(u_time * 0.08 + (uv.x - 0.5) * 1.2);
