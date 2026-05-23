@@ -51,6 +51,11 @@ context, the `Why:` line, and the `How to apply:` rule.
   integrated gravity dynamics (marbles at realtime res); when a brief
   names something a reference renders OFFLINE, check the algorithm's
   realtime fit at the brief stage. (`feedback_realtime_basin_pieces.md`)
+- **Animate the landscape** — pixel-to-state-map pieces (Lyapunov,
+  basin, escape-time) need a slow drift of a global parameter OR
+  pan/zoom of the sampling, else the field is static frame-to-frame;
+  cursor/keyboard alone won't break the freeze in idle.
+  (`feedback_animate_the_landscape.md`)
 
 ## How to add a new lesson
 
