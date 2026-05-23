@@ -1,0 +1,67 @@
+title: Shoal
+slug: shoal
+created: 2026-05-23T10:40:21.000Z
+architecture: A
+testability: pure-self-play
+duration: 90
+render_scale: 0.5
+keyboard_synth: true
+notes: |
+  ## Brief gates (vjay-new-piece §1b + §1c)
+  canonical_ref: "Lyapunov chaos map of the double pendulum — Recipe 4
+    of brainstorming/techniques/basins-of-attraction.md
+    (twin-trajectory cheap-out). Hamiltonian canonical with m=l=1,
+    gravity g."
+  eye_landing_candidates:
+    - bright chaotic regions (where divergence saturates)
+    - the dim solid-colour KAM islands of stability
+    - symmetric structure around equilibria (θ1=θ2=0, ±π)
+    - the seam where stability meets chaos (the literal shoal edge)
+  warm_cycle: [near-black, wine, ember, amber, gold, cream]
+  idle_behaviour: "released-from-rest double pendulums at default
+    gravity 9.8; the chaos map is shown; audio.bass pumps gravity so
+    the map breathes; a slow composition envelope keeps it from being
+    literally static. No cursor / keys required."
+  arch_rationale: "A — single-pass per-pixel. Each pixel computes its
+    own fixed-horizon Lyapunov via twin-trajectory RK4 (30 steps),
+    output every frame. Not C: amortization made watershed
+    ungradeable from headless stills; here stills grade the same as
+    live."
+
+  ## Thesis
+  Each pixel is the initial state (θ1, θ2) of a double pendulum,
+  released from rest. Integrate it and a twin perturbed by 1e-4 for
+  ~30 RK4 steps; pixel brightness is log(separation / 1e-4). Stable
+  regions (KAM islands) read as soft solid colour; chaotic regions
+  saturate bright. The viewer sees phase-space architecture —
+  islands of regularity in a chaotic sea, which is what `shoal`
+  means. Continuation of the 2swap study; companion to watershed.
+
+  ## Build
+  Single shader.frag. Per pixel: map gl_FragCoord to (θ1, θ2),
+  initialise twin (θ1 perturbed by 1e-4), RK4-integrate both for 30
+  steps with dt=0.065 (≈ 2s of system time), compute
+  log(separation / 1e-4), smoothstep into chaosBrightness. Hue from
+  atan2(sin θ2, sin θ1) into the warm ramp.
+
+  ## Inputs
+  - Cursor.x → initial momentum kick on pendulum 1 (~±1).
+  - Cursor.y → gravity multiplier (~0.6–1.4).
+  - Keyboard (15-key synth) → each key adds a unique signed
+    initial-momentum impulse. Per-key distinct.
+  - Audio.bass → additive gravity pulse (map breathes on kick).
+  - Audio.high → sub-beat shimmer amplitude.
+  Theme-only, self-playing.
+
+  ## Palette
+  Warm only: near-black void, then wine → ember → amber → gold →
+  cream. Hue carries the state (θ1, θ2); luminance carries chaos
+  intensity (stable = dim solid colour, chaotic = bright).
+
+  ## Arc
+  Self-playing, no fixed ending. A slow sin(u_time) brightness
+  envelope keeps the field drifting; with audio, bass pulses
+  gravity so islands grow and shrink on the kick.
+uniforms: []
+published_at: null
+rendered_at: '2026-05-23T12:34:34.116Z'

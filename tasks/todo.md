@@ -1,96 +1,81 @@
-# Study 2swap → build a 2swap-inspired piece
+# shoal — Lyapunov chaos map of the double pendulum
 
-**Context.** Louis asked to study the YouTube creator **2swap** (@twoswap)
-— chaos / dynamical-systems visualizer, "Gravity Basins", "Double
-Pendulums are Chaoticn't", fractals. His renderer is open-source:
-`github.com/2swap/swaptube`. Louis wants this as inspiration AND a
-piece built from it. Run: `R-20260522T114719-topic-chaotic-systems`.
+**Context.** Continuing the basins-of-attraction series after watershed.
+Louis: "let's do the lyapunov chaos map next." Recipe 4 of
+`brainstorming/techniques/basins-of-attraction.md` — 2swap's *Double
+Pendulums are Chaoticn't* in V-Jaygent form.
 
-Decision (asked 2026-05-22): **study, then build a piece.**
+Previous todo (watershed) preserved in git history (commit `3a8503d`).
 
-## Phase 1 — Study (vjay-study flow)
+## Thesis (committed)
 
-- [x] 1. **Deep research** — 2 background agents done. Key finding:
-      `swaptube` has NO N-body code; gravity-basin recipe derived
-      from primitives — and it works SINGLE-PASS (no ping-pong).
-- [x] 2. **Distill to brainstorming/**
-      - `inspirations/2swap-refs.md` — artist study (written)
-      - `techniques/basins-of-attraction.md` — the technique note,
-        4 single-pass GLSL recipes (written). Named for the general
-        technique, not just gravity. Cross-linked `strange-attractors.md`.
-- [x] 3. **Update taste.md** — extended the Structure-honesty lens
-      with the basin clause (emergent boundary filigree).
-- [x] 4. **Update /vjay-iterate critic** — added reading-order
-      item 12 (the basins note, conditional); renumbered 13-16.
-- [~] 5. **lib/ extraction** — SKIPPED. Bar is 3 pieces; only 1
-      planned. Two reuse-candidate formulas noted in the technique
-      file for later.
-- [ ] 6. **Commit the study bundle** — DEFERRED. Tree has 83 dirty
-      files; `taste.md` + `vjay-iterate/SKILL.md` carried pre-existing
-      WIP before this session. Commit grouping needs Louis's call —
-      handle at end of run with the piece.
+Each pixel is the initial state (θ1, θ2) of a double pendulum,
+released from rest. Integrate it AND a twin perturbed by 1e-4 for
+~30 RK4 steps; pixel brightness = `log(separation / 1e-4)`. Stable
+regions (KAM islands) read as soft solid colour; chaotic regions
+saturate bright/hot. The viewer sees phase-space architecture —
+islands of regularity in a chaotic sea, which is what `shoal` means.
 
-## Phase 2 — Build the piece: `watershed`
+## Plan
 
-- [x] 7. **Thesis + brainstorm** — gravity basins; stub at
-      `brainstorming/pieces/watershed.md`.
-- [x] 8. **Scaffold** — `pieces/watershed/`.
-- [~] 9. **Build + inspect** — 8 renders, honest saga:
-      - v1-v4 gravity/magnetic-pendulum: balloons → dust → fur →
-        marbled paper. Never crisp basins. Architecture E→C en route.
-      - Louis approved a pivot to the **Newton fractal** (2026-05-22).
-      - v5-v7 Newton: chunky → coarse beads → dither-corrupted (the
-        amortization made headless stills ungradeable).
-      - v8: collapsed to single-pass monolithic (architecture A),
-        de-amortized. CRISP, correct Newton-fractal basin map.
-      - Standing issue: composition is thin — 2-3 flat zones + one
-        beaded seam. Correct + crisp but not yet mesmerizing.
-      - PAUSED for Louis's call (invest one more push / ship v8 /
-        shelve). See handoff.
-- [ ] 10. **Critique loop** — pending Phase 9 resolution.
-- [ ] 11. **Commit the piece** — pending. NB: study commit (Phase 1
-      item 6) still also deferred — bundle decision with Louis.
+- [x] 1. Brief + start run (`R-20260523T104021-shoal-new`).
+- [x] 2. Scaffold `pieces/shoal/`.
+- [ ] 3. Write `shader.frag` + `meta.yaml` (monolithic, A).
+- [ ] 4. Brainstorm stub + refs.
+- [ ] 5. Sanity render (`bin/publish.mjs shoal --duration 4`).
+- [ ] 6. Inspect (`bin/inspect.mjs shoal 6 14`).
+- [ ] 7. Read frames; tune at most ONE thing if needed (watershed
+      discipline — don't grind).
+- [ ] 8. Lints (palette/idle/composition) + audit.
+- [ ] 9. Critic grade (dispatch independent Explore agent).
+- [ ] 10. Commit the piece.
+- [ ] 11. `/wrap-up`.
 
-## Phase 3 — Wrap
+## Non-goals
 
-- [ ] 12. `/wrap-up` — capture meta-lessons; end the run.
+- Passes / amortization. Watershed proved the headless-inspect cost
+  isn't worth it; gradeable from stills > marginal perf win.
+- A separate substrate / glow / ring layer. The chaos map IS the
+  thesis — adornments distract.
+- Per-pixel mass-ratio (would require generalising the Hamiltonian);
+  cursor.x drives an initial momentum kick instead.
 
 ## Open question
 
-Piece thesis presented to Louis 2026-05-22 — `watershed`, a
-gravity-basin field. Awaiting his nod before scaffolding (Phase 2).
-Commit grouping for the dirty tree also pending his call.
+Will 30 RK4 steps × dt=0.065 (≈ 2s of system time) resolve the
+characteristic KAM-island structure, or does it need 50+ for clean
+edges? Tune at inspect.
 
 ## Review
 
-**Shipped.** Two commits on master:
-- `f531512` study: 2swap — chaotic systems / basins of attraction
-- `8e5c9b0` add watershed: Newton-fractal basin of attraction
+**Shipped — critic ship-it on iteration 2 (build v4).**
 
-Phase 1 (study) — `2swap-refs.md` + `basins-of-attraction.md` + a
-`strange-attractors.md` cross-link, committed. The taste.md basin
-clause + critic reading-order entry are written but left uncommitted
-(taste.md + vjay-iterate/SKILL.md carry Louis's pre-existing WIP) —
-Louis to fold those hunks in.
+Build arc: v1 monolithic single-pass twin-trajectory Lyapunov, with a
+slight gravity drift. Lints all pass, but the critic returned
+**structural-rethink** — the pixel-to-state map was static, so the
+basin field couldn't breathe (only ±12% gravity modulation, no
+field-level evolution). Saved `shoal-v1.md` (blocked critique).
 
-Phase 2 (watershed) — chef-doeuvre on critic v1 (5/5 mesmerizing, all
-dimensions 5). It took 9 renders and one architecture pivot. The
-honest arc: gravity/magnetic-pendulum basins (v1-v4) produced a
-marbled field, never crisp Wada filigree — a realtime shader can't
-resolve what 2swap renders offline. Louis approved a pivot to the
-Newton fractal (intrinsically a crisp Wada fractal, ~10x cheaper);
-v5-v8 got it crisp; v9's 6-root density push made it dense and
-mesmerizing.
+Louis chose option A: the critic's recommendation — animate parameters
+to reshape basins in real time. v4 added (a) phase-space pan + zoom
+drift (periods ~100s / ~150s) so the pixel-to-state map evolves
+frame-to-frame, and (b) strong gravity oscillation (range 4–16 over
+~70s) so the KAM islands grow and shrink. Combined, the field is now
+unrecognisable between distant frames.
 
-**Lessons** (also in memory): for a basin/fractal piece, default to
-the Newton fractal, not integrated gravity dynamics. And amortized
-ping-pong recompute makes a piece ungradeable from headless inspect
-stills — it's invisible at 60fps but dither-corrupts the ~2fps
-captures.
+Critic v2 verdict: **ship-it, 5/5 mesmerizing**, claim pass, scores
+5/5/4/4/4/n.a. Reconciliation note: data technically meets the
+chef-doeuvre bar; critic chose the conservative label given three
+craft-level imperfections (motion lacks beat-churn, interior chaos
+lacks sub-texture, no structural silence). Both proceed to commit.
 
-## Non-goals (held)
+**Lessons** (worth a memory): for any pixel-to-state-map visualisation
+(Lyapunov, basin, escape-time, anything where pixel = sample of a
+mathematical landscape), the static-field problem is the failure
+mode. **Animate a global parameter** (or pan / zoom the sampling)
+so the landscape reorganises frame-to-frame; cursor/keyboard alone
+won't do it in idle.
 
-- No specific audio track — watershed is theme-only / self-playing.
-  Could be bound to a song later via the audio pipeline.
-- lib/ extraction skipped — the basin formulas stay per-piece until a
-  3rd piece would reuse them.
+Total renders: 4 (well inside the discipline budget; watershed's
+lesson held).
+
