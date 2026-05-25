@@ -1,0 +1,83 @@
+title: Anemone
+slug: anemone
+created: 2026-05-25T14:47:49.000Z
+architecture: A
+testability: audio-only
+duration: 482
+render_scale: 0.6
+keyboard_synth: true
+audio: audio.mp3
+audio_features:
+  - beat
+  - sections
+  - stems.bass
+  - stems.drums
+time_source: audio
+notes: |
+  ## Brief gates (vjay-new-piece §1b + §1c)
+  canonical_ref: "Newton fractal on z^n − 1 — Recipe 2 of
+    brainstorming/techniques/basins-of-attraction.md; the canonical
+    n-fold-symmetric Wada fractal (the iconic 'roots of unity' image
+    in its purest form, with n driven by music)."
+  eye_landing_candidates:
+    - the n bright basin lakes (one per root of unity)
+    - the crisp bead-chain Wada boundary between basins
+    - the central tripoint/n-tipoint where all basins meet
+    - the per-downbeat n-snap (geometry SNAPS to new topology)
+  warm_cycle: [near-black, wine, ember, amber, gold, cream]
+  idle_behaviour: "without audio, n stays at 3 (the iconic z^3 − 1
+    Newton fractal) and the rosette drifts only on slow bar-phase
+    hue rotation. With the track playing, n cycles 3 → 10+ through
+    the build and snaps on each downbeat — the fractal counts the
+    music."
+  arch_rationale: "A — single-pass per-pixel. Each pixel runs Newton
+    on z^n − 1 to convergence (n-1 cmul per Newton step, n cmul for
+    z^n). Not C: the shoal lesson — amortization makes a piece
+    ungradeable from headless stills, and Newton is cheap enough to
+    recompute crisp every frame even at n=11."
+
+  ## Thesis
+  Newton's method on p(z) = z^n − 1 is the canonical n-fold symmetric
+  Wada fractal: n basins on the unit circle, infinite bead-chain
+  boundary. Drive integer n from the music (level pumps it, each
+  downbeat snaps it up briefly): the rosette unfolds petals through
+  the build and collapses on the drop. The keyboard overrides n —
+  each of 15 keys plays a specific n value (3 to 17), so the synth
+  is a fractal-shape sequencer.
+
+  Third piece in the basin/fractal series (watershed: moving roots
+  via cursor/keyboard; shoal: pendulum chaos map; rosette: n-th
+  roots of unity, n-driven).
+
+  ## Build
+  Single shader.frag. Per pixel: Newton iteration on z^n − 1
+  (n-1 complex multiplications per step, 36-iter cap, early-out on
+  convergence). Classify by which root of unity z lands at
+  (`floor(arg(z) · n / 2π + 0.5) mod n`). Hue from basin index,
+  brightness from convergence speed, hue rotates by u_bar_phase / n
+  per bar, beat-pulse luminance, sub-beat shimmer.
+
+  ## Inputs
+  - Music (Jon Hopkins, *Open Eye Signal*, 8:02). u_audio_level +
+    u_audio_bass_stem drive n (3 → 11); u_downbeat adds a +2 snap;
+    u_bar_phase rotates the basin hue palette one segment per bar;
+    u_beat_phase pulses luminance; u_audio_high amplifies shimmer.
+  - Cursor: pans the view of the complex plane (±0.7 offset).
+  - Keyboard (15-key synth): overrides n when any key is pressed.
+    Key 0 → n=3, key 14 → n=17 (clamped to 11). Per-key distinct:
+    a fractal-shape sequencer. Disjoint from audio (key takes
+    priority when held).
+
+  ## Palette
+  Warm only: near-black → wine → ember → amber → gold → cream.
+  Basin index maps into the warm ramp; chaos boundaries inherit
+  hue luminance + iteration-count brightness.
+
+  ## Arc
+  Follows the song: ~3 min sparse intro (n stays at 3, the iconic
+  Newton fractal), then the build adds petals as n grows, the drop
+  at ~4:00 mass-snaps to n=10+, the second build and outro fold
+  back. The fractal *counts* the music.
+uniforms: []
+published_at: null
+rendered_at: '2026-05-25T16:07:29.200Z'
