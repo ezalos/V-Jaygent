@@ -46,6 +46,22 @@ vec3 warmRamp(float t) {
 // cmul, cconj, cmod2 come from lib/math.glsl. cdiv is a thin wrapper.
 vec2 cdiv(vec2 a, vec2 b) { return cmul(a, cconj(b)) / max(cmod2(b), 1e-12); }
 
+// Wrap-continuous warm palette — 5 waypoints sampled cyclically so
+// rotation through them never has a discrete colour jump (basins
+// smoothly shift one waypoint to the next as global_hue rotates).
+const vec3 WARM_STOPS[5] = vec3[5](
+    vec3(0.30, 0.06, 0.10),    // wine
+    vec3(0.78, 0.21, 0.08),    // ember
+    vec3(0.97, 0.46, 0.13),    // amber
+    vec3(1.00, 0.76, 0.34),    // gold
+    vec3(1.00, 0.94, 0.78)     // cream
+);
+
+// Simple deterministic 2D hash for raindrop spawn positions.
+float hashRand(vec2 v) {
+    return fract(sin(dot(v, vec2(127.1, 311.7))) * 43758.5453);
+}
+
 void main() {
     vec2 res = u_resolution;
     vec2 p = (gl_FragCoord.xy - 0.5 * res) / min(res.x, res.y) * 2.4;
@@ -103,19 +119,33 @@ void main() {
     float zoom = 1.0 + 0.08 * exp(-u_beat_phase * 5.0)
                      - 0.04 * u_audio_level;
 
-    // --- Water-droplet warp ---
-    // Radial ripple expanding from centre on each downbeat. Displaces
-    // the Newton sampling point so the fractal beneath BENDS rather
-    // than getting a flat overlay (Louis 2026-05-26: an additive ring
-    // was "really predictable... do not deliver mesmerizing effect";
-    // a true displacement bends the fractal, harder to pre-compute).
-    float r_warp     = length(p / zoom);
-    float ringR_warp = u_bar_phase * 2.4;
-    float ringEnv    = exp(-pow((r_warp - ringR_warp) * 6.0, 2.0))
-                     * (1.0 - u_bar_phase);
-    float ringWave   = sin((r_warp - ringR_warp) * 18.0);
-    vec2  radialDir  = (r_warp > 1e-4) ? (p / r_warp) : vec2(1.0, 0.0);
-    vec2  p_warped   = p + radialDir * 0.12 * ringEnv * ringWave;
+    // --- Rain: many water droplets at random positions warping the field ---
+    // 6 staggered droplets, each with its own life cycle and pseudo-
+    // random spawn position. Each contributes a radial ripple displacing
+    // the Newton sampling point — the fractal beneath bends as if many
+    // raindrops fall on it simultaneously (Louis 2026-05-26: "a lot of
+    // water droplets warping more and less the space, falling at random
+    // positions, making it rain"). Drums amplify the warp magnitude.
+    // Coverage extends across the frame (random positions reach edges).
+    vec2 p_warped = p;
+    float warpAmp = 0.085 * (1.0 + 0.5 * u_audio_drums_stem);
+    for (int i = 0; i < 6; i++) {
+        float fi    = float(i);
+        float cyc   = u_time * 0.42 + fi / 6.0;
+        float phase = fract(cyc);
+        float cycle = floor(cyc);
+        vec2 dropPos = vec2(
+            hashRand(vec2(cycle * 13.7, fi * 4.3)) * 4.4 - 2.2,
+            hashRand(vec2(cycle * 23.1, fi * 9.1)) * 2.4 - 1.2
+        );
+        vec2  d    = p - dropPos;
+        float r    = length(d);
+        float rR   = phase * 1.4;
+        float env  = exp(-pow((r - rR) * 7.0, 2.0)) * (1.0 - phase);
+        float wave = sin((r - rR) * 15.0);
+        vec2  dir  = (r > 1e-4) ? d / r : vec2(1.0, 0.0);
+        p_warped += dir * warpAmp * env * wave;
+    }
 
     // --- Newton on z^n − 1 with FLOAT n via complex pow.
     // z^n = |z|^n · (cos(n·arg z) + i·sin(n·arg z)). 36-iter cap with
@@ -151,37 +181,36 @@ void main() {
     if (!conv) {
         col = vec3(0.018, 0.012, 0.020);    // rare non-converged: near-black
     } else {
-        // Palette CONTINUOUSLY rotates (Louis 2026-05-26: "colors
-        // should be constantly shifting in a continuous way, at a
-        // speed linked to the music"). Multiple continuous music-
-        // paced contributions stacked; no discrete u_section_id step.
-        // Basins stay at evenly-spaced hueT (n-adic chromatic harmony)
-        // mapped through the warm ramp — analogous warm tones, no
-        // complementary clashes.
-        float global_hue = 0.40 * u_song_progress           // slow song arc
-                         + 0.25 * u_audio_bass_stem         // bass pumps rotation
-                         + 0.18 * u_audio_drums_stem        // drums add
-                         + 0.10 * sin(u_time * 0.18)        // slow internal
-                         + 0.04 * sin(u_beat_phase * TAU);  // fine beat wobble
-        float hueT = mod(float(hit) / fn_int + u_bar_phase / fn_int + global_hue, 1.0);
-        hueT = mix(0.32, 0.93, hueT);
+        // Wrap-continuous warm palette (Louis 2026-05-26: "colors should
+        // be constantly shifting in a continuous way, right now it's
+        // blinking" — the old linear ramp jumped cream→wine at the
+        // wrap; the 5-waypoint cyclic wheel slides smoothly through
+        // it). All global_hue contributions are smooth (no u_bar_phase
+        // jumps; bar-paced motion lives in the rain warp now).
+        float global_hue = 0.40 * u_song_progress
+                         + 0.25 * u_audio_bass_stem
+                         + 0.18 * u_audio_drums_stem
+                         + 0.10 * sin(u_time * 0.18)
+                         + 0.15 * sin(u_time * 0.55)
+                         + 0.04 * sin(u_beat_phase * TAU);
+        float rot_idx  = mod(float(hit) + global_hue * 5.0, 5.0);
+        int   idx_low  = int(floor(rot_idx));
+        int   idx_high = int(mod(float(idx_low) + 1.0, 5.0));
+        float frac_idx = fract(rot_idx);
+        vec3  basin_col = mix(WARM_STOPS[idx_low], WARM_STOPS[idx_high], frac_idx);
         // brightness: fast convergence = bright lake interior; slow
         // = dark bead-chain at the Wada boundary.
         float cap = smoothstep(0.0, 1.0, 1.0 - iter / 36.0);
-        col = warmRamp(hueT) * (0.34 + 0.78 * cap);
+        col = basin_col * (0.34 + 0.78 * cap);
     }
 
     // beat pulse: luminance briefly brightens on each beat
     col *= 0.85 + 0.18 * exp(-u_beat_phase * 6.0);
 
-    // (The additive sonar ring was removed in favour of the water-
-    // droplet warp earlier in main() — the warp bends the fractal
-    // beneath rather than overlaying a predictable cream stroke.)
+    // (Diagonal-flow shimmer removed 2026-05-26 — Louis flagged it as
+    // distracting "weird pixelated noise flowing from top right to
+    // bottom left". The rain warp provides the kinetic micro-motion.)
 
-    // sub-beat shimmer — high frequencies feed the surface ripple
-    float sh = (vnoise(p * 30.0 + u_time * 5.5) - 0.5)
-             * 0.10 * (0.5 + 0.8 * u_audio_high);
-
-    col = max(col + vec3(sh), vec3(0.0));
+    col = max(col, vec3(0.0));
     fragColor = vec4(reinhard(col), 1.0);
 }
