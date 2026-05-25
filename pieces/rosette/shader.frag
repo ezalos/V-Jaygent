@@ -66,15 +66,18 @@ void main() {
             n_key = k + 3;
         }
     }
-    // Section progress amplifies the bass push — late in a section the
-    // build pushes n harder, so the drop lands as a snap to a fuller
-    // rosette than the same level mid-verse would produce. Geometric
-    // pre-tension into the next section.
-    float n_audio = 3.0
-                  + 5.0 * u_audio_level
-                  + 2.0 * u_downbeat
-                  + 1.5 * u_audio_bass_stem
-                  + 1.8 * u_section_progress * u_audio_level;
+    // n changes on the SECTION timescale (slow + structural), not per
+    // beat — Louis 2026-05-25 flagged the per-beat snaps as flickering
+    // ("too fast and really flickering, the human eye do not have time
+    // to see and appreciate them"). Per-section base + smooth ramp
+    // through the section + bass-stem contribution + a small (±0.25)
+    // beat wobble so the beat is felt as a fine pulse on n, not a cut.
+    // u_audio_level (FFT, noisy) no longer drives n — too jittery.
+    float n_section_base = 3.0 + 0.75 * float(u_section_id);
+    float n_section_ramp = 1.8 * u_section_progress;
+    float n_bass         = 1.5 * u_audio_bass_stem;
+    float n_beat_wobble  = 0.25 * sin(u_beat_phase * TAU);
+    float n_audio = n_section_base + n_section_ramp + n_bass + n_beat_wobble;
     float n_target = (n_key >= 3) ? float(n_key) : n_audio;
     // n is FLOAT — the fractal morphs CONTINUOUSLY between integer-n
     // topologies instead of cutting (Louis 2026-05-25: v2 looked like a
@@ -133,12 +136,16 @@ void main() {
     if (!conv) {
         col = vec3(0.018, 0.012, 0.020);    // rare non-converged: near-black
     } else {
-        // basin hue rotates by u_bar_phase / n per bar (geometric phase-
-        // lock at the bar). A per-section offset (u_section_id) jumps
-        // the palette base on section boundaries — each section feels
-        // visibly different. Slow u_song_progress drift carries an arc
-        // across the whole 8-min piece.
-        float global_hue = 0.07 * float(u_section_id) + 0.18 * u_song_progress;
+        // Colours respond to music on multiple scales: u_section_id jumps
+        // the base each section, u_song_progress carries a slow arc,
+        // u_audio_bass_stem pumps the palette toward the warmer end on
+        // bass hits, beat wobble adds a fine hue jitter. (Louis 2026-
+        // 05-25: "work on the colors themselves, making the colors
+        // change linked to the music would be great".)
+        float global_hue = 0.07 * float(u_section_id)
+                         + 0.18 * u_song_progress
+                         + 0.20 * u_audio_bass_stem
+                         + 0.04 * sin(u_beat_phase * TAU);
         float hueT = mod(float(hit) / fn_int + u_bar_phase / fn_int + global_hue, 1.0);
         hueT = mix(0.32, 0.93, hueT);
         // brightness: fast convergence = bright lake interior; slow
@@ -149,6 +156,17 @@ void main() {
 
     // beat pulse: luminance briefly brightens on each beat
     col *= 0.85 + 0.18 * exp(-u_beat_phase * 6.0);
+
+    // --- downbeat sonar ring (the "one more layer" Louis flagged) ---
+    // A cream ring expands from the rosette's centre once per bar,
+    // riding u_bar_phase. Concentric with the rosette's radial
+    // structure so it harmonises rather than competes. Provides a
+    // clear, rhythmic geometric event between the slower n changes.
+    float r_world = length(p / zoom);
+    float ringR = u_bar_phase * 2.6;
+    float q_ring = (r_world - ringR) * 9.0;
+    float ring = exp(-q_ring * q_ring) * (1.0 - u_bar_phase) * 0.55;
+    col += warmRamp(0.96) * ring;
 
     // sub-beat shimmer — high frequencies feed the surface ripple
     float sh = (vnoise(p * 30.0 + u_time * 5.5) - 0.5)
