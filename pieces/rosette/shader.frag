@@ -76,35 +76,58 @@ void main() {
                   + 1.5 * u_audio_bass_stem
                   + 1.8 * u_section_progress * u_audio_level;
     float n_target = (n_key >= 3) ? float(n_key) : n_audio;
-    int n = int(clamp(floor(n_target + 0.5), 3.0, 11.0));
-    float fn = float(n);
+    // n is FLOAT — the fractal morphs CONTINUOUSLY between integer-n
+    // topologies instead of cutting (Louis 2026-05-25: v2 looked like a
+    // slideshow between snaps). Classification still rounds to int for
+    // the basin id / hue. The +2 downbeat now reads as a smooth bump
+    // not a hard snap; rhythm-locked but morphing.
+    float n = clamp(n_target, 3.0, 10.0);
+    int   n_int = int(round(n));
+    float fn_int = float(n_int);
 
-    // --- Newton iteration: z ← z − (z^n − 1) / (n · z^(n−1)) ---
-    // z^(n−1) by iterated multiplication; z^n = z^(n−1) · z. 36-iter
-    // cap with early-out on convergence. The classification step
-    // below identifies which root of unity z reached.
-    vec2 z = p;
+    // --- continuous motion between events
+    // (per feedback_three_timescales_of_liveness) ---
+    // Slow u_time drift + per-bar advancement + beat-locked wobble:
+    // the rosette ALWAYS rotates, even when n is steady. Three
+    // timescales of rotation stacked.
+    float rotAng = u_time * 0.18
+                 + 0.10 * u_bar_phase * TAU
+                 + 0.20 * sin(u_beat_phase * TAU);
+    mat2 R = mat2(cos(rotAng), -sin(rotAng), sin(rotAng), cos(rotAng));
+    // Beat zoom-pulse: subtle zoom-in on each beat onset, decays.
+    // u_audio_level slightly pulls back so loud sections feel wider.
+    float zoom = 1.0 + 0.08 * exp(-u_beat_phase * 5.0)
+                     - 0.04 * u_audio_level;
+
+    // --- Newton on z^n − 1 with FLOAT n via complex pow.
+    // z^n = |z|^n · (cos(n·arg z) + i·sin(n·arg z)). 36-iter cap with
+    // early-out on convergence. pow() is cheaper than the n-1 cmul loop
+    // for n ≥ 4; trades a small principal-branch cut artifact along the
+    // negative real axis for continuous-n morphing across the whole
+    // dynamic range.
+    vec2 z = R * (p / zoom);
     float iter = 0.0;
     bool conv = false;
     for (int it = 0; it < 36; it++) {
-        vec2 zp = vec2(1.0, 0.0);          // accumulator, z^0
-        for (int j = 0; j < 11; j++) {
-            if (j >= n - 1) break;
-            zp = cmul(zp, z);
-        }
-        vec2 zn  = cmul(zp, z);             // z^n
-        vec2 num = zn - vec2(1.0, 0.0);
-        vec2 den = fn * zp;
-        vec2 stepv = cdiv(num, den);
+        float r = length(z);
+        if (r < 1e-10) { conv = true; break; }   // avoid log(0)
+        float a = atan(z.y, z.x);
+        float rn   = pow(r, n);
+        float rnm1 = pow(r, n - 1.0);
+        vec2  zn   = rn   * vec2(cos(n * a),        sin(n * a));
+        vec2  znm1 = rnm1 * vec2(cos((n - 1.0) * a), sin((n - 1.0) * a));
+        vec2  num  = zn - vec2(1.0, 0.0);
+        vec2  den  = n * znm1;
+        vec2  stepv = cdiv(num, den);
         z -= stepv;
         iter += 1.0;
         if (dot(stepv, stepv) < 3e-6) { conv = true; break; }
     }
 
-    // --- classify: nearest root of unity (angle 2π·k/n) ---
-    float a = (dot(z, z) > 1e-10) ? atan(z.y, z.x) : 0.0;
-    float k_frac = a * fn / TAU + fn;       // shift positive for mod
-    int hit = int(mod(floor(k_frac + 0.5), fn));
+    // --- classify: nearest root of unity (using rounded integer n) ---
+    float a_final = (dot(z, z) > 1e-10) ? atan(z.y, z.x) : 0.0;
+    float k_frac = a_final * fn_int / TAU + fn_int;
+    int hit = int(mod(floor(k_frac + 0.5), fn_int));
 
     vec3 col;
     if (!conv) {
@@ -116,7 +139,7 @@ void main() {
         // visibly different. Slow u_song_progress drift carries an arc
         // across the whole 8-min piece.
         float global_hue = 0.07 * float(u_section_id) + 0.18 * u_song_progress;
-        float hueT = mod(float(hit) / fn + u_bar_phase / fn + global_hue, 1.0);
+        float hueT = mod(float(hit) / fn_int + u_bar_phase / fn_int + global_hue, 1.0);
         hueT = mix(0.32, 0.93, hueT);
         // brightness: fast convergence = bright lake interior; slow
         // = dark bead-chain at the Wada boundary.
