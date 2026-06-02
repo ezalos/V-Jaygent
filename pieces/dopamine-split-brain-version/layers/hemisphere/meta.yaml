@@ -1,0 +1,13 @@
+name: hemisphere
+identity: "Kuramoto-style hex oscillator field for one cerebral hemisphere"
+default_blend: max
+
+uniforms:
+  side:         { type: float, default: -1.0 }   # -1 left, +1 right
+  omega:        { type: float, default: 7.13 }   # natural frequency (rad/s); BPM/60 * π
+  palette_temp: { type: float, default: 0.0 }    # 0 = wine/mauve/cream, 1 = ember/amber/gold
+  rotation:     { type: float, default: 0.0 }    # hex grid rotation (radians)
+
+reads: []
+publishes: []
+consumes: []

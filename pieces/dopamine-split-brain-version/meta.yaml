@@ -1,0 +1,87 @@
+title: Dopamine (Split Brain Version)
+slug: dopamine-split-brain-version
+created: 2026-06-02T20:28:33.637Z
+cursor: true
+architecture: E
+notes: |
+  Madelline — *Dopamine (Split Brain Version)*, 2024. 165s, 136 BPM,
+  D# minor, 6 sections, climax at 107–148s.
+
+  Two hemispheres, one piece. Each side is a hex lattice of Kuramoto-
+  style phase oscillators with its own natural frequency. The 5% ω
+  detune between sides means they slow-drift in and out of beat-aligned
+  phase even when nothing else is happening — the picture is alive
+  before the song does anything.
+
+  Layer stack (bottom → top), on the engine's near-black clear:
+
+  1. hemisphere ×2     left side at side=-1, palette wine/mauve/cream,
+                       no rotation. Right side at side=+1, palette
+                       ember/amber/gold, hex grid rotated 60°.
+                       ω_left = 2π · (BPM/60) · 0.5 ≈ 7.13 rad/s,
+                       ω_right = 1.05 · ω_left so the two sides drift.
+                       Both layers max-blend.
+  2. callosum-seam     vertical seam at x=0.5. Lightning bolt fires on
+                       every downbeat at a fresh y. Section-4 fusion
+                       bloom dissolves the seam into a moiré of both
+                       hemispheres' grids. Cursor near the seam sparks
+                       locally — the cursor IS the corpus callosum.
+                       Screen-blends on top of the two hemispheres.
+
+  Section vocabulary (NOT just re-shaded params):
+    0 (0–8.4s)      intro — only LEFT hemisphere visible; right fades in
+    1 (8.4–35.8s)   verse — both dim; seam visible; no cross-coupling
+    2 (35.8–50.5s)  build — both brighter; downbeats fire faint bolts
+    3 (50.5–107s)   pre-peak — independent chaos; bolts fully active
+    4 (107–148.7s)  CLIMAX — fusion: seam dissolves, hemispheres merge
+                    into one moiré field; "dopamine" reward state
+    5 (148.7–165s)  outro — severance: fusion collapses; both fade dark
+
+  Inputs:
+    audio   → bass kicks accent brightness; downbeat fires lightning;
+              section_id picks the visual vocabulary; section_progress
+              ramps the fusion strength across section 4.
+    cursor  → corpus-callosum: cursor near x=0.5 brightens local
+              oscillators on both sides, simulating local coupling.
+
+  Three timescales of liveness:
+    sub-beat   per-cell jitter at ~5 Hz so cells never freeze
+    beat       beat_phase * bass modulates accent brightness
+    section    section_id drives palette/coupling/seam mode
+
+  Idle: hemispheres pulse on synthetic 2.27 Hz clock; ω detune still
+  drives slow in/out-of-phase drift; macro hotzones still wander.
+  No frame is empty.
+
+  Palette: cream-on-near-black contrast per hemisphere (NOT all
+  mid-warm soup). Wine→mauve→cream on the left; ember→amber→gold on
+  the right. Both warm. The fusion event mixes both palettes — gold
+  oscillators overlap with mauve oscillators briefly.
+duration: 165
+render_scale: 0.7
+audio: audio.mp3
+audio_features:
+  - beat
+  - sections
+  - key
+time_source: audio
+layers:
+  - layer: hemisphere
+    blend: max
+    uniforms:
+      side: -1
+      omega: 7.13
+      palette_temp: 0
+      rotation: 0
+  - layer: hemisphere
+    blend: max
+    uniforms:
+      side: 1
+      omega: 7.49
+      palette_temp: 1
+      rotation: 1.047197
+  - layer: callosum-seam
+    blend: screen
+    uniforms:
+      seam_dark: 0.7
+rendered_at: '2026-06-02T20:54:10.129Z'

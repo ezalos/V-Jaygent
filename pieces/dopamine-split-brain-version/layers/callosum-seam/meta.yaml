@@ -1,0 +1,12 @@
+name: callosum-seam
+identity: "vertical seam between hemispheres; downbeat lightning; section-4 fusion bloom"
+default_blend: screen
+
+uniforms:
+  seam_dark:       { type: float, default: 0.7 }   # how dark the seam is when not firing
+  flash:           { type: float, default: 0.0, flash: true }
+
+reads:
+  - u_below
+publishes: []
+consumes: []

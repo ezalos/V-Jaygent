@@ -1557,6 +1557,11 @@ async function buildLayerEngine(slug, layerSpecs) {
                 ...parsed,
                 meta: layerMeta,
                 program,
+                // layer.uniforms doubles as the WebGL uniform-location cache
+                // (populated lazily by applyDriverUniform). The numeric
+                // defaults from meta.yaml live in staticUniforms — keeping
+                // them separate avoids the location cache stomping on them.
+                staticUniforms: { ...(parsed.uniforms ?? {}) },
                 uniforms: {},
                 outputTex: null,
                 outputFbo: null,
@@ -1694,8 +1699,11 @@ function applyDrivers(layer, engineSample) {
 
 function applyStaticLayerUniforms(layer) {
     // Static uniforms set once per piece — but cheap to re-set per frame so
-    // we just always do it. Numeric only in v1.
-    for (const [name, value] of Object.entries(layer.uniforms ?? {})) {
+    // we just always do it. Numeric only in v1. Read from staticUniforms
+    // (the parsed-spec numeric values); layer.uniforms is the runtime
+    // location cache and would not contain user-supplied values.
+    const statics = layer.staticUniforms ?? {};
+    for (const [name, value] of Object.entries(statics)) {
         if (typeof value === 'number') {
             applyDriverUniform(layer, name, value);
         }
