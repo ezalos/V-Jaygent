@@ -56,6 +56,13 @@ context, the `Why:` line, and the `How to apply:` rule.
   pan/zoom of the sampling, else the field is static frame-to-frame;
   cursor/keyboard alone won't break the freeze in idle.
   (`feedback_animate_the_landscape.md`)
+- **Cyclic palette** — for basin/index-rotation pieces, a linear
+  palette ramp blinks visibly at the wrap point (cream→wine jump);
+  use an N-waypoint cyclic palette sampled with rotational index +
+  lerp so the wrap is invisible. Same memory also catches the
+  diagonal-flow shimmer gotcha (same time multiplier on both axes
+  of `vnoise(p*A + time*B)` slides the field diagonally).
+  (`feedback_cyclic_palette.md`)
 
 ## How to add a new lesson
 
