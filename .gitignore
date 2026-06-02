@@ -12,3 +12,8 @@ studio/.studio.log
 data/
 .runs/
 .DS_Store
+
+# Auto-generated diagnostic test pieces from bin/test-all-layers.mjs —
+# regeneratable on demand. The runner script and pieces/chaos-warp-test/
+# (a permanent diagnostic harness) ARE committed.
+pieces/xtest-layer-*/

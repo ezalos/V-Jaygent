@@ -114,7 +114,13 @@ void main() {
     // + transition flash + cursor.
     vec3 col = seamCol + boltCol + fusionCol + transCol + cursorCol;
 
-    // Soft tonemap so peaks don't clip to white.
+    // Soft tonemap so peaks don't clip to white. NOTE: this is applied to
+    // the SUM (including seamCol, which is mostly pass-through u_below), so
+    // running this layer on a bright base squashes the base toward gray
+    // (visible in pieces/xtest-layer-results/17-...callosum-seam.png).
+    // Fine for dopamine where u_below averages near-black; would need
+    // factoring out (tonemap only the bolt/fusion/trans/cursor contributions)
+    // before reusing on a bright-base piece.
     col = col / (1.0 + col * 0.65);
 
     // Alpha gates the screen blend — fully opaque where this layer contributes
