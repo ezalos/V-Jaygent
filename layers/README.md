@@ -82,19 +82,23 @@ uniform float u_audio_bass;        // engine-provided audio uniform
 uniform float dispersion;          // declared in meta.yaml
 uniform float ior;
 
-in  vec2 vUv;
 out vec4 fragColor;
 
 void main() {
+    // The engine vertex shader doesn't export a varying — compute uv from
+    // gl_FragCoord. (Earlier README drafts showed `in vec2 vUv;` but no
+    // shipped layer uses it; the engine vertex shader is bare gl_Position.)
+    vec2 uv = gl_FragCoord.xy / u_resolution;
+
     // height field used for refraction direction
-    float h = fbm(vUv * 6.0 + u_time * 0.1);
+    float h = fbm(uv * 6.0 + u_time * 0.1);
     vec2 grad = vec2(dFdx(h), dFdy(h));
 
     // per-channel offset
     float k = ior * (1.0 + 0.4 * u_audio_bass);
-    float r = texture(u_below, vUv - grad * (k + dispersion * 0.6)).r;
-    float g = texture(u_below, vUv - grad * (k + dispersion * 0.0)).g;
-    float b = texture(u_below, vUv - grad * (k - dispersion * 0.4)).b;
+    float r = texture(u_below, uv - grad * (k + dispersion * 0.6)).r;
+    float g = texture(u_below, uv - grad * (k + dispersion * 0.0)).g;
+    float b = texture(u_below, uv - grad * (k - dispersion * 0.4)).b;
 
     fragColor = vec4(r, g, b, 1.0);
 }
