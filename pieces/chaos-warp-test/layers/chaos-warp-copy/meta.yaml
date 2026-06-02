@@ -1,0 +1,13 @@
+name: chaos-warp-copy
+identity: "smooth curl-noise warp + heavy u_history smear for Lyapunov-style flow"
+default_blend: replace
+
+uniforms:
+  base_strength:   { type: float, default: 0.018 }   # warp magnitude
+  smear_decay:     { type: float, default: 0.92 }    # u_history retention (heavy trails for 20s-divergence accumulation)
+
+reads:
+  - u_below
+  - u_history
+publishes: []
+consumes: []

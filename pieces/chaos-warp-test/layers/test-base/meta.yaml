@@ -1,0 +1,7 @@
+name: test-base
+identity: "diagnostic split — checkerboard left, rainbow gradient right, fine grid centre"
+default_blend: normal
+uniforms: {}
+reads: []
+publishes: []
+consumes: []

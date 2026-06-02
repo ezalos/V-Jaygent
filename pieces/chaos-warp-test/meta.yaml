@@ -1,0 +1,24 @@
+title: '[diagnostic] chaos-warp on test pattern'
+slug: chaos-warp-test
+cursor: false
+notes: |
+  Diagnostic harness for the chaos-warp layer. Renders a stationary base
+  (checkerboard + line-grid + rainbow gradient) and applies the
+  chaos-warp on top. Any artefact in the warp itself becomes obvious
+  because the base is known and high-contrast. NOT artistic; for
+  triage only. Does not ship — no `created:` so it sorts to the
+  bottom of the catalog.
+duration: 30
+audio_features:
+  - beat
+  - sections
+  - key
+layers:
+  - layer: test-base
+    blend: normal
+  - layer: chaos-warp-copy
+    blend: replace
+    uniforms:
+      base_strength: 0.018
+      smear_decay: 0.92
+rendered_at: '2026-06-02T22:44:50.508Z'
