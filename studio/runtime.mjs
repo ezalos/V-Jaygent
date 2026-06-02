@@ -133,6 +133,185 @@ const BLEND_MODE_TO_INT = {
     normal: 0, add: 1, screen: 2, multiply: 3, max: 4, replace: 5,
 };
 
+// ---------- scatter passes (orbit point clouds) ----------
+//
+// A scatter pass uploads N point positions per frame from a CPU-side orbit
+// iterator (Clifford attractor, chaos-game, etc.) and rasterises them with
+// additive blending into an rgba16f accumulator. The accumulator can also
+// decay per frame so the structure stays alive while old paths fade — the
+// fractal-flame trick adapted to V-Jaygent's pass pipeline.
+//
+// Pieces declare a scatter pass like:
+//
+//   passes:
+//     - name: accumulator
+//       kind: scatter           # marks this pass as point-cloud rather than full-screen
+//       orbit: clifford         # built-in orbit type: clifford | chaos-game
+//       points: 8192            # N orbit points emitted per frame
+//       decay: 0.96             # accumulator * decay before new points splat
+//       target: { format: rgba16f, ping_pong: true }
+//       params:
+//         a: -1.25
+//         b: -1.25
+//         c: -1.82
+//         d: -1.91
+//         brightness: 0.06
+//         hue: 0.0
+//
+// Downstream display passes read the accumulator texture via `inputs:` and
+// apply tone-mapping + palette as usual.
+
+const SCATTER_VERT = `#version 300 es
+// Built-in scatter vertex shader. Reads a vec4 attribute per point —
+// xy in clip space [-1,1], z=brightness, w=hue index.
+in vec4 a_pt;
+out float v_brightness;
+out float v_hue;
+uniform float u_point_size;
+void main() {
+    gl_Position = vec4(a_pt.xy, 0.0, 1.0);
+    gl_PointSize = u_point_size;
+    v_brightness = a_pt.z;
+    v_hue = a_pt.w;
+}`;
+
+const SCATTER_FRAG = `#version 300 es
+precision highp float;
+in float v_brightness;
+in float v_hue;
+out vec4 fragColor;
+void main() {
+    // gl_PointCoord is in [0,1] across the point sprite. Build a tight
+    // gaussian so points read as round dots, not squares.
+    vec2 q = gl_PointCoord - 0.5;
+    float d2 = dot(q, q) * 4.0;          // 0 at centre, 1 at radius
+    float fall = exp(-d2 * 5.0);          // gaussian falloff
+    // Hue palette: 0=cream, 0.5=amber, 1=gold-rust. All warm.
+    vec3 cream  = vec3(1.10, 0.78, 0.42);
+    vec3 amber  = vec3(1.20, 0.65, 0.22);
+    vec3 rust   = vec3(0.80, 0.32, 0.08);
+    vec3 col;
+    if (v_hue < 0.5) col = mix(cream, amber, v_hue * 2.0);
+    else             col = mix(amber, rust, (v_hue - 0.5) * 2.0);
+    fragColor = vec4(col * v_brightness * fall, 1.0);
+}`;
+
+const DECAY_FRAG = `#version 300 es
+precision highp float;
+uniform sampler2D u_prev;
+uniform float u_decay;
+out vec4 fragColor;
+void main() {
+    vec4 c = texelFetch(u_prev, ivec2(gl_FragCoord.xy), 0);
+    fragColor = c * u_decay;
+}`;
+
+// Built-in CPU-side orbit iterators. Each takes a persistent state object
+// (so orbits continue across frames without re-seeding), the requested
+// batch size N, and a params dict. Returns a Float32Array of length 4N
+// laid out as [x, y, brightness, hue, ...] per point. x and y are in
+// clip-space [-1, 1].
+
+function cliffordOrbit(state, N, params) {
+    const { a = -1.25, b = -1.25, c = -1.82, d = -1.91 } = params;
+    const bright = params.brightness ?? 0.06;
+    const hue    = params.hue        ?? 0.0;
+    const scale  = params.scale      ?? (1 / 2.8);
+    let x = state.x ?? 0.01;
+    let y = state.y ?? 0.01;
+    // Burn-in if first batch ever — settle onto the attractor.
+    if (!state.burned) {
+        for (let i = 0; i < 200; i++) {
+            const nx = Math.sin(a * y) + c * Math.cos(a * x);
+            const ny = Math.sin(b * x) + d * Math.cos(b * y);
+            x = nx; y = ny;
+        }
+        state.burned = true;
+    }
+    const out = new Float32Array(N * 4);
+    for (let i = 0; i < N; i++) {
+        const nx = Math.sin(a * y) + c * Math.cos(a * x);
+        const ny = Math.sin(b * x) + d * Math.cos(b * y);
+        x = nx; y = ny;
+        out[i*4 + 0] = x * scale;
+        out[i*4 + 1] = y * scale;
+        out[i*4 + 2] = bright;
+        out[i*4 + 3] = hue;
+    }
+    state.x = x; state.y = y;
+    return out;
+}
+
+function chaosGameOrbit(state, N, params) {
+    const n = Math.max(3, Math.min(7, Math.floor(params.n ?? 5)));
+    const k = Math.max(0, Math.min(3, Math.floor(params.k ?? 2)));
+    const r = params.r ?? 0.5;
+    const phase = params.phase ?? 0.0;
+    const bright = params.brightness ?? 0.06;
+    const hue    = params.hue        ?? 0.5;
+    const scale  = params.scale      ?? 0.92;
+    let x = state.x ?? 0;
+    let y = state.y ?? 0;
+    // Vertex history for restriction rules: last three vertex indices.
+    let h0 = state.h0 ?? 99, h1 = state.h1 ?? 98, h2 = state.h2 ?? 97;
+    // Pre-compute vertex positions for this batch's n + phase.
+    const vx = new Float32Array(n), vy = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+        const ang = i * 2 * Math.PI / n + phase + Math.PI / 2;
+        vx[i] = Math.cos(ang); vy[i] = Math.sin(ang);
+    }
+    // Burn-in once.
+    if (!state.burned) {
+        for (let i = 0; i < 80; i++) {
+            const v = pickChaosVertex(n, k, h0, h1, h2);
+            x = x + r * (vx[v] - x);
+            y = y + r * (vy[v] - y);
+            h2 = h1; h1 = h0; h0 = v;
+        }
+        state.burned = true;
+    }
+    const out = new Float32Array(N * 4);
+    for (let i = 0; i < N; i++) {
+        const v = pickChaosVertex(n, k, h0, h1, h2);
+        x = x + r * (vx[v] - x);
+        y = y + r * (vy[v] - y);
+        h2 = h1; h1 = h0; h0 = v;
+        out[i*4 + 0] = x * scale;
+        out[i*4 + 1] = y * scale;
+        out[i*4 + 2] = bright;
+        out[i*4 + 3] = hue;
+    }
+    state.x = x; state.y = y;
+    state.h0 = h0; state.h1 = h1; state.h2 = h2;
+    return out;
+}
+
+function pickChaosVertex(n, k, h0, h1, h2) {
+    let v = Math.floor(Math.random() * n);
+    if (k >= 1) {
+        let guard = 8;
+        while (v === h0 && guard-- > 0) v = Math.floor(Math.random() * n);
+    }
+    let equalRun = false;
+    if (k >= 3) equalRun = (h0 === h1 && h1 === h2);
+    else if (k >= 2) equalRun = (h0 === h1);
+    if (equalRun) {
+        let guard = 8;
+        while (guard-- > 0) {
+            const dist = Math.abs(v - h0);
+            const wrap = ((v + 1) % n === h0) || ((h0 + 1) % n === v);
+            if (dist !== 1 && !wrap) break;
+            v = Math.floor(Math.random() * n);
+        }
+    }
+    return v;
+}
+
+const ORBIT_FNS = {
+    clifford:     cliffordOrbit,
+    'chaos-game': chaosGameOrbit,
+};
+
 // Flash-budget tracking — see brainstorming/techniques/music-to-shader.md
 // §"Flash budget". Pieces should not exceed 4 luminance flashes per bar
 // across all layers. Classify a driver-bound uniform as flash-shaped if its
@@ -841,6 +1020,8 @@ function freePipeline(pipeline) {
   if (!pipeline) return;
   for (const pass of pipeline.passes) {
     if (pass.program) gl.deleteProgram(pass.program);
+    if (pass.decayProgram) gl.deleteProgram(pass.decayProgram);
+    if (pass.vbo) gl.deleteBuffer(pass.vbo);
     freeTarget(pass.target);
   }
 }
@@ -850,6 +1031,43 @@ async function buildPipeline(slug, passSpecs) {
   try {
     for (const p of passSpecs) {
       if (typeof p.name !== 'string' || !p.name) throw new Error('pass.name required');
+      if (p.kind === 'scatter') {
+        // Scatter pass — built-in vertex + fragment, CPU orbit source.
+        const orbitName = p.orbit;
+        if (!ORBIT_FNS[orbitName]) {
+          throw new Error(`pass "${p.name}": unknown orbit "${orbitName}" (have: ${Object.keys(ORBIT_FNS).join(',')})`);
+        }
+        const points = Math.max(1, Math.min(1 << 18, Math.floor(Number(p.points ?? 4096))));
+        const program = buildScatterProgram();
+        const decayProgram = buildDecayProgram();
+        const target = allocTarget(parseTargetSpec(p.target));
+        if (target.type !== 'ping_pong') {
+          throw new Error(`pass "${p.name}": scatter pass requires ping_pong target`);
+        }
+        const buf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.bufferData(gl.ARRAY_BUFFER, points * 4 * 4, gl.DYNAMIC_DRAW);
+        passes.push({
+          name: p.name,
+          kind: 'scatter',
+          program,
+          decayProgram,
+          uniforms: {},
+          decayUniforms: {},
+          target,
+          inputs: (p.inputs && typeof p.inputs === 'object') ? p.inputs : {},
+          iterations: 1,
+          orbit:    orbitName,
+          orbitState: {},
+          orbitParams: { ...(p.params ?? {}) },
+          points,
+          decay: Number(p.decay ?? 0.96),
+          pointSize: Number(p.point_size ?? 2.5),
+          vbo: buf,
+        });
+        continue;
+      }
+      // Regular fragment-only pass.
       if (typeof p.shader !== 'string' || !p.shader.endsWith('.frag')) {
         throw new Error(`pass "${p.name}": shader must be a .frag filename`);
       }
@@ -877,6 +1095,28 @@ async function buildPipeline(slug, passSpecs) {
   const passByName = {};
   for (const pass of passes) passByName[pass.name] = pass;
   return { passes, passByName };
+}
+
+function buildScatterProgram() {
+    const vs = compileShader(gl.VERTEX_SHADER, SCATTER_VERT);
+    const fs = compileShader(gl.FRAGMENT_SHADER, SCATTER_FRAG);
+    const p = gl.createProgram();
+    gl.attachShader(p, vs);
+    gl.attachShader(p, fs);
+    gl.bindAttribLocation(p, 0, 'a_pt');
+    gl.linkProgram(p);
+    gl.deleteShader(vs);
+    gl.deleteShader(fs);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+        const log = gl.getProgramInfoLog(p);
+        gl.deleteProgram(p);
+        throw new Error('scatter program link failed: ' + log);
+    }
+    return p;
+}
+
+function buildDecayProgram() {
+    return buildProgram(DECAY_FRAG);
 }
 
 function reallocPipelineTargets(pipeline) {
@@ -931,6 +1171,7 @@ function passViewport(pass) {
 }
 
 function runPass(pass, pipeline, now) {
+  if (pass.kind === 'scatter') { runScatterPass(pass, pipeline, now); return; }
   bindPassTarget(pass);
   currentProgram = pass.program;
   currentUniforms = pass.uniforms;
@@ -944,6 +1185,109 @@ function runPass(pass, pipeline, now) {
   if (pass.target.type === 'ping_pong') {
     pass.target.readIdx = 1 - pass.target.readIdx;
   }
+}
+
+function runScatterPass(pass, pipeline, now) {
+    // Two GL operations per frame:
+    //   1. DECAY copy: read prev FBO * decay → write new FBO (full-screen quad).
+    //   2. SCATTER:   additive-blend N orbit points on top of the decayed buffer.
+    const writeIdx = 1 - pass.target.readIdx;
+    const readTex  = pass.target.textures[pass.target.readIdx];
+    const writeFbo = pass.target.fbos[writeIdx];
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, writeFbo);
+    gl.viewport(0, 0, pass.target.width, pass.target.height);
+
+    // --- 1. Decay copy.
+    gl.disable(gl.BLEND);
+    gl.useProgram(pass.decayProgram);
+    currentProgram = pass.decayProgram;
+    currentUniforms = pass.decayUniforms;
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, readTex);
+    setUniform1i('u_prev', 0);
+    setUniform1f('u_decay', pass.decay);
+    bindQuadAttrib(pass.decayProgram);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    // --- 2. Scatter additive splat.
+    // Compute orbit batch on CPU and stream into the VBO.
+    const orbitFn = ORBIT_FNS[pass.orbit];
+    const liveParams = resolveOrbitParams(pass.orbitParams);
+    const batch = orbitFn(pass.orbitState, pass.points, liveParams);
+    gl.bindBuffer(gl.ARRAY_BUFFER, pass.vbo);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, batch);
+
+    gl.useProgram(pass.program);
+    currentProgram = pass.program;
+    currentUniforms = pass.uniforms;
+    setUniform1f('u_point_size', pass.pointSize);
+    const ptLoc = gl.getAttribLocation(pass.program, 'a_pt');
+    gl.bindBuffer(gl.ARRAY_BUFFER, pass.vbo);
+    gl.enableVertexAttribArray(ptLoc);
+    gl.vertexAttribPointer(ptLoc, 4, gl.FLOAT, false, 0, 0);
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);   // additive
+    gl.drawArrays(gl.POINTS, 0, pass.points);
+    gl.disable(gl.BLEND);
+
+    pass.target.readIdx = writeIdx;
+}
+
+// Resolve runtime orbit params — for v1 this just clones static values from
+// the piece's meta.yaml. Future extension: bind to audio / section uniforms
+// via a `drivers:` block.
+function resolveOrbitParams(params) {
+    // Driver forms supported:
+    //   { driver: 'bass_stem', lo: -1.25, hi: -1.20 }            → lerp
+    //   { driver: 'section_id', table: [3,5,6,7,5,3,5,6] }       → integer table lookup
+    //   { driver: 'song_progress', steps: [0.2,0.4,...], vals: [3,5,...] } → piecewise
+    const out = {};
+    for (const [key, val] of Object.entries(params)) {
+        if (val && typeof val === 'object' && typeof val.driver === 'string') {
+            const v = sampleDriver(val.driver);
+            if (Array.isArray(val.table)) {
+                const idx = Math.max(0, Math.min(val.table.length - 1, Math.floor(v)));
+                out[key] = val.table[idx];
+            } else if (Array.isArray(val.steps) && Array.isArray(val.vals)) {
+                let chosen = val.vals[0];
+                for (let i = 0; i < val.steps.length; i++) {
+                    if (v >= val.steps[i]) chosen = val.vals[Math.min(i + 1, val.vals.length - 1)];
+                }
+                out[key] = chosen;
+            } else {
+                const lo = Number(val.lo ?? 0);
+                const hi = Number(val.hi ?? 1);
+                out[key] = lo + (hi - lo) * v;
+            }
+        } else {
+            out[key] = val;
+        }
+    }
+    return out;
+}
+
+function sampleDriver(name) {
+    // Audio bands.
+    if (name === 'u_audio_bass'  || name === 'bass')  return audioBands.bass;
+    if (name === 'u_audio_mid'   || name === 'mid')   return audioBands.mid;
+    if (name === 'u_audio_high'  || name === 'high')  return audioBands.high;
+    if (name === 'u_audio_level' || name === 'level') return audioBands.level;
+    if (name === 'u_audio_kick'  || name === 'kick')  return audioOnsets.bass.pulse;
+    // Song-level fields from the analysis sample (uniform-name keys).
+    const s = currentAnalysisSample;
+    if (!s) return 0;
+    if (name === 'bass_stem')        return s.u_audio_bass_stem   ?? 0;
+    if (name === 'drums_stem')       return s.u_audio_drums_stem  ?? 0;
+    if (name === 'other_stem')       return s.u_audio_other_stem  ?? 0;
+    if (name === 'vocals_stem')      return s.u_audio_vocals_stem ?? 0;
+    if (name === 'song_progress')    return s.u_song_progress     ?? 0;
+    if (name === 'section_progress') return s.u_section_progress  ?? 0;
+    // section_id can be -1 in the no-section / pre-roll case. Clamp to 0 so
+    // table-driver lookups don't blow up.
+    if (name === 'section_id')       return Math.max(0, s.u_section_id ?? 0);
+    return 0;
 }
 
 function bindQuadAttrib(program) {
@@ -2177,6 +2521,25 @@ function resize() {
 function exposeRecordingHooks() {
   document.body.classList.add('hud-off');
   window.__vj = window.__vj ?? {};
+  // inspect-music hooks: bin/inspect-music.mjs seeks audioEl.currentTime to
+  // section anchors (intro/verse/peak/quiet/outro) so critic agents see
+  // visually distinct moments rather than wall-clock frames.
+  window.__vj.seekAudio = async (t) => {
+    if (!audioEl) return { ok: false, reason: 'no-audio' };
+    audioEl.currentTime = Math.max(0, Math.min(audioEl.duration || t, t));
+    if (audioEl.paused) { try { await audioEl.play(); } catch {} }
+    return { ok: true, at: audioEl.currentTime, duration: audioEl.duration };
+  };
+  window.__vj.getAudioTime = () => audioEl ? audioEl.currentTime : null;
+  window.__vj.isAudioReady = () => Boolean(audioEl) && audioEl.readyState >= 2;
+  window.__vj.waitForAudio = (timeoutMs = 5000) => new Promise((resolve) => {
+    const deadline = Date.now() + timeoutMs;
+    (function tick() {
+      if (audioEl && audioEl.readyState >= 2) return resolve(true);
+      if (Date.now() > deadline) return resolve(false);
+      setTimeout(tick, 50);
+    })();
+  });
   window.__vj.record = async (durationMs = 10000) => {
     const waited = await waitForProgram(5000);
     if (!waited) throw new Error('no program compiled in time');
