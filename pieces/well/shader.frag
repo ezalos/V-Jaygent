@@ -42,7 +42,7 @@ float vnoise(vec2 p) {
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
 
-float fbm(vec2 p) {
+float fbmGrid(vec2 p) {
     float v = 0.0, a = 0.55;
     mat2 rot = mat2(0.80, 0.60, -0.60, 0.80);  // rotate between octaves
     for (int i = 0; i < 5; i++) {
@@ -58,12 +58,12 @@ float fbm(vec2 p) {
 // Returns a warm nebula color at world point q.
 vec3 nebula(vec2 q) {
     // Domain-warp the lookup so clouds fold on themselves.
-    vec2 w1 = vec2(fbm(q + vec2(0.00, u_time * 0.05)),
-                   fbm(q + vec2(5.20, 1.30)));
-    vec2 w2 = vec2(fbm(q + 4.0 * w1 + vec2(1.70, 9.20)),
-                   fbm(q + 4.0 * w1 + vec2(8.30, 2.80) - u_time * 0.03));
+    vec2 w1 = vec2(fbmGrid(q + vec2(0.00, u_time * 0.05)),
+                   fbmGrid(q + vec2(5.20, 1.30)));
+    vec2 w2 = vec2(fbmGrid(q + 4.0 * w1 + vec2(1.70, 9.20)),
+                   fbmGrid(q + 4.0 * w1 + vec2(8.30, 2.80) - u_time * 0.03));
 
-    float density = fbm(q + 3.2 * w2);
+    float density = fbmGrid(q + 3.2 * w2);
     float hue     = density * 0.70 + 0.08 * u_time * 0.1 + 0.05 * w2.x;
     vec3  col     = warmCycle(hue);
 

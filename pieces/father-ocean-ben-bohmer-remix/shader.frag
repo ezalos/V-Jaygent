@@ -65,15 +65,15 @@ float spikeProfile(float theta, float spikePhase, float spikeCount,
     // Chaos amplitude inversely modulated by lattice_order — snaps clean,
     // breathes into chaos.
     float chaosAmp = 1.0 - latticeOrder;
-    float phasePerturb = (1.60 * fbm(vec2(theta * 0.55 + u_time * 0.17, 1.7))
-                       +  0.45 * fbm(vec2(theta * 1.40 + u_time * 0.41, 8.7))) * chaosAmp;
+    float phasePerturb = (1.60 * fbmGrid(vec2(theta * 0.55 + u_time * 0.17, 1.7))
+                       +  0.45 * fbmGrid(vec2(theta * 1.40 + u_time * 0.41, 8.7))) * chaosAmp;
     float jit = (hash21(worldP * 6.0 + vec2(u_time * 0.3, 0.0)) - 0.5) * jitterAmt;
     float lattice = sin(theta * spikeCount + spikePhase + phasePerturb + jit * 2.0);
     lattice = max(0.0, lattice);
     lattice = pow(lattice, 3.5);
     // Height jitter also gated by chaos amp — uniform on downbeat, wild
     // by end of bar. Range 0.05..2.30 at full chaos, 0.85..1.15 at snap.
-    float jitRaw = 0.05 + 2.25 * fbm(vec2(theta * 2.1 + u_time * 0.37, 4.3));
+    float jitRaw = 0.05 + 2.25 * fbmGrid(vec2(theta * 2.1 + u_time * 0.37, 4.3));
     float heightJit = mix(1.0, jitRaw, chaosAmp);
     return lattice * heightJit;
 }
@@ -130,8 +130,8 @@ void main() {
     // ~0.10 world units — visible motion across 6-second cycles, breaks
     // the "stationary at center" reading.
     vec2 wander = vec2(
-        0.10 * (fbm(vec2(t * 0.13, 3.7)) - 0.5),
-        0.08 * (fbm(vec2(t * 0.17, 9.1)) - 0.5)
+        0.10 * (fbmGrid(vec2(t * 0.13, 3.7)) - 0.5),
+        0.08 * (fbmGrid(vec2(t * 0.17, 9.1)) - 0.5)
     );
     vec2 bodyC = wander + cw * 0.22;
 
@@ -203,8 +203,8 @@ void main() {
     float theta = atan(dC.y, dC.x);
 
     // Asymmetric body lobes — multi-octave fbm.
-    float bodyLobe = 0.34 * (fbm(vec2(theta * 1.3 + t * 0.09, 7.7)) - 0.5)
-                   + 0.14 * (fbm(vec2(theta * 3.1 + t * 0.27, 2.3)) - 0.5);
+    float bodyLobe = 0.34 * (fbmGrid(vec2(theta * 1.3 + t * 0.09, 7.7)) - 0.5)
+                   + 0.14 * (fbmGrid(vec2(theta * 3.1 + t * 0.27, 2.3)) - 0.5);
     float Rasym = R * (1.0 + bodyLobe);
 
     float profile = spikeProfile(theta, spikePhase, spikeCount, p, ampNow * 6.0,
@@ -215,13 +215,13 @@ void main() {
 
     // Capillary chop on rim — pixel-scale jitter, hi-hat scales it.
     float chopAmp = 0.012 + 0.024 * u_audio_high;
-    float chop = chopAmp * (fbm(vec2(theta * 26.0 + t * 6.0, 11.3)) - 0.5);
+    float chop = chopAmp * (fbmGrid(vec2(theta * 26.0 + t * 6.0, 11.3)) - 0.5);
 
     // Curl-noise turbulence on body skin — adds visible turbulent texture
     // INSIDE the body (not just at rim). 2-octave fbm of (p, t) modulated
     // by bass so the skin churns when the music hits.
-    float skinTurb = (fbm(vec2(p.x * 18.0 + t * 0.7, p.y * 18.0)) - 0.5) * 0.030
-                   + (fbm(vec2(p.x * 36.0 - t * 1.2, p.y * 36.0)) - 0.5) * 0.012;
+    float skinTurb = (fbmGrid(vec2(p.x * 18.0 + t * 0.7, p.y * 18.0)) - 0.5) * 0.030
+                   + (fbmGrid(vec2(p.x * 36.0 - t * 1.2, p.y * 36.0)) - 0.5) * 0.012;
     skinTurb *= (0.4 + 1.4 * u_audio_bass);
 
     // Drumhead wobble — kicks fire a damped radial wave.
@@ -287,7 +287,7 @@ void main() {
             vec2 fGrad = fHere.gb;
             float gAng = atan(fGrad.y, fGrad.x + 1e-6);
             vec2 along = rot2d(-gAng) * ((p - bodyC) * 5.0);
-            float streamer = fbm(along + vec2(t * 0.18, 0.0));
+            float streamer = fbmGrid(along + vec2(t * 0.18, 0.0));
             streamer = pow(saturate(streamer * 1.5 - 0.55), 1.8);
             float bandFade = smoothstep(0.55, Rasym * 0.95, distC)
                            * (1.0 - smoothstep(0.60, 0.95, distC / 0.55));

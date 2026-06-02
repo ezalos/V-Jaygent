@@ -1,14 +1,22 @@
 # Domain warping
 
-Iñigo Quílez's canonical move: `fbm(p + fbm(p + fbm(p)))`. Warp the input
-coordinates of a noise function by another noise function. Recursion
-gives fluid, natural patterns that look handmade.
+Iñigo Quílez's canonical move: `fbmRot(p + fbmRot(p + fbmRot(p)))`. Warp
+the input coordinates of a noise function by another noise function.
+Recursion gives fluid, natural patterns that look handmade.
+
+**Use `fbmRot`, not `fbmGrid`.** Domain warping amplifies the grid
+artefacts that `lib/noise.glsl`'s `fbmGrid` carries — the warp samples
+near the same integer-grid points the grid-aligned octaves of fbmGrid
+would expose. The rotated variant scrambles the per-octave basis and
+keeps the field organic. (See `lib/noise.glsl` header — `fbm` was
+renamed to `fbmGrid` on 2026-06-03 to force opt-in to the unsafe
+variant; `fbmRot` is the default choice.)
 
 ## Why it works for procedural art
 
-- **Breaks grid-alignment.** Naive `fbm(p)` has artefacts on regular
-  scales because octaves align. Warping perturbs the sampling, smearing
-  the scale structure into something organic.
+- **Breaks grid-alignment.** Even `fbmRot(p)` benefits from warping —
+  perturbed sampling smears any residual scale structure into
+  something organic. `fbmGrid(p)` would expose its octave grid.
 - **Depth at every zoom.** The warped function has interesting detail
   at arbitrary scale, so zooming reveals new structure rather than
   exposing the lattice.
@@ -19,13 +27,13 @@ gives fluid, natural patterns that look handmade.
 ## The recipe
 
 ```glsl
-vec2 q = vec2(fbm(p + vec2(0.0, u_time * 0.05)),
-              fbm(p + vec2(5.2, 1.3)));
+vec2 q = vec2(fbmRot(p + vec2(0.0, u_time * 0.05)),
+              fbmRot(p + vec2(5.2, 1.3)));
 
-vec2 r = vec2(fbm(p + 4.0 * q + vec2(1.7, 9.2)),
-              fbm(p + 4.0 * q + vec2(8.3, 2.8) - u_time * 0.03));
+vec2 r = vec2(fbmRot(p + 4.0 * q + vec2(1.7, 9.2)),
+              fbmRot(p + 4.0 * q + vec2(8.3, 2.8) - u_time * 0.03));
 
-float v = fbm(p + 3.2 * r);
+float v = fbmRot(p + 3.2 * r);
 ```
 
 `v` now has rich structure driven by two levels of warping.
@@ -34,8 +42,10 @@ float v = fbm(p + 3.2 * r);
 
 - **Warp strength** (the `4.0`, `3.2` coefficients). Low = subtle noise
   variation. High = visibly warped, almost turbulent. Mood control.
-- **Octave count** in `fbm` itself. 4-5 gives plenty of detail for
-  fragment-shader budgets. 8+ for hero shots only.
+- **Octave count** in `fbmRot` itself (5 by default). 4-5 gives plenty
+  of detail for fragment-shader budgets. 8+ for hero shots only —
+  but watch for u_history-fed pieces, where extra octaves get baked
+  into trails.
 - **Time-on-which-axis.** Adding `t` to the primary offset moves the
   whole field. Adding to the secondary warp changes the *pattern*.
   Different feels.

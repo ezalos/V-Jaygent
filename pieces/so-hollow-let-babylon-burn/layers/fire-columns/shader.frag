@@ -20,7 +20,7 @@ float vnoise(vec2 p) {
     float d = hash21(i + vec2(1.0, 1.0));
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
-float fbm(vec2 p) {
+float fbmGrid(vec2 p) {
     float v = 0.0, a = 0.55;
     for (int i = 0; i < 5; i++) {
         v += a * vnoise(p);
@@ -149,7 +149,7 @@ void main() {
 
     // Flame "tongues" — high-frequency upward-streaming noise that creates
     // licking-tongue motion
-    float tongue = fbm(vec2(dxAdj * 5.0 + float(ti) * 2.7,
+    float tongue = fbmGrid(vec2(dxAdj * 5.0 + float(ti) * 2.7,
                             p.y * 8.0 - u_time * 4.0 + float(ti)));
     float tongueMask = smoothstep(0.55, 0.78, tongue);
     tongueMask *= bodyMask;

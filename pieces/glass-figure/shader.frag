@@ -93,8 +93,8 @@ void main() {
     // Turns the interference from crystalline-clean into liquid/organic.
     // Kept modest (0.28) so fivefold character still reads through the warp.
     // Fast time coefficients — the warp itself visibly churns.
-    vec2 warp = vec2(fbm(p * 0.9 + vec2(0.0,  t * 0.22)) - 0.5,
-                     fbm(p * 0.9 + vec2(4.7, -t * 0.18 + 2.1)) - 0.5);
+    vec2 warp = vec2(fbmGrid(p * 0.9 + vec2(0.0,  t * 0.22)) - 0.5,
+                     fbmGrid(p * 0.9 + vec2(4.7, -t * 0.18 + 2.1)) - 0.5);
     p += 0.28 * warp;
 
     // ---------- cursor as local turbulence source ----------

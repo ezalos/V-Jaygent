@@ -78,7 +78,7 @@ float vnoise(vec2 p) {
                u.y);
 }
 
-float fbm(vec2 p) {
+float fbmGrid(vec2 p) {
     float v = 0.0, a = 0.5;
     for (int i = 0; i < 4; i++) { v += a * vnoise(p); p *= 2.03; p += 1.7; a *= 0.55; }
     return v;
@@ -113,11 +113,11 @@ vec2 kaleidoFold(vec2 p, float n, float axisAngle) {
 // ---------- the SOURCE material (what's between the mirrors) ----------
 vec3 source(vec2 q, float t, float bass, float mid, float high, float level) {
     // Slow warm fbm "fluid" — domain-warped so it folds on itself organically.
-    vec2 w1 = vec2(fbm(q * 1.2 + vec2(0.0, t * 0.09)),
-                   fbm(q * 1.2 + vec2(5.2, 1.3) - t * 0.07));
-    vec2 w2 = vec2(fbm(q * 1.5 + 2.8 * w1 + vec2(1.7, 9.2)),
-                   fbm(q * 1.5 + 2.8 * w1 + vec2(8.3, 2.8) - t * 0.06));
-    float fluid = fbm(q * 1.7 + 2.4 * w2 + 0.6 * bass);
+    vec2 w1 = vec2(fbmGrid(q * 1.2 + vec2(0.0, t * 0.09)),
+                   fbmGrid(q * 1.2 + vec2(5.2, 1.3) - t * 0.07));
+    vec2 w2 = vec2(fbmGrid(q * 1.5 + 2.8 * w1 + vec2(1.7, 9.2)),
+                   fbmGrid(q * 1.5 + 2.8 * w1 + vec2(8.3, 2.8) - t * 0.06));
+    float fluid = fbmGrid(q * 1.7 + 2.4 * w2 + 0.6 * bass);
 
     float hue = 0.20 + 0.25 * fluid + t * 0.018 + 0.14 * mid;
     vec3  col = warmCycle(hue) * (0.18 + 0.8 * fluid);
@@ -138,7 +138,7 @@ vec3 source(vec2 q, float t, float bass, float mid, float high, float level) {
 
     // Continuous soft shimmer (replaces the old hard step() sparkle) — reads
     // as breathing grain rather than blinking noise.
-    float shimmer = 0.5 + 0.5 * fbm(q * 7.5 + t * 0.3);
+    float shimmer = 0.5 + 0.5 * fbmGrid(q * 7.5 + t * 0.3);
     shimmer       = smoothstep(0.55, 0.95, shimmer) * (0.25 + 0.5 * high);
     col += warmCycle(0.02 + t * 0.02) * shimmer * 0.30;
 
@@ -151,9 +151,9 @@ vec3 source(vec2 q, float t, float bass, float mid, float high, float level) {
 // the full spectrum without any single disk being rainbow-confetti.
 vec3 interior(vec2 q, float t, float hueBase, float mid, float high, float level) {
     // Warm fluid backbone — palette shifted by the disk's hue.
-    vec2 w = vec2(fbm(q * 2.2 + vec2(0.0, t * 0.20)),
-                  fbm(q * 2.2 + vec2(4.1, 1.7) - t * 0.15));
-    float fluid = fbm(q * 3.0 + 2.0 * w);
+    vec2 w = vec2(fbmGrid(q * 2.2 + vec2(0.0, t * 0.20)),
+                  fbmGrid(q * 2.2 + vec2(4.1, 1.7) - t * 0.15));
+    float fluid = fbmGrid(q * 3.0 + 2.0 * w);
     vec3  col   = spectrum(hueBase + 0.18 * fluid + t * 0.04)
                 * (0.25 + 0.95 * fluid);
 
@@ -176,7 +176,7 @@ vec3 interior(vec2 q, float t, float hueBase, float mid, float high, float level
 
     // Continuous soft shimmer — upper bound pulled down so highs don't slam
     // pure white into the output.
-    float shimmer = smoothstep(0.58, 0.82, fbm(q * 9.0 + t * 0.45));
+    float shimmer = smoothstep(0.58, 0.82, fbmGrid(q * 9.0 + t * 0.45));
     col += spectrum(hueBase + 0.22 + t * 0.03) * shimmer * (0.22 + 0.55 * high);
 
     // Interior boost, but bounded.

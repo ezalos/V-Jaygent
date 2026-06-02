@@ -33,9 +33,20 @@ float vnoise(vec2 p) {
 }
 
 // Fractional Brownian motion — 5 octaves, lacunarity 2, persistence 0.55, no
-// axis rotation between octaves. Produces slight grid-aligned artefacts in flat
-// regions; prefer `fbmRot` for pieces that hold still. Range ~[0, ~1.2].
-float fbm(vec2 p) {
+// axis rotation between octaves. Range ~[0, ~1.2].
+//
+// IMPORTANT: this variant has its octaves axis-aligned, so flat regions
+// develop visible grid artefacts that get amplified by curl operations
+// and BAKED into trails by any layer with u_history feedback at decay
+// ≥ 0.90. Caused the chaos-warp blocky-patch bug
+// (see brainstorming/critiques/dopamine-split-brain-version-v5.md).
+//
+// **Renamed from `fbm` → `fbmGrid` on 2026-06-03 to force opt-in.** Use
+// `fbmRot` below unless you specifically want the grid-aligned variant for
+// e.g. a Cartesian-aligned aesthetic. If you're feeding the output into a
+// curl operation, a domain warp, or any layer that uses u_history feedback,
+// use `fbmRot` — full stop.
+float fbmGrid(vec2 p) {
     float v = 0.0, a = 0.55;
     for (int i = 0; i < 5; i++) {
         v += a * vnoise(p);
@@ -45,9 +56,11 @@ float fbm(vec2 p) {
     return v;
 }
 
-// FBM with a per-octave rotation — hides the grid by twisting each octave. This
-// is the variant from `pieces/well/shader.frag`. Strongly preferred for static
-// and slow-moving fields.
+// FBM with a per-octave rotation — hides the grid by twisting each octave.
+// This is the variant from `pieces/well/shader.frag`. **The default choice
+// for new code.** Strongly preferred for static and slow-moving fields,
+// curl-of-fbm constructions, and any layer that compounds the noise
+// through u_history feedback.
 float fbmRot(vec2 p) {
     float v = 0.0, a = 0.55;
     mat2 rot = mat2(0.80, 0.60, -0.60, 0.80);

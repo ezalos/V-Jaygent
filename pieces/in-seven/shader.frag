@@ -63,7 +63,7 @@ float vnoise(vec2 p) {
                u.y);
 }
 
-float fbm(vec2 p) {
+float fbmGrid(vec2 p) {
     float v = 0.0, a = 0.5;
     for (int i = 0; i < 4; i++) { v += a * vnoise(p); p *= 2.03; p += 1.7; a *= 0.55; }
     return v;
@@ -102,9 +102,9 @@ vec2 driftCentre(float t, float amplitude) {
 // ---------- void-fill nebula ----------
 
 vec3 voidNebula(vec2 p, float t, float level, float wVerse, float wSax, float wGuitar) {
-    vec2 w = vec2(fbm(p * 1.4 + vec2(0.0, t * 0.04)),
-                  fbm(p * 1.4 + vec2(5.2, 1.3) - t * 0.02));
-    float n = fbm(p * 1.6 + 2.6 * w);
+    vec2 w = vec2(fbmGrid(p * 1.4 + vec2(0.0, t * 0.04)),
+                  fbmGrid(p * 1.4 + vec2(5.2, 1.3) - t * 0.02));
+    float n = fbmGrid(p * 1.6 + 2.6 * w);
     float density = smoothstep(0.30, 0.95, n);
     float amp = 0.25 * level + 0.10 * wVerse + 0.55 * wSax + 0.25 * wGuitar;
     vec3  c = warmCycle(n * 0.55 + t * 0.025);
@@ -126,7 +126,7 @@ vec3 field(vec2 p, float t, float bass, float mid, float high, float level,
     // Sax / guitar: the lattice flexes via domain-warped noise.
     float flex = wSax * 0.12 + wGuitar * 0.28;
     if (flex > 0.0) {
-        vec2 w = vec2(fbm(q * 2.4 + t * 0.35), fbm(q * 2.4 - t * 0.30 + 7.0));
+        vec2 w = vec2(fbmGrid(q * 2.4 + t * 0.35), fbmGrid(q * 2.4 - t * 0.30 + 7.0));
         q     += (w - 0.5) * flex;
     }
 

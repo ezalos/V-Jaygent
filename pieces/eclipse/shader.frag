@@ -173,9 +173,9 @@ void main() {
     float level = mix(0.33, u_audio_level, audio);
 
     // --- Warm drifting background: very slow fbm, reads as atmosphere.
-    vec2 w = vec2(fbm(p * 0.9 + vec2(0.0, t * 0.04)),
-                  fbm(p * 0.9 + vec2(4.1, 1.7) - t * 0.03));
-    float bg = fbm(p * 1.1 + 1.5 * w);
+    vec2 w = vec2(fbmGrid(p * 0.9 + vec2(0.0, t * 0.04)),
+                  fbmGrid(p * 0.9 + vec2(4.1, 1.7) - t * 0.03));
+    float bg = fbmGrid(p * 1.1 + 1.5 * w);
     vec3 col = ember(0.25 + 0.35 * bg) * (0.28 + 0.55 * level);
 
     // --- Ball 1: small bright "white" (warm cream) Julia body.

@@ -18,7 +18,7 @@ float vnoise(vec2 p) {
     float d = hash21(i + vec2(1.0, 1.0));
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
-float fbm(vec2 p) {
+float fbmGrid(vec2 p) {
     float v = 0.0, a = 0.55;
     for (int i = 0; i < 5; i++) {
         v += a * vnoise(p);

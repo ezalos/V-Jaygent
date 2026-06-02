@@ -19,7 +19,7 @@ out vec4 fragColor;
 // Curl-noise: v = (dpsi/dy, -dpsi/dx). Sampled by finite difference so we don't
 // need analytic derivatives. Divergence-free by construction (Bridson 2007).
 float streamfn(vec2 p, float t) {
-    return fbm(p * 1.5 + vec2(0.0, 0.13 * t)) + 0.45 * fbm(p * 3.7 - vec2(0.07 * t, 0.0));
+    return fbmGrid(p * 1.5 + vec2(0.0, 0.13 * t)) + 0.45 * fbmGrid(p * 3.7 - vec2(0.07 * t, 0.0));
 }
 
 vec2 curlVelocity(vec2 p, float t) {

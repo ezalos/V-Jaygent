@@ -51,10 +51,10 @@ vec2 keyPos(int i) {
 // to organise locally before being stirred.
 vec2 curlNoise(vec2 p, float t) {
     float e = 0.06;
-    float n1 = fbm(p + vec2(0.0,  e) + vec2(0.0,  t * 0.10));
-    float n2 = fbm(p + vec2(0.0, -e) + vec2(0.0,  t * 0.10));
-    float n3 = fbm(p + vec2( e, 0.0) + vec2(0.0,  t * 0.10));
-    float n4 = fbm(p + vec2(-e, 0.0) + vec2(0.0,  t * 0.10));
+    float n1 = fbmGrid(p + vec2(0.0,  e) + vec2(0.0,  t * 0.10));
+    float n2 = fbmGrid(p + vec2(0.0, -e) + vec2(0.0,  t * 0.10));
+    float n3 = fbmGrid(p + vec2( e, 0.0) + vec2(0.0,  t * 0.10));
+    float n4 = fbmGrid(p + vec2(-e, 0.0) + vec2(0.0,  t * 0.10));
     float dpsiDy = (n1 - n2) / (2.0 * e);
     float dpsiDx = (n3 - n4) / (2.0 * e);
     return vec2(dpsiDy, -dpsiDx);

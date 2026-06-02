@@ -18,7 +18,7 @@ float vnoise(vec2 p){
     float c = hash21(i + vec2(0, 1)), d = hash21(i + vec2(1, 1));
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
-float fbm(vec2 p){
+float fbmGrid(vec2 p){
     float v = 0.0, a = 0.55;
     mat2 r = mat2(0.80, 0.60, -0.60, 0.80);
     for (int i = 0; i < 5; i++){ v += a * vnoise(p); p = r * p * 2.0 + vec2(1.7, 9.2); a *= 0.55; }
@@ -45,8 +45,8 @@ void main(){
 
     // coal bed — heat rises from the bottom; fbm pockets so it is never flat
     float bed     = smoothstep(1.15, -0.15, uv.y);
-    float coals   = fbm(vec2(p.x * 3.0, uv.y * 2.4 - u_time * 0.07));
-    float pockets = fbm(vec2(p.x * 6.0 + 3.0, uv.y * 5.0 - u_time * 0.13));
+    float coals   = fbmGrid(vec2(p.x * 3.0, uv.y * 2.4 - u_time * 0.07));
+    float pockets = fbmGrid(vec2(p.x * 6.0 + 3.0, uv.y * 5.0 - u_time * 0.13));
     float heat = bed * (0.42 + 0.85 * coals) + bed * bed * pockets * 0.55;
     heat *= 0.30 + 1.05 * energy;
 

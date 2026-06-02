@@ -17,7 +17,7 @@ float vnoise(vec2 p) {
     float d = hash21(i + vec2(1.0, 1.0));
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
-float fbm(vec2 p) {
+float fbmGrid(vec2 p) {
     float v = 0.0, a = 0.55;
     for (int i = 0; i < 4; i++) {
         v += a * vnoise(p);
@@ -77,8 +77,8 @@ void main() {
     // randomly.
     float t = u_time * 0.45;
     vec2  q  = uv * 4.0 + vec2(0.0, t * 0.3);
-    float n1 = fbm(q);
-    float n2 = fbm(q + vec2(13.7, 0.0) + vec2(-t * 0.3, 0.0));
+    float n1 = fbmGrid(q);
+    float n2 = fbmGrid(q + vec2(13.7, 0.0) + vec2(-t * 0.3, 0.0));
     vec2  baseDisp = vec2(n2 - 0.5, n1 - 0.5);
 
     // Higher-frequency wobble driven by audio_high — ripple lines along y

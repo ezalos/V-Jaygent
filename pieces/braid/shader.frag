@@ -56,11 +56,11 @@ vec2 kaleido5(vec2 p, float axisAngle) {
 
 // Substrate: domain-warped fbm — slow, evolving, warm, read through kaleido5.
 vec3 substrate(vec2 q, float t) {
-    vec2 w1 = vec2(fbm(q * 1.0 + vec2(0.0, t * 0.06)),
-                   fbm(q * 1.0 + vec2(4.7, 1.3) - t * 0.04));
-    vec2 w2 = vec2(fbm(q * 1.3 + 2.0 * w1 + vec2(1.7, 9.2)),
-                   fbm(q * 1.3 + 2.0 * w1 + vec2(8.3, 2.8) - t * 0.03));
-    float n = fbm(q * 1.5 + 2.0 * w2);
+    vec2 w1 = vec2(fbmGrid(q * 1.0 + vec2(0.0, t * 0.06)),
+                   fbmGrid(q * 1.0 + vec2(4.7, 1.3) - t * 0.04));
+    vec2 w2 = vec2(fbmGrid(q * 1.3 + 2.0 * w1 + vec2(1.7, 9.2)),
+                   fbmGrid(q * 1.3 + 2.0 * w1 + vec2(8.3, 2.8) - t * 0.03));
+    float n = fbmGrid(q * 1.5 + 2.0 * w2);
     return ember(smoothstep(0.22, 0.90, n));
 }
 

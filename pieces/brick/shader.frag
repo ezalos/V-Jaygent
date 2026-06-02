@@ -49,7 +49,7 @@ vec3 brickSurface(vec2 buv, vec2 bid) {
     mat2  r     = rot2d(seed * TAU);
     vec2  q     = r * (buv - 0.5) * 6.5;
 
-    float grain = fbm(q) * 0.65 + 0.35;
+    float grain = fbmGrid(q) * 0.65 + 0.35;
     vec3  base  = vec3(0.050, 0.045, 0.042);   // neutral concrete
     vec3  dark  = vec3(0.022, 0.018, 0.016);   // grain shadow
     vec3  col   = mix(dark, base, grain);
@@ -113,7 +113,7 @@ void main() {
     float dmg     = texture(u_state, screenUV).r;
     // Per-fragment jitter for jagged shatter edge — fine-grain noise so brick
     // edges disintegrate rather than dissolve uniformly.
-    float jitter  = fbm(gl_FragCoord.xy * 0.022 + bid * 3.7);
+    float jitter  = fbmGrid(gl_FragCoord.xy * 0.022 + bid * 3.7);
     float shatter = smoothstep(0.38, 0.88, dmg + (jitter - 0.5) * 0.55);
 
     float brickPresence = shapeMask * (1.0 - shatter);
@@ -123,8 +123,8 @@ void main() {
     // the oxblood/red band — the piece's default mood is menacing, not warm.
     float flameT = u_time * 0.55;
     vec2  fp     = p * vec2(2.6, 3.2);
-    float warpN  = fbm(fp * 0.9 + vec2(0.0, -flameT * 2.3));
-    float flameN = fbm(fp + vec2(warpN * 1.4, -flameT * 2.6));
+    float warpN  = fbmGrid(fp * 0.9 + vec2(0.0, -flameT * 2.3));
+    float flameN = fbmGrid(fp + vec2(warpN * 1.4, -flameT * 2.6));
     float taper  = pow(1.0 - clamp(p.y, 0.0, 1.0) * 0.85, 1.8);
     float heat   = clamp(flameN * 0.55 + taper * 0.32, 0.0, 1.0);
     // Fast flicker — makes the furnace read as alive at 60fps, not painted.

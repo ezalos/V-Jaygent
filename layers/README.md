@@ -90,8 +90,10 @@ void main() {
     // shipped layer uses it; the engine vertex shader is bare gl_Position.)
     vec2 uv = gl_FragCoord.xy / u_resolution;
 
-    // height field used for refraction direction
-    float h = fbm(uv * 6.0 + u_time * 0.1);
+    // height field used for refraction direction. Use fbmRot (not fbmGrid)
+    // for curl / domain-warp / feedback patterns — the rotated variant
+    // hides the grid that fbmGrid leaves baked into u_history trails.
+    float h = fbmRot(uv * 6.0 + u_time * 0.1);
     vec2 grad = vec2(dFdx(h), dFdy(h));
 
     // per-channel offset

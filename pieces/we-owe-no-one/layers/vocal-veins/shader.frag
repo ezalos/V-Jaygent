@@ -17,7 +17,7 @@ float vnoise(vec2 p){
     float c = hash21(i + vec2(0, 1)), d = hash21(i + vec2(1, 1));
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
-float fbm(vec2 p){
+float fbmGrid(vec2 p){
     float v = 0.0, a = 0.6;
     for (int i = 0; i < 4; i++){ v += a * vnoise(p); p = p * 2.03 + vec2(1.7, 9.2); a *= 0.55; }
     return v;
@@ -44,7 +44,7 @@ void main(){
     float present = smoothstep(0.04, 0.20, v);
 
     // the braid centre drifts slowly across the frame
-    float cy = 0.12 * sin(u_time * 0.21) + 0.16 * (fbm(vec2(u_time * 0.12, 5.0)) - 0.5);
+    float cy = 0.12 * sin(u_time * 0.21) + 0.16 * (fbmGrid(vec2(u_time * 0.12, 5.0)) - 0.5);
 
     vec3 col = vec3(0.0);
     float glow = 0.0;
@@ -56,7 +56,7 @@ void main(){
         // Voronoi seams beneath it
         float wob = 0.19 * sin(p.x * 1.6 + ph * 0.7 + fk * 1.3)
                   + 0.11 * sin(p.x * 3.1 - ph * 0.5 + fk)
-                  + 0.17 * (fbm(vec2(p.x * 0.8 + ph * 0.4, fk * 4.0)) - 0.5);
+                  + 0.17 * (fbmGrid(vec2(p.x * 0.8 + ph * 0.4, fk * 4.0)) - 0.5);
         float yc = cy + (fk - 1.0) * 0.085 + wob;
         float d = abs(p.y - yc);
         // a BOLD molten ribbon — bright core + wide halo, unmistakable when

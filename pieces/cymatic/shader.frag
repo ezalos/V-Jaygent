@@ -57,9 +57,9 @@ void main() {
     // full noise unit every 4s, so silence never reads as a frozen frame.
     if (level < 0.02) {
         float t = u_time * 0.25;
-        bass  = 0.14 + 0.22 * fbm(vec2(t,        0.0));
-        mid   = 0.12 + 0.18 * fbm(vec2(0.0,      t + 2.1));
-        high  = 0.08 + 0.14 * fbm(vec2(t + 4.3,  t + 4.3));
+        bass  = 0.14 + 0.22 * fbmGrid(vec2(t,        0.0));
+        mid   = 0.12 + 0.18 * fbmGrid(vec2(0.0,      t + 2.1));
+        high  = 0.08 + 0.14 * fbmGrid(vec2(t + 4.3,  t + 4.3));
         level = 0.22;
     }
 

@@ -58,7 +58,7 @@ float vnoise(vec2 p) {
                u.y);
 }
 
-float fbm(vec2 p) {
+float fbmGrid(vec2 p) {
     float v = 0.0, a = 0.5;
     for (int i = 0; i < 4; i++) { v += a * vnoise(p); p *= 2.03; p += 1.7; a *= 0.55; }
     return v;
@@ -93,11 +93,11 @@ float softMask(float d, float edge) {
 
 vec3 layerGround(vec2 p, float t, float level, float bass) {
     // Two domain-warp passes for depth; drifts at its own rate.
-    vec2 w1 = vec2(fbm(p * 1.1 + vec2(0.0, t * 0.07)),
-                   fbm(p * 1.1 + vec2(5.2, 1.3) - t * 0.05));
-    vec2 w2 = vec2(fbm(p * 1.4 + 3.2 * w1 + vec2(1.7, 9.2)),
-                   fbm(p * 1.4 + 3.2 * w1 + vec2(8.3, 2.8) - t * 0.04));
-    float density = fbm(p * 1.6 + 2.4 * w2);
+    vec2 w1 = vec2(fbmGrid(p * 1.1 + vec2(0.0, t * 0.07)),
+                   fbmGrid(p * 1.1 + vec2(5.2, 1.3) - t * 0.05));
+    vec2 w2 = vec2(fbmGrid(p * 1.4 + 3.2 * w1 + vec2(1.7, 9.2)),
+                   fbmGrid(p * 1.4 + 3.2 * w1 + vec2(8.3, 2.8) - t * 0.04));
+    float density = fbmGrid(p * 1.6 + 2.4 * w2);
     float hue     = 0.30 + 0.12 * density + t * 0.010;
 
     vec3  col = warmCycle(hue) * smoothstep(0.20, 0.85, density);

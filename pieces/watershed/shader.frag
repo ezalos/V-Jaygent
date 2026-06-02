@@ -42,8 +42,8 @@ vec2 cinv(vec2 w) { return vec2(w.x, -w.y) / max(dot(w, w), 1e-9); }   // 1 / w
 // warm near-black ground with a slow fbm haze — fills the deep-boundary void
 vec3 substrate(vec2 p) {
     vec2 d1 = 0.20 * vec2(sin(u_time * 0.061), cos(u_time * 0.047));
-    float h = fbm(p * 0.85 + d1);
-    h = mix(h, fbm(p * 1.9 - d1 * 0.6 + vec2(u_time * 0.02, 0.0)), 0.4);
+    float h = fbmGrid(p * 0.85 + d1);
+    h = mix(h, fbmGrid(p * 1.9 - d1 * 0.6 + vec2(u_time * 0.02, 0.0)), 0.4);
     float haze = smoothstep(0.35, 0.95, h) + 0.15 * u_audio_level;
     vec3 base  = vec3(0.014, 0.010, 0.018);
     vec3 ember = vec3(0.12, 0.055, 0.040);

@@ -34,7 +34,7 @@ void main() {
     // churn (vnoise at 8x on a different clock). Minimum two octaves —
     // single-FBM-octave pieces fail the depth probe.
     vec2 drift = idleDrift(u_time);
-    float macro = fbm(uv * 1.5 + drift);
+    float macro = fbmGrid(uv * 1.5 + drift);
     float micro = vnoise(uv * 8.0 - drift * 0.7 + vec2(u_time * 0.03, 0.0));
     float field = mix(macro, micro, 0.35);
 

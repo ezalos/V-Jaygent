@@ -39,7 +39,7 @@ float vnoise(vec2 p){
     float c = hash21(i + vec2(0, 1)), d = hash21(i + vec2(1, 1));
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
-float fbm(vec2 p){
+float fbmGrid(vec2 p){
     float v = 0.0, a = 0.55;
     mat2 r = mat2(0.80, 0.60, -0.60, 0.80);
     for (int i = 0; i < 5; i++){ v += a * vnoise(p); p = r * p * 2.0 + vec2(1.7, 9.2); a *= 0.55; }
@@ -147,8 +147,8 @@ void main(){
 
     // melodic-lead domain warp
     float warpAmt = 0.08 + 0.34 * mid;
-    p += warpAmt * (vec2(fbm(p * 1.3 + u_time * 0.12),
-                         fbm(p * 1.3 + u_time * 0.12 + 11.0)) - 0.5);
+    p += warpAmt * (vec2(fbmGrid(p * 1.3 + u_time * 0.12),
+                         fbmGrid(p * 1.3 + u_time * 0.12 + 11.0)) - 0.5);
 
     float rock = 0.055 * sin(beatPh * PI) * beatDir;
     float cs = cos(rock), sn = sin(rock);
@@ -188,7 +188,7 @@ void main(){
     float master = clamp(0.10 + 0.95 * energy, 0.0, 0.92);
     master += 0.35 * slamFlash;
     float core  = 1.0 - smoothstep(0.0, 0.92, F1);
-    float micro = fbm(q * 2.3 + midId) - 0.5;
+    float micro = fbmGrid(q * 2.3 + midId) - 0.5;
     float hearth = lum(below);
     float plateTemp = master
         * (0.10 + 1.05 * macro)
@@ -216,9 +216,9 @@ void main(){
     // ---- solo: the angular lattice dissolves into a smooth molten river ----
     // domain-warped turbulent flow, no Voronoi cells — distinct from the
     // struck plates of the verse; the lead guitar drives the turbulence
-    vec2 fw = vec2(fbm(p * 1.5 + u_time * 0.10),
-                   fbm(p * 1.5 + u_time * 0.10 + 7.3));
-    float flowN = fbm(p * 2.6 + fw * (0.9 + 0.8 * other) + vec2(u_time * 0.22, -u_time * 0.14));
+    vec2 fw = vec2(fbmGrid(p * 1.5 + u_time * 0.10),
+                   fbmGrid(p * 1.5 + u_time * 0.10 + 7.3));
+    float flowN = fbmGrid(p * 2.6 + fw * (0.9 + 0.8 * other) + vec2(u_time * 0.22, -u_time * 0.14));
     float flowTemp = clamp(master * (0.46 + 0.85 * flowN) * (0.42 + 0.90 * macro)
                            + 0.20 * other, 0.0, 1.0);
     vec3 flowCol = forgeColor(flowTemp);

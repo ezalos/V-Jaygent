@@ -17,7 +17,7 @@ float vnoise(vec2 p) {
     float d = hash21(i + vec2(1.0,1.0));
     return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
 }
-float fbm(vec2 p) {
+float fbmGrid(vec2 p) {
     float v = 0.0, a = 0.55;
     for (int i = 0; i < 5; i++) {
         v += a * vnoise(p);
@@ -137,7 +137,7 @@ void main() {
     float smokeMul = 1.0 + (mIdle ? 0.0 : mp.y * 0.6);
     vec2 smokeUv = vec2(p.x * 1.6 + u_time * 0.05,
                         p.y * 4.0 - u_time * 0.10 + u_song_progress * 0.4);
-    float smoke = fbm(smokeUv);
+    float smoke = fbmGrid(smokeUv);
     smoke *= smoothstep(horizonLocal - 0.05, 1.0, yt) * smokeMul;
     col *= mix(1.0, 0.50, clamp(smoke * 0.85, 0.0, 1.2));
 
