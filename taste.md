@@ -9,7 +9,14 @@ invoked by `/vjay-iterate` reads this to grade pieces.
 Six dimensions, each 1-5. Whole integers, no half-points.
 
 Scoring inputs:
-- 4-6 PNG frames captured at spread time offsets (`bin/inspect.mjs`)
+- 4-6 PNG frames at section anchors (`bin/inspect-music.mjs`)
+- **4-5 short multi-window MP4 clips at distributed sample points**
+  (`bin/inspect-music.mjs` default for audio pieces — output
+  `inspect-music/clip-w*-t*.mp4`). The Prediction probe REQUIRES
+  these; stills alone cannot validate the two-timescale test.
+  Section-anchored stills validate vocabulary distinctness;
+  multi-window clips validate continuity within and divergence
+  across windows.
 - The piece's `shader.frag` and `meta.yaml`
 - `VISION.md` for aesthetic context
 - This document for the rubric itself
@@ -46,51 +53,114 @@ Where does the eye land in frame 0? Is it the same place in frame 3?
 - 2–4 candidate regions that shift between frames so the gaze can
   wander and return. **Pass.**
 
-### Probe 2 — Prediction (HARD GATE)
+### Probe 2 — Prediction (HARD GATE — two-timescale)
 
-**The 20-second test.** Group the inspect-music frames into three
-windows: an early window (first 1/3 of the song), a middle window,
-and a late window. Looking at the windows side by side, the question
-is *not* "are the frames different?" — most pieces clear that bar
-trivially. The question is: **could a viewer who watched any 20-second
-window from this piece imagine what the next 20 seconds will look
-like, beyond brightness or cell-position variation?**
+This probe has TWO sub-tests at TWO different timescales, **both must
+pass** for the probe to pass. Failing either is the same as failing
+the probe. See VISION.md §"On unpredictability" for the underlying
+principle: mesmerization is *Lyapunov-style chaos* — locally smooth,
+globally divergent. Two opposite failure modes (too predictable, too
+chaotic) flank a narrow sweet spot.
 
-- **Same vocabulary, different brightness OR different cell positions
-  OR different palette stop.** The viewer sees "the same kind of
-  thing happening again" — different specific pixels, same generative
-  rule. **Fail.** This is the dopamine-v2 failure mode: oscillator
-  grid blinks in different positions but the *event vocabulary* is
-  identical across early/middle/late windows.
+**Pick the timescales for THIS piece, declare them up front.** The
+two scales are ranges, not constants:
+
+- **Continuity scale: 100ms to 2s.** Pick short (≈100-300ms) for
+  fast/kinetic pieces (techno, hard drops, rapid line work); long
+  (≈1-2s) for ambient/slow/meditative pieces. The scale defines
+  "the slice within which motion must be smooth and trackable".
+- **Divergence scale: 5s to 30s.** Pick short (≈5-10s) for short
+  pieces (<90s) or rapidly-reconfiguring pieces; long (≈20-30s)
+  for long-form immersive pieces or slow ambient. The scale defines
+  "the gap between sample windows that must look categorically
+  different".
+
+Declare both at the top of the critique: e.g. "continuity 0.3s,
+divergence 15s (track has 165s arc, 136 BPM — fast continuity,
+medium divergence)". Two critics grading the same piece with
+mismatched scales will reach mismatched verdicts; declaring the
+scales makes the grade reproducible.
+
+**Critical input: this probe requires multi-window clips, not
+section-anchored stills.** Run `bin/inspect-music.mjs` with multi-
+window output (the default for audio pieces with analysis JSON) so
+the critic has 4–5 short 4–5-second clips spread across the piece's
+duration in `inspect-music/clip-w*-t*.mp4`. The continuity sub-test
+runs WITHIN each clip; the divergence sub-test runs ACROSS clips.
+A probe verdict based on stills alone is incomplete and should be
+marked `frame-unclear` until the multi-window clips are available.
+
+**(a) The continuity test.** Open each multi-window clip and watch
+any slice the length of the chosen continuity scale. Can the eye
+track motion smoothly from frame to frame? Or is the content full
+of discrete jumps, pixel-level noise, sharp displacement events,
+chromatic-channel separation, or high-frequency micro-events that
+force the prediction system to re-anchor?
+
+- **Smooth flow** — pixels move continuously, the eye can follow any
+  region for several seconds, motion-blur trails are coherent. **Pass.**
+- **Noisy / glitchy / sharp-discrete** — TV static, square-pixel
+  artefacts, chromatic separation, per-beat micro-tears, sudden
+  displacement jumps. The eye can't lock anywhere. **Fail.** This was
+  the dopamine-v3 overshoot failure: stochastic tears + chromatic
+  separation + fine-scale curl-noise created continuity-breaking pixel
+  artefacts that the eye read as "rendering bug" not "chaos".
+
+**(b) The divergence test.** Compare the multi-window clips to each
+other, gated by the chosen divergence scale. Sample a continuity-
+slice from clip A and another from clip B taken at least one
+divergence-scale apart in audio time. Do they have visibly different
+*flow configurations* and *event vocabularies*, not just different
+brightness or different cell positions of the same rule?
+
+- **Same vocabulary, different brightness / different specific
+  pixels.** Different cells lighting up, same generative rule. Viewer
+  who watched any window can imagine the next. **Fail.** Dopamine-v2
+  failure mode.
 - **Different events but obviously the same dynamic system with a
-  different seed.** Same flow field, same warp, same reaction-
-  diffusion stripe pattern — different exact pixels but the eye
-  knows what to expect. **Fail.**
-- **Confidently predictable next frame** from the previous three —
-  loop is legible, spell breaks. **Fail.**
-- **Nothing is predictable at all** — no foothold, no rhythm, the
-  eye gives up. **Fail.**
-- **Each window has events the viewer didn't pre-compute** — a tear
-  that re-organises the field, a vortex that swallows a region, an
-  avalanche of stochastic births, a chaotic bifurcation — *and*
-  macro composition still gives the eye a rhythm to lean on.
-  **Pass.**
+  different seed.** Same flow field, same warp, same RD stripe
+  pattern — the eye knows what to expect. **Fail.**
+- **Categorically different vocabularies across windows** — the
+  configuration of the flow, the accumulated structure, even the
+  mood differs window to window — *and* each individual window
+  satisfied test (a). **Pass.**
+
+**Combined verdict matrix:**
+
+| (a) Continuity | (b) Divergence | Overall | Failure mode                  |
+|----------------|----------------|---------|-------------------------------|
+| Pass           | Pass           | **Pass**| Lyapunov sweet spot           |
+| Pass           | Fail           | **Fail**| Too predictable / repetitive  |
+| Fail           | Pass           | **Fail**| Too noisy / discrete-glitchy  |
+| Fail           | Fail           | **Fail**| Worst of both                 |
 
 **This probe is a hard gate.** A FAIL on Prediction is not eligible
 for `weak`. If Prediction fails, the verdict is automatically
-`structural-rethink`, no matter how many other probes pass. Doctrine
-added 2026-06-02 after dopamine-split-brain-version v2 shipped
-non-mesmerizing with Prediction = weak. See VISION.md §"On
-unpredictability" for the underlying principle: chaos and
-imprévisibilité are structural preconditions for mesmerization, not
-optional flavors.
+`structural-rethink`, no matter how many other probes pass.
 
-Lattice pieces, particle grids, periodic motion, and closed-form
-single-pass shaders are systematically at risk on this probe.
-Inject chaos through a transformation layer (curl-noise advection,
-chaotic warp, stochastic events, dynamical-system projection) or
-convert to a state-bearing architecture (ping-pong feedback, particle
-buffers, fluid simulation).
+**The fixes for the two failure modes are opposite, so the critic
+must say which sub-test failed:**
+
+- **Sub-test (a) failed (too noisy).** Drop discrete events: remove
+  stochastic tears, chromatic separations, per-beat micro-pulses,
+  fine-scale curl-noise components. Increase u_history smear (decay
+  ≥ 0.90) for continuity. Slow time-evolution of any flow field.
+  The chaos must come from cumulative smooth flow, not from
+  high-frequency events.
+- **Sub-test (b) failed (too predictable).** Add a continuous chaos
+  transformation layer on top: smooth curl-noise warp of `u_below`
+  with slow time-evolution that *re-anchors* the flow field over
+  ~30 seconds. Heavy u_history feedback that accumulates persistent
+  structures. Cursor-driven perturbation as a second source of
+  divergence. OR convert to state-bearing architecture (passes:)
+  with bifurcations.
+
+Pattern-grid pieces (oscillator lattices, particle grids, FFT bars,
+fixed tessellations) and closed-form single-pass shaders are at
+systematic risk on sub-test (b). Pieces with stochastic per-event
+chaos or chromatic-channel manipulation are at systematic risk on
+sub-test (a). The sweet spot is hypnotic flow that quietly takes
+you somewhere you didn't expect.
 
 ### Probe 3 — Squint
 

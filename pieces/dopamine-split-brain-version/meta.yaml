@@ -27,20 +27,25 @@ notes: |
                        hemispheres' grids. Cursor near the seam sparks
                        locally — the cursor IS the corpus callosum.
                        Screen-blends on top of the two hemispheres.
-  3. chaos-warp        domain-warps everything beneath through a
-                       two-scale curl-noise flow field, plus stochastic
-                       tear events fired at hash-unpredictable times
-                       (~45% of 4.7s buckets) and locations. Section-
-                       gated chaos budget rises from 0.10 (intro) to
-                       1.45 (climax). u_history feedback smears the
-                       warped composite into fluid trails. The cursor
-                       LOCALLY SUPPRESSES warp — the viewer can carve
-                       out a coherent zone. Replaces u_below so trails
-                       and tears are visible everywhere. This layer
-                       exists because oscillator lattices alone fail
-                       the 20-second-window predictability test
-                       (added 2026-06-03 per VISION.md §"On
-                       unpredictability").
+  3. chaos-warp        smooth single-scale curl-noise warp of
+                       u_below + heavy u_history feedback (decay 0.92).
+                       NO discrete events — no stochastic tears, no
+                       chromatic separation, no per-beat micro-pulses.
+                       The chaos is purely cumulative: a slow-evolving
+                       flow field (period ~30s) gently transports
+                       pixels, and the heavy history accumulates trails
+                       into persistent structures whose configuration
+                       differs across 20s windows even though any 1s
+                       window reads as smooth flow. Section-gated
+                       chaos budget rises 0.12 (intro) → 0.90 (climax)
+                       and fades through the outro, smooth-ramped
+                       within each section. Cursor locally suppresses
+                       warp — viewer carves out a still anchor inside
+                       the flow. This layer exists to satisfy the
+                       Lyapunov-chaos sweet spot from VISION.md §"On
+                       unpredictability" — locally smooth (1s
+                       continuity), globally divergent (20s windows
+                       differ categorically).
 
   Section vocabulary (NOT just re-shaded params):
     0 (0–8.4s)      intro — only LEFT hemisphere visible; right fades in
@@ -101,7 +106,6 @@ layers:
   - layer: chaos-warp
     blend: replace
     uniforms:
-      base_strength: 0.014
-      tear_strength: 0.09
-      smear_decay: 0.8
-rendered_at: '2026-06-02T22:01:23.650Z'
+      base_strength: 0.018
+      smear_decay: 0.92
+rendered_at: '2026-06-02T22:27:46.514Z'

@@ -99,71 +99,121 @@ Keep dynamic range honest in both directions: go quiet during quiet parts, not
 just loud during loud parts. A piece that never sits still is as fatiguing as
 one that never moves.
 
-## On unpredictability
+## On unpredictability — the two-timescale principle
 
-Chaos and imprévisibilité are not aesthetic flavors — they are *structural
-preconditions* for mesmerization. The eye disengages the moment it can
-predict the next five seconds. A piece can have perfect palette, perfect
-composition, perfect motion at every scale, and still fail if a viewer who
-watched twenty seconds can imagine what the next twenty will look like.
+Mesmerization lives in a narrow band defined by *two opposing failures*
+at two different timescales:
 
-**The 20-second test.** Sample three twenty-second windows from a piece
-(early, middle, late). They should have visually distinct *events*, not
-just visually distinct *brightness ranges*. An oscillator grid that blinks
-at different cell positions is the same vocabulary repeating; a moiré that
-suddenly tears, a vortex that swallows a region, a coupled-system
-bifurcation that reorganises the field — each is an event the viewer
-didn't see coming. If three 20-second windows show different brightnesses
-of the same vocabulary, the piece fails. Section-level surprise is not
-enough — within each section, the viewer must still encounter events they
-couldn't pre-compute.
+- **Too predictable** — the viewer who's watched a divergence-window
+  can imagine the next. Boring. The eye disengages because the brain
+  has nothing new to do.
+- **Too chaotic** — every frame is noise, the eye can't lock on any
+  continuity, the prediction system has nothing to bind to and gives up.
+  Disengages for the opposite reason.
 
-**Predictability traps to avoid:**
+A piece is mesmerizing when both timescales are *simultaneously* in the
+right state:
 
-- **Pattern-grid pieces** (oscillators, particles on a lattice, blinking
-  cells, FFT bars, any fixed-tessellation field). These read as "I get
-  it" within twenty seconds. Either inject chaos as a transformation
-  layer (curl-noise advection, chaotic warp, tears that re-organise the
-  field), or convert the lattice into something with genuine state (Stam
-  fluid, dielectric breakdown lightning, fractal-flame, reaction-diffusion
-  with bifurcations).
-- **Periodic motion of single objects.** Anything where the viewer can
-  count cycles within ten seconds. If a piece has a "1 → 2 → 3 → back to
-  1" pattern visible within a section, fix the pattern.
-- **One-pass shaders with no state.** Closed-form functions of `(uv, t)`
-  are easy to predict — the function evaluates the same on every iteration.
-  Without state-bearing dynamics (ping-pong feedback, particle history,
-  flow integration), the only chaos available is hand-crafted at the
-  pixel level, and that is almost always insufficient.
-- **Section-level surprise as the only surprise.** Sections provide macro
-  structure. Within each section there must still be sub-section events
-  that the viewer can't pre-compute from the previous beat.
+- **Short windows (continuity): smooth, continuous, easy to track.**
+  Frame N+1 is an obvious continuation of frame N. The eye locks onto
+  a flow and follows it. Hypnotic. The viewer's prediction system is
+  constantly rewarded — *yes, that pixel went where I expected, that
+  trail bent the way I thought it would*.
+- **Long windows (divergence): surprising, unimaginable from any
+  earlier window.** The cumulative trajectory has gone somewhere the
+  viewer couldn't have deduced from any earlier moment. Each sample
+  window has a visibly different flow configuration, a different
+  arrangement of accumulated structure, a different mood.
 
-**Strategies that work:**
+**The timescales are ranges, not constants — picked per piece.**
 
-- **Chaotic dynamical systems** as a transformation layer. Curl-noise
-  advection of `u_below`, Lorenz/Rössler attractor projection driving
-  displacement, fluid convection. These systems are sensitive to initial
-  conditions, so tiny seed differences amplify into different outcomes.
-- **Stochastic events** sampled from a distribution: particle births,
-  diffusion-limited aggregation, branching lightning, avalanche cascades.
-  The viewer hears a beat but cannot predict *where* the response will
-  land or *which direction* it will branch.
-- **Self-organisation with bifurcations.** Reaction-diffusion that
-  occasionally tears a stripe; ferrofluid spike rearrangements; percolation
-  thresholds; phase transitions in coupled-oscillator networks. The
-  pattern is structured but its structure shifts at unpredictable moments.
-- **Cursor-driven re-anchoring.** When the viewer's cursor can re-centre
-  the chaos (cursor as Julia `c`, cursor as gravity well, cursor as
-  perturbation source), every viewing session is novel by construction.
-- **Domain warping with time-evolving fields.** Sample `u_below(uv +
-  warp(uv, t))` where `warp` is a chaotic vector field whose seed
-  evolves nonlinearly with time. Equivalent to viewing the piece
-  through turbulent water.
+- **Continuity scale** is typically **100ms to 2s.** Fast / energetic
+  pieces (techno, hard drops, kinetic line-art) sit at the short end —
+  the eye locks on motion within ~100ms and tracks for hundreds of
+  milliseconds before the next continuous-tracking moment begins.
+  Ambient / slow / meditative pieces sit at the long end — the eye
+  follows a slow drift for 1-2 seconds before the next visible
+  transition. Pick the scale that matches the piece's natural visual
+  tempo. If you can't pick a scale, the piece probably has no
+  coherent tempo.
+- **Divergence scale** is typically **5s to 30s.** Short / kinetic
+  pieces diverge over a few seconds — sections rapidly turn over,
+  the field reconfigures often. Long-form / immersive pieces diverge
+  over half-minute arcs — the viewer settles into one configuration
+  and only later notices it has drifted into another. Pick a scale
+  that matches the piece's arc length; for a 165s piece, 20-30s
+  windows are natural; for a 60s piece, 10s windows. Always at least
+  3-5 windows across the piece to validate divergence.
 
-The 20-second test is the single most important check before shipping.
-If you can describe what will be on screen 20 seconds from now, the
-piece isn't done.
+This is the visual analogue of a *Lyapunov-chaotic dynamical system*:
+locally smooth and integrable, globally divergent. Lorenz attractors,
+double pendulums, three-body gravity, fluid turbulence — all share this
+signature. Smooth ODEs whose nearby trajectories separate exponentially
+over time.
+
+**The recipe.** What works in practice:
+
+- **Continuous flow at the visible scale.** Slow vector fields, smooth
+  curl-noise, gentle warps. Frame-to-frame transitions are obvious; the
+  eye can follow any region's motion for several seconds without losing it.
+- **Slow re-anchoring at the cumulative scale.** The vector field itself
+  drifts over tens of seconds — the flow that was carrying pixels "north"
+  is now carrying them "east". You can't see the drift in any 1-second
+  window, but it dominates the 20-second outcome.
+- **Accumulating u_history feedback (decay ≥ 0.90).** Trails persist over
+  many frames, building up persistent structures that record where the
+  flow has been. Over 20 seconds, the accumulated trail-pattern is a
+  signature of dynamics the viewer couldn't reconstruct from any single
+  moment.
+- **Cursor-driven re-anchoring.** When the viewer's cursor can perturb
+  the flow, every viewing session is novel by construction (cursor as
+  Julia `c`, gravity well, perturbation source).
+
+**What this rules out** (these are the v3-dopamine overshoot failures):
+
+- **High-frequency pixel noise.** Per-pixel jitter, fine-scale curl-noise
+  components, chromatic-channel separation of `u_below`. Reads as TV
+  static — no continuity to lock on. Eye gives up.
+- **Discrete glitchy events.** Sudden tears, sharp displacement jumps,
+  abrupt cuts, "earthquake" displacements triggered at random times.
+  Each event breaks frame-to-frame continuity and forces the prediction
+  system to re-anchor from scratch.
+- **Per-beat micro-events.** A pulse on every beat is rhythmic
+  *continuity*, not chaos — the brain knows exactly when the next pulse
+  is coming. Doesn't add unpredictability; it adds metronome.
+- **Square-pixel artefacts.** Anything that reveals the pixel grid
+  (small kernels, undersampled gradients, hard-stepped UV displacements).
+  The brain reads "rendering bug", disengages.
+
+**The sample-point principle.** A piece cannot be evaluated from a few
+section-anchored stills. The two-timescale test fundamentally requires
+*multiple* sampled windows — short clips, not isolated frames. Three to
+five 4–5-second windows spread across the piece's duration is the
+minimum. The 1-second continuity test runs *within* each window; the
+20-second divergence test runs *across* windows. A piece that looks
+great in one section-anchored frame and fails when you see 5 seconds
+of motion is not done. A piece that mesmerizes for 5 seconds and
+collapses into rhythmic repetition over 30 is also not done.
+
+**Pattern-grid pieces are systematically at risk.** Oscillators on a
+lattice, particles on a grid, FFT bars, fixed tessellations all carry a
+high default predictability. They either need a *continuous chaos
+transformation layer* on top (smooth curl-noise warp, heavy history
+smear, no discrete events) OR they need to be converted into something
+with genuine state-bearing dynamics (Stam fluid, dielectric breakdown,
+reaction-diffusion with bifurcations).
+
+The two-timescale test is the single most important check before
+shipping. If you can describe what will be on screen a divergence-
+window from now, the piece is too predictable. If you can't describe
+what's happening *right now* because it's all noise, the piece is too
+chaotic. The sweet spot is *hypnotic flow that quietly takes you
+somewhere you didn't expect*.
+
+When grading, declare the scales chosen for the piece up front
+("continuity 0.3s, divergence 15s") so future critiques compare on
+the same axes. A piece graded with mismatched timescales will read
+as the wrong verdict.
 
 ## Craft
 

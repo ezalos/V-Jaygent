@@ -1,11 +1,10 @@
 name: chaos-warp
-identity: "curl-noise + stochastic tear domain warp of u_below"
+identity: "smooth curl-noise warp + heavy u_history smear for Lyapunov-style flow"
 default_blend: replace
 
 uniforms:
-  base_strength:   { type: float, default: 0.012 }   # baseline warp magnitude
-  tear_strength:   { type: float, default: 0.085 }   # peak warp during tear events
-  smear_decay:     { type: float, default: 0.78 }    # u_history retention for trails
+  base_strength:   { type: float, default: 0.018 }   # warp magnitude
+  smear_decay:     { type: float, default: 0.92 }    # u_history retention (heavy trails for 20s-divergence accumulation)
 
 reads:
   - u_below
