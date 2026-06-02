@@ -1,0 +1,17 @@
+name: chaos-game
+identity: "chaos-game polygonal lace — n-vertex midpoint-jump scatter"
+default_blend: add
+uniforms:
+  iter_count:      { type: float, default: 40.0 }
+  seeds_per_frag:  { type: float, default: 4.0 }
+  hit_brightness:  { type: float, default: 36.0 }
+  zoom:            { type: float, default: 1.0 }
+  polygon_n:       { type: float, default: 5.0 }    # 3..7 driven by section
+  polygon_phase:   { type: float, default: 0.0 }    # slow polygon rotation
+  k_depth:         { type: float, default: 2.0 }    # restriction depth 0/1/2/3
+  jump_r:          { type: float, default: 0.5 }
+reads:
+  - u_below
+  - u_history
+publishes: []
+consumes: []

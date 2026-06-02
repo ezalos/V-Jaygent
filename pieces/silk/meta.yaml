@@ -1,0 +1,115 @@
+title: "Silk"
+slug: silk
+created: 2026-06-02T14:02:39.045Z
+architecture: E
+testability: pure-self-play
+notes: |
+  ## Brief gates (vjay-new-piece §1b + §1c)
+  canonical_ref: |
+    novel: Two iterated-point systems plotted as density histograms.
+    (1) Clifford strange attractor (Pickover 1990, codingclubuc3m 2019):
+        x' = sin(a y) + c cos(a x)
+        y' = sin(b x) + d cos(b y)
+        Parameters (a,b,c,d) drift continuously between four canonical
+        seeds (web/lace/fold/curl) driven by audio stems.
+    (2) Chaos game on regular n-gon with neighbor-restriction rule k=2
+        (Fronkonstin / aschinchon 2019). Polygon order n snaps at song
+        section boundaries: intro/outro = 3 (Sierpinski), verse = 5
+        (pentagonal lace), pre-peak = 6 (hex flower), peak = 7 (max
+        complexity), quiet = 5 (pentagonal recap). Both algorithms
+        rendered via per-fragment orbit + u_history density accumulation
+        (fractal-flame trick adapted to layer-engine v1).
+    Closest siblings in canonical-pieces.md: aperture (per-pixel
+    iteration of a 2D map), shoal (basin-of-attraction landscape needing
+    parameter drift). silk is the first piece to use u_history-scatter
+    histogram rendering.
+  eye_landing_candidates:
+    - clifford filament centroid (densest 1-2 lobes; wanders as a,b,c,d drift)
+    - chaos-game vertex spotlights (n bright rim points; drum-beat rotates the active one)
+    - polygon central void (pentagonal/hexagonal "hole" reads as architectural negative space)
+    - section-snap event (polygon order changes — the boundary itself IS the eye-landing)
+  warm_cycle: [near-black, wine, rust, amber, cream]
+  idle_behaviour: |
+    u_history decays at 0.945/frame, scatter passes keep painting from
+    autonomous param drift (Clifford (a,b,c,d) drift on coprime clocks
+    0.041/0.053/0.067/0.073 Hz; chaos-game polygon rotates at 0.08
+    rad/s + cycles n through the section table on a 12-second idle
+    cadence). Walk-away for 60s: filament has visibly recomposed, polygon
+    has snapped through 5 different shapes, no element frozen.
+  arch_rationale: |
+    Architecture E (layer-stack with u_history). The piece has TWO
+    scatter passes writing to the same accumulation buffer + multi-input
+    coupling (cursor + audio stems + section state machine). This is
+    NOT architecture A (single shader can't accumulate density across
+    frames). NOT C (no rgba16f state needed — display-space accumulation
+    via u_history is fine and matches the fractal-flame aesthetic).
+    NOT D (no sub-pixel particle ensemble). NOT B (no CPU sim needed).
+    Layer-stack with u_history is the documented realtime fractal-flame
+    path (brainstorming/techniques/strange-attractors.md §"u_history
+    scatter").
+
+  ## Thesis
+  Two iterated-point systems sharing a density buffer: Clifford
+  carries continuous liveness (4 audio-modulated parameters morph the
+  filament between four canonical attractors), chaos-game carries
+  structural identity (polygon order snaps at section boundaries —
+  3 → 5 → 6 → 7 → 5 → 3 for Hopkins' six-section arc).
+  Cream-on-near-black, max contrast, fractal-flame aesthetic.
+
+  ## Audio bindings
+  - bass / bass_stem  → Clifford morph_a (web ↔ lace)
+  - mid               → Clifford morph_b
+  - high              → Clifford morph_c (curl-side morph)
+  - other_stem        → Clifford morph_d
+  - kick / drums_stem → chaos-game vertex spotlight rotation
+  - downbeat          → polygon rotation phase micro-snap
+  - section_id        → polygon order n (table lookup: 3-5-6-7-5-3-5-6)
+
+  ## Cursor
+  Active drag offsets the Clifford seed origin (drags the filament
+  centre toward the cursor). Idle = no perturbation. No 7th-vertex
+  feature in v1 — left for /vjay-iterate.
+
+  ## Palette
+  Inline in each scatter layer:
+    - Clifford contribution: vec3(1.10, 0.78, 0.42) — warm cream
+    - chaos-game contribution: vec3(1.20, 0.65, 0.22) — golden amber
+    - Different hues per layer satisfy layer-distinctness.
+    - Reinhard cap in Clifford layer prevents oversaturation to white.
+
+  ## Arc
+  Hopkins' track ends in fade-to-silence at ~7:30. Polygon snaps back
+  to n=3 (outro), Clifford morph slows (low audio energy → params
+  approach 'web' baseline). u_history continues to decay so the final
+  10 seconds the filament dissolves to near-black. Clean ending.
+
+  ## Music
+  Jon Hopkins — "Open Eye Signal" (2013, Immunity, remastered 2023).
+  https://www.youtube.com/watch?v=2rqH8gT3R4A
+  7:48. Six-section arc: skeletal intro → acid-bass verse → filter
+  open pre-peak → sustained churn peak → breakdown → outro.
+  Selected because every section transition is an ADDITION (not a
+  crossfade) so the analyzer pins boundaries cleanly — the visual
+  section-snap of the polygon order will land precisely.
+duration: 470
+render_scale: 0.55
+time_source: audio
+audio: audio.mp3
+audio_features: [beat, sections, stems.bass, stems.drums, stems.other, stems.vocals]
+uniforms: []
+layers:
+  - layer: clifford
+    blend: replace
+    uniforms:
+      iter_count:     18.0
+      decay:          0.92
+      zoom:           1.05
+      cursor_grab:    0.0
+  - layer: chaos-game
+    blend: add
+    uniforms:
+      iter_count:     30.0
+      hit_brightness: 1.0
+      zoom:           1.0
+      jump_r:         0.5
+published_at: null

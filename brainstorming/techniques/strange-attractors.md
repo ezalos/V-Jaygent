@@ -42,6 +42,33 @@ pixel (expensive).
 ```
 More visually baroque than Lorenz, harder to tune.
 
+### General 2D-Map (14 coefficients)
+```
+x' = a1 + a2·x + a3·y + a4·|x|^a5 + a6·|y|^a7
+y' = a8 + a9·x + a10·y + a11·|x|^a12 + a13·|y|^a14
+```
+14 parameters — overkill for a piece (no human-tunable parameter space),
+but excellent **seed bank**: pick a known-good 14-tuple and modulate one
+or two slots with audio. The codingclubuc3m reference set is
+```
+a1..a7  = -0.8,  0.4, -1.1,  0.5, -0.6, -0.1, -0.5
+a8..a14 =  0.8,  1.0, -0.3, -0.6, -0.3, -1.2, -0.3
+```
+
+## Canonical parameter sets (verified beautiful)
+
+For `bin/explore-attractor.mjs` and piece seeds — these are the
+codingclubuc3m / Fronkonstin references that produce known-pretty
+plots at 10M iterations.
+
+| attractor | a, b, c, d (or full set) | character |
+|---|---|---|
+| Clifford | −1.25, −1.25, −1.82, −1.91 | dense web, four-lobed |
+| Clifford | −1.2, −1.9, 1.8, −1.6 | softer, lacework |
+| de Jong | 1.4, −2.3, 2.4, −2.1 | sharp folds |
+| de Jong | −2.0, −2.0, −1.2, 2.0 | three-petal swirl |
+| 2D-Map | see above 14-tuple | tentacled branching |
+
 ## Using them in a shader (single-pass)
 
 A fragment shader can't maintain state across pixels, so the usual
@@ -73,6 +100,45 @@ Proper attractor rendering needs **histogram accumulation**: iterate millions
 of seeds, accumulate into a framebuffer, tone-map log-density. Same trick as
 fractal flames. Requires ping-pong / compute pass.
 
+### u_history scatter — DOES NOT WORK IN LAYER-ENGINE v1
+
+This section originally described a "per-fragment scatter into
+u_history" path for realtime fractal-flame rendering in `layers:`. The
+silk-2026-06-02 attempt proved the math wrong: per-fragment self-hit
+probability for a chaotic attractor is density × pixel_area ≈ 10⁻⁵
+per fragment, and fragment shaders cannot scatter to OTHER pixels —
+so each fragment's orbit endpoint is wasted unless it happens to map
+back to the same pixel (vanishingly rare). After 600 frames the lace
+hasn't formed.
+
+See `brainstorming/critiques/silk-v1-blocked.md` for the full failure
+analysis.
+
+**The actual realtime path for fractal-flame density rendering** is
+`passes:` (multi-pass) with rgba16f ping-pong:
+
+1. Pass 0 (accumulate): vertex shader rasterises N points per frame
+   at orbit positions; fragment additive-blends into rgba16f. Each
+   frame N=4K-16K points.
+2. Pass 1 (display): read accumulator, log tone-map, warm palette.
+
+This requires CPU-side orbit tracking + per-frame vertex-buffer
+update (transform-feedback or instanced draws). The runtime extension
+for this is noted in VISION.md §"Open questions" → N-body /
+transform-feedback particles — same infrastructure.
+
+**Alternative paths** (lower bar):
+
+- Per-pixel orbit + endpoint-as-palette-lookup. Each fragment iterates
+  K times from its own UV; orbit endpoint feeds a warm palette.
+  Produces a continuous warped field (NOT a density plot) — recognisable
+  attractor shape but not the "10M dots, fine lace" aesthetic. This is
+  what the per-pixel snippet earlier in this doc actually achieves; it
+  was the right reading.
+- Pre-baked LUT: render the density texture offline with
+  `bin/explore-attractor.mjs`, ship as a piece-local PNG. Audio can
+  only warp / colour-shift the static texture.
+
 ## As a VJ layer
 
 A de Jong slice with slow parameter modulation (audio mid → `param.w`) makes
@@ -91,3 +157,8 @@ gravity-basin / pendulum / Newton-fractal work is the basin half.
 
 - de Jong math: <https://www.algosome.com/articles/strange-attractors-de-jong.html>
 - Clifford + de Jong interactive: <https://observablehq.com/@rreusser/clifford-and-de-jong-attractors>
+- codingclubuc3m walkthrough (Clifford + General 2D-Map, with verbatim
+  Rcpp code and the parameter sets used above):
+  <https://codingclubuc3m.rbind.io/post/2019-10-15/>
+- aschinchon/the-chaos-game (sister algorithm, not strange-attractor):
+  <https://github.com/aschinchon/the-chaos-game>
