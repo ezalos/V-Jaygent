@@ -1,0 +1,14 @@
+name: chaos-warp
+identity: "curl-noise + stochastic tear domain warp of u_below"
+default_blend: replace
+
+uniforms:
+  base_strength:   { type: float, default: 0.012 }   # baseline warp magnitude
+  tear_strength:   { type: float, default: 0.085 }   # peak warp during tear events
+  smear_decay:     { type: float, default: 0.78 }    # u_history retention for trails
+
+reads:
+  - u_below
+  - u_history
+publishes: []
+consumes: []

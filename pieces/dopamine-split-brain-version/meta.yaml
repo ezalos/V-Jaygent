@@ -27,6 +27,20 @@ notes: |
                        hemispheres' grids. Cursor near the seam sparks
                        locally — the cursor IS the corpus callosum.
                        Screen-blends on top of the two hemispheres.
+  3. chaos-warp        domain-warps everything beneath through a
+                       two-scale curl-noise flow field, plus stochastic
+                       tear events fired at hash-unpredictable times
+                       (~45% of 4.7s buckets) and locations. Section-
+                       gated chaos budget rises from 0.10 (intro) to
+                       1.45 (climax). u_history feedback smears the
+                       warped composite into fluid trails. The cursor
+                       LOCALLY SUPPRESSES warp — the viewer can carve
+                       out a coherent zone. Replaces u_below so trails
+                       and tears are visible everywhere. This layer
+                       exists because oscillator lattices alone fail
+                       the 20-second-window predictability test
+                       (added 2026-06-03 per VISION.md §"On
+                       unpredictability").
 
   Section vocabulary (NOT just re-shaded params):
     0 (0–8.4s)      intro — only LEFT hemisphere visible; right fades in
@@ -84,4 +98,10 @@ layers:
     blend: screen
     uniforms:
       seam_dark: 0.7
-rendered_at: '2026-06-02T20:54:10.129Z'
+  - layer: chaos-warp
+    blend: replace
+    uniforms:
+      base_strength: 0.014
+      tear_strength: 0.09
+      smear_decay: 0.8
+rendered_at: '2026-06-02T22:01:23.650Z'

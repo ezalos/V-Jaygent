@@ -99,6 +99,72 @@ Keep dynamic range honest in both directions: go quiet during quiet parts, not
 just loud during loud parts. A piece that never sits still is as fatiguing as
 one that never moves.
 
+## On unpredictability
+
+Chaos and imprévisibilité are not aesthetic flavors — they are *structural
+preconditions* for mesmerization. The eye disengages the moment it can
+predict the next five seconds. A piece can have perfect palette, perfect
+composition, perfect motion at every scale, and still fail if a viewer who
+watched twenty seconds can imagine what the next twenty will look like.
+
+**The 20-second test.** Sample three twenty-second windows from a piece
+(early, middle, late). They should have visually distinct *events*, not
+just visually distinct *brightness ranges*. An oscillator grid that blinks
+at different cell positions is the same vocabulary repeating; a moiré that
+suddenly tears, a vortex that swallows a region, a coupled-system
+bifurcation that reorganises the field — each is an event the viewer
+didn't see coming. If three 20-second windows show different brightnesses
+of the same vocabulary, the piece fails. Section-level surprise is not
+enough — within each section, the viewer must still encounter events they
+couldn't pre-compute.
+
+**Predictability traps to avoid:**
+
+- **Pattern-grid pieces** (oscillators, particles on a lattice, blinking
+  cells, FFT bars, any fixed-tessellation field). These read as "I get
+  it" within twenty seconds. Either inject chaos as a transformation
+  layer (curl-noise advection, chaotic warp, tears that re-organise the
+  field), or convert the lattice into something with genuine state (Stam
+  fluid, dielectric breakdown lightning, fractal-flame, reaction-diffusion
+  with bifurcations).
+- **Periodic motion of single objects.** Anything where the viewer can
+  count cycles within ten seconds. If a piece has a "1 → 2 → 3 → back to
+  1" pattern visible within a section, fix the pattern.
+- **One-pass shaders with no state.** Closed-form functions of `(uv, t)`
+  are easy to predict — the function evaluates the same on every iteration.
+  Without state-bearing dynamics (ping-pong feedback, particle history,
+  flow integration), the only chaos available is hand-crafted at the
+  pixel level, and that is almost always insufficient.
+- **Section-level surprise as the only surprise.** Sections provide macro
+  structure. Within each section there must still be sub-section events
+  that the viewer can't pre-compute from the previous beat.
+
+**Strategies that work:**
+
+- **Chaotic dynamical systems** as a transformation layer. Curl-noise
+  advection of `u_below`, Lorenz/Rössler attractor projection driving
+  displacement, fluid convection. These systems are sensitive to initial
+  conditions, so tiny seed differences amplify into different outcomes.
+- **Stochastic events** sampled from a distribution: particle births,
+  diffusion-limited aggregation, branching lightning, avalanche cascades.
+  The viewer hears a beat but cannot predict *where* the response will
+  land or *which direction* it will branch.
+- **Self-organisation with bifurcations.** Reaction-diffusion that
+  occasionally tears a stripe; ferrofluid spike rearrangements; percolation
+  thresholds; phase transitions in coupled-oscillator networks. The
+  pattern is structured but its structure shifts at unpredictable moments.
+- **Cursor-driven re-anchoring.** When the viewer's cursor can re-centre
+  the chaos (cursor as Julia `c`, cursor as gravity well, cursor as
+  perturbation source), every viewing session is novel by construction.
+- **Domain warping with time-evolving fields.** Sample `u_below(uv +
+  warp(uv, t))` where `warp` is a chaotic vector field whose seed
+  evolves nonlinearly with time. Equivalent to viewing the piece
+  through turbulent water.
+
+The 20-second test is the single most important check before shipping.
+If you can describe what will be on screen 20 seconds from now, the
+piece isn't done.
+
 ## Craft
 
 - Every source file opens with a 2-line `ABOUTME:` header.

@@ -46,17 +46,51 @@ Where does the eye land in frame 0? Is it the same place in frame 3?
 - 2–4 candidate regions that shift between frames so the gaze can
   wander and return. **Pass.**
 
-### Probe 2 — Prediction
+### Probe 2 — Prediction (HARD GATE)
 
-From frames 0–3, could you confidently predict frame 4?
+**The 20-second test.** Group the inspect-music frames into three
+windows: an early window (first 1/3 of the song), a middle window,
+and a late window. Looking at the windows side by side, the question
+is *not* "are the frames different?" — most pieces clear that bar
+trivially. The question is: **could a viewer who watched any 20-second
+window from this piece imagine what the next 20 seconds will look
+like, beyond brightness or cell-position variation?**
 
-- Confidently yes → the loop is legible, the spell breaks on the
-  next cycle. **Fail.**
-- Nothing is predictable → no foothold, no rhythm, the eye gives up.
-  **Fail.**
-- Macro composition predictable, micro texture not → the "almost,
-  not quite" zone — the viewer's prediction system keeps engaging
-  and keeps being partially right. **Pass.**
+- **Same vocabulary, different brightness OR different cell positions
+  OR different palette stop.** The viewer sees "the same kind of
+  thing happening again" — different specific pixels, same generative
+  rule. **Fail.** This is the dopamine-v2 failure mode: oscillator
+  grid blinks in different positions but the *event vocabulary* is
+  identical across early/middle/late windows.
+- **Different events but obviously the same dynamic system with a
+  different seed.** Same flow field, same warp, same reaction-
+  diffusion stripe pattern — different exact pixels but the eye
+  knows what to expect. **Fail.**
+- **Confidently predictable next frame** from the previous three —
+  loop is legible, spell breaks. **Fail.**
+- **Nothing is predictable at all** — no foothold, no rhythm, the
+  eye gives up. **Fail.**
+- **Each window has events the viewer didn't pre-compute** — a tear
+  that re-organises the field, a vortex that swallows a region, an
+  avalanche of stochastic births, a chaotic bifurcation — *and*
+  macro composition still gives the eye a rhythm to lean on.
+  **Pass.**
+
+**This probe is a hard gate.** A FAIL on Prediction is not eligible
+for `weak`. If Prediction fails, the verdict is automatically
+`structural-rethink`, no matter how many other probes pass. Doctrine
+added 2026-06-02 after dopamine-split-brain-version v2 shipped
+non-mesmerizing with Prediction = weak. See VISION.md §"On
+unpredictability" for the underlying principle: chaos and
+imprévisibilité are structural preconditions for mesmerization, not
+optional flavors.
+
+Lattice pieces, particle grids, periodic motion, and closed-form
+single-pass shaders are systematically at risk on this probe.
+Inject chaos through a transformation layer (curl-noise advection,
+chaotic warp, stochastic events, dynamical-system projection) or
+convert to a state-bearing architecture (ping-pong feedback, particle
+buffers, fluid simulation).
 
 ### Probe 3 — Squint
 
@@ -102,9 +136,18 @@ failing probe is the top fix. 3/5 or below: the piece doesn't
 mesmerize and no dimension-polishing fix will save it — that's a
 `structural-rethink` verdict, not a `needs-tweak`.
 
+**Hard gate on Probe 2 (Prediction).** If the Prediction probe fails,
+the verdict is automatically `structural-rethink` regardless of the
+other passes. A piece that scores 4/5 with Prediction failing is
+structurally not mesmerizing — Prediction is the load-bearing probe.
+Unpredictability is a precondition, not a tradeoff dimension. See
+VISION.md §"On unpredictability".
+
 The still frame must already mesmerize. Motion is a bonus on top —
 never a substitute for a captivating still. If frame 0 is boring,
-no amount of animation redeems it.
+no amount of animation redeems it. Equally: motion that's predictable
+fatigues the eye as fast as no motion at all. The 20-second-window
+test is the single most important check before shipping.
 
 ## Before scoring: the claim check
 
@@ -138,7 +181,12 @@ symmetry, Julia set, reaction-diffusion, gravitational lensing), that
 structure must *read* in the frames. Hidden structure is a lie. A
 heptagonal source ring at radius 0.78 that only shows 4-5 points on
 screen is dishonest to its own claim. Call it out. Touches mostly
-Composition and Depth.
+Composition and Depth. For a piece claiming a **basin of attraction
+/ chaotic field** (see `brainstorming/techniques/basins-of-attraction.md`):
+the honest signature is *smooth interior lakes shredding into fine
+fractal filigree at the boundaries*. A uniformly smooth gradient, or
+uniform noise, fails the claim — the emergent boundary detail must be
+visible on the squint.
 
 **Interaction agency.** When a piece is cursor- or music-reactive,
 does the input *compose* the image or just decorate it? An FFT bar
@@ -596,16 +644,26 @@ Verdict semantics:
 
 - **chef-doeuvre** — mesmerizing (5/5 probes), claim delivered, all
   testable dimensions ≥ 4. Stop.
-- **ship-it** — mesmerizing (≥ 4/5 probes), claim delivered, no
-  dimension below 3. Shippable. Remaining gap is nuance, not
-  failure modes. Stop. Don't polish further.
-- **needs-tweak** — 4/5 probes pass, claim delivered or close, one
-  concrete shader change will raise the missing dimension or probe.
-  Loop auto-applies `top_fix`.
-- **structural-rethink** — 3/5 or fewer probes, or scoring low in a
-  way that needs a bigger change than one Edit. Hand to user. This
-  is the right verdict when mesmerizing quality is absent — don't
-  try to tweak a non-mesmerizing piece into mesmerization.
+- **ship-it** — mesmerizing (≥ 4/5 probes AND **Prediction passes**),
+  claim delivered, no dimension below 3, AND `palette_cohesion ≥ 4`.
+  Shippable. Remaining gap is nuance, not failure modes. Stop. Don't
+  polish further. (Palette gate raised 2026-05-11 after the round-2
+  regrade exposed pieces shipping with `palette = 3` that drifted
+  into cool zones or magenta-dominance. Prediction gate added
+  2026-06-02 after dopamine-split-brain-version v2 shipped with
+  Prediction = weak and turned out non-mesmerizing — the 20-second
+  test catches what the 5-probe count missed.)
+- **needs-tweak** — 4/5 probes pass *with Prediction among them*,
+  claim delivered or close, one concrete shader change will raise the
+  missing dimension or probe. Loop auto-applies `top_fix`.
+- **structural-rethink** — 3/5 or fewer probes, OR **Prediction
+  fails** (regardless of other probes), OR scoring low in a way that
+  needs a bigger change than one Edit. Hand to user. This is the
+  right verdict when mesmerizing quality is absent — don't try to
+  tweak a non-mesmerizing piece into mesmerization. A Prediction
+  fail almost always means injecting a chaos / transformation
+  layer or converting the piece to a state-bearing architecture
+  (passes:); a one-line Edit won't fix it.
 - **premise-wrong** — the claim itself is broken or unachievable
   with this structure. Hand to user. Don't tweak.
 
