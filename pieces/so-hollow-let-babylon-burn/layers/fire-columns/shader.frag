@@ -20,11 +20,18 @@ float vnoise(vec2 p) {
     float d = hash21(i + vec2(1.0, 1.0));
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
-float fbmGrid(vec2 p) {
+// Local inline noise (engine #include path doesn't reliably resolve in
+// 3+-layer stacks; see ember-spark for the same workaround). Promoted to
+// the rotated variant on 2026-06-03 because this layer combines the noise
+// with u_history feedback (line ~178) — exactly the failure pattern that
+// caused the chaos-warp blocky-patch bug. The per-octave rotation hides
+// the grid alignment so trails don't bake in block artefacts.
+float fbmRot(vec2 p) {
     float v = 0.0, a = 0.55;
+    mat2 rot = mat2(0.80, 0.60, -0.60, 0.80);
     for (int i = 0; i < 5; i++) {
         v += a * vnoise(p);
-        p *= 2.0;
+        p = rot * p * 2.0 + vec2(1.7, 9.2);
         a *= 0.55;
     }
     return v;
@@ -149,7 +156,7 @@ void main() {
 
     // Flame "tongues" — high-frequency upward-streaming noise that creates
     // licking-tongue motion
-    float tongue = fbmGrid(vec2(dxAdj * 5.0 + float(ti) * 2.7,
+    float tongue = fbmRot(vec2(dxAdj * 5.0 + float(ti) * 2.7,
                             p.y * 8.0 - u_time * 4.0 + float(ti)));
     float tongueMask = smoothstep(0.55, 0.78, tongue);
     tongueMask *= bodyMask;
