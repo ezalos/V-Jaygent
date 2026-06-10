@@ -19,10 +19,10 @@ out vec4 fragColor;
 const int   PGRID    = 32;
 const int   BIN_GRID = 48;
 const float REF_SPEED = 0.42;    // speed that maps to full white-hot
-const float SPLAT_R   = 0.006;   // glow radius in torus uv — tight, reads as a point
-const float DECAY     = 0.87;    // per-frame trail retention (streak length); BOUNDED so
+const float SPLAT_R   = 0.0055;  // base streak scale in torus uv
+const float DECAY     = 0.86;    // per-frame trail retention (streak length); BOUNDED so
                                  // continuous playback can't accumulate to a full-frame wash
-const float DEPOSIT   = 0.60;    // peak deposition for a full-speed particle
+const float DEPOSIT   = 1.15;    // peak deposition — high to offset the tight sharp streak
 
 // Warm luminance ramp: dim ember (coasting) -> amber -> cream-white (driven).
 // All warm — fast particles read as white-hot light, never a cool intrusion.
@@ -66,13 +66,27 @@ void main() {
                 vec2 d = uv - pp; d -= floor(d + 0.5);   // toroidal
                 d *= vec2(aspect, 1.0);
                 float r2 = dot(d, d);
-                if (r2 > (SPLAT_R * 3.0) * (SPLAT_R * 3.0)) continue;
+                if (r2 > (SPLAT_R * 4.5) * (SPLAT_R * 4.5)) continue;
 
-                float speedN = clamp(length(pv) / REF_SPEED, 0.0, 1.0);
+                float speed  = length(pv);
+                float speedN = clamp(speed / REF_SPEED, 0.0, 1.0);
                 float lum    = speedN * speedN;          // kinetic energy ~ v^2
-                // Core + soft halo; fast particles get a slightly wider glow.
-                float rad   = SPLAT_R * (0.7 + 0.6 * speedN);
-                float splat = exp(-r2 / (rad * rad));
+
+                // Anisotropic streak: TIGHT perpendicular cross-section (crisp,
+                // a few px wide) stretched ALONG velocity (the motion line). A
+                // thin sharp profile reads sharp — the round Gaussian blob was
+                // the blur. Faster particles streak longer.
+                vec2  fwd  = speed > 1e-5 ? pv / speed : vec2(1.0, 0.0);
+                vec2  side = vec2(-fwd.y, fwd.x);
+                float along = dot(d, fwd);
+                float perp  = dot(d, side);
+                float wPerp  = SPLAT_R * 0.40;                  // crisp width
+                float wAlong = SPLAT_R * (0.6 + 1.7 * speedN);  // streak grows with speed
+                float q = (along * along) / (wAlong * wAlong)
+                        + (perp  * perp ) / (wPerp  * wPerp);
+                float splat = exp(-q);
+                splat *= splat;                                 // sharpen the profile
+
                 // Deposition is PURELY speed-gated — slow particles deposit ~0
                 // so the ground stays near-black and quiet music reads quiet.
                 col += heat(lum) * splat * lum * DEPOSIT;

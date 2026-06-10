@@ -52,17 +52,17 @@ void main() {
 
     // Cursor widens the glow locally — a second channel that reacts to input,
     // so interactivity isn't ghettoised in the sim pass alone.
-    float glowR = 0.006 + 0.004 * u_energy_smooth;
+    float glowR = 0.0032 + 0.002 * u_energy_smooth;   // tight halo, not a haze
     if (dot(u_mouse, u_mouse) > 1.0) {
         vec2  mp = u_mouse / u_resolution;
         float md = length((uv - mp) * vec2(aspect, 1.0));
-        glowR += 0.010 * smoothstep(0.25, 0.0, md);
+        glowR += 0.006 * smoothstep(0.25, 0.0, md);
     }
     vec3 bloom = glow(uv, glowR);
 
-    // Bloom is sparse now (the trail buffer is mostly black), so a lighter
-    // weight keeps light from hazing into the dark ground.
-    vec3 col = base + bloom * 0.35;
+    // Sharp streak cores carry the image; the glow is just a thin light halo
+    // around them. Keep its weight low so it accents rather than blurs.
+    vec3 col = base + bloom * 0.22;
 
     // --- Macro brightness envelope: two slowly-wandering hot-zones so the
     // squint sees light/dark structure across the frame, not flat texture.
