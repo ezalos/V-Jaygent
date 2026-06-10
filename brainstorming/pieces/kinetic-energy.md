@@ -1,5 +1,18 @@
 # kinetic-energy — velocity is light
 
+> **Built v1 — 2026-06-10.** Shipped as `pieces/kinetic-energy/` on Jon
+> Hopkins "Emerald Rush". Audit 0-fail (all 6 song-level uniforms drive
+> geometry). Two build lessons worth keeping:
+> 1. **Deposition must be speed-gated** (`∝ speed²`, no floor) or the trail
+>    buffer saturates to a full-frame gold wash — the
+>    `feedback_density_saturation` trap. I hit it by tuning by feel.
+> 2. **Iterate against the CLIP, not stills.** Seeking resets the trail
+>    accumulation, so stills *under-show* saturation; the continuous clip is
+>    the only honest read of a feedback-buffer piece. An energy-scaled decay
+>    boost also backfired — it lengthened trails exactly at the peak where
+>    coverage was already highest. Commit to sparseness (fewer particles,
+>    bounded decay) up front.
+
 ## One-line concept
 
 A GPU particle field advected by curl-noise; colour is driven purely by
@@ -16,20 +29,31 @@ critic an unambiguous claim-check.
 
 ## Architecture — `passes:`, not `layers:`
 
-Discrete particles + persistent trails need scatter + ping-pong
-(`reference_passes_vs_layers`, `feedback_scatter_requires_passes`):
+**Build correction (2026-06-10, discovered while building v1):** the
+V-Jaygent runtime is **fragment-gather only** for arbitrary particles —
+the lone vertex-scatter pass (`kind: scatter`) is hardcoded to Clifford /
+chaos-game orbits (`studio/runtime.mjs`). So you canNOT draw custom
+particles as point sprites. The working pattern is **swarm-style**: a
+fragment display/trail pass that *gathers* nearby particles from a
+spatial-hash, not a vertex pass that *scatters* them. `pieces/swarm/` is
+the template (1000 boids).
 
-1. **Sim (ping-pong, fragment).** Two state textures (pos, vel),
-   256×256 ≈ 65k particles. `vel += (curlFlow(pos) + cursorForce +
-   audioImpulse)*dt; pos += vel*dt;` recycle on age/out-of-bounds.
-2. **Splat (vertex scatter → RGBA16F).** `texelFetch` position, draw
-   points, `gl_PointSize = mix(1, 6, speedN)`, emit `cream * speedN*speedN`
-   additively. Optional: extrude a 2-vertex streak along `vel`.
-3. **Trail (ping-pong, fragment).** `out = texture(trail,uv)*decay +
-   splat;` decay ~0.94, **gated higher for fast particles** so only
-   energetic ones streak (`decay ≠ half-life` — runtime caveat).
-4. **Post.** Pyramid bloom + ACES/Reinhard tonemap + vignette →
-   chiaroscuro. (See `techniques/luminous-bloom.md`.)
+Four passes (`reference_passes_vs_layers`, `feedback_scatter_requires_passes`):
+
+1. **`simulate` (ping-pong rgba16f, fragment).** One texel = one
+   particle, `xy = pos`, `zw = vel`. `vel += (curlVel(pos) + cursorForce
+   + audioImpulse)*dt; pos += vel*dt;` strong damping so speed = "driven
+   now". ~2304 particles (48×48) — the trail buffer carries the density,
+   so you don't need 65k.
+2. **`bins` (rgba16f, fragment).** Spatial hash (48×48, 4 IDs/cell) so the
+   trail pass gathers a local 3×3 neighbourhood instead of all particles.
+3. **`trails` (ping-pong rgba16f, fragment).** `out = texture(trails)*decay`,
+   then gather the 3×3 bin cells and splat each particle with
+   `lum = speed²` on a warm ember→amber→cream ramp, additive. decay
+   ~0.92, lifted by energy/downbeat (`decay ≠ half-life`).
+4. **`display` (screen, fragment).** Cheap radial-tap glow + drifting
+   macro hot-zones + chiaroscuro vignette + ACES tonemap. (Full pyramid
+   bloom of `techniques/luminous-bloom.md` is the upgrade path.)
 
 ## What makes it read *energetic* (not just moving)
 

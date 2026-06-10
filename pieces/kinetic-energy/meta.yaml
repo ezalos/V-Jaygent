@@ -1,0 +1,83 @@
+title: "Kinetic Energy"
+slug: kinetic-energy
+created: 2026-06-10T09:58:48.734Z
+# architecture: C — ping-pong feedback (particle state + trail accumulation).
+architecture: C
+# testability: audio-only — the piece is driven by the track; survives idle on a
+# living baseline flow, but the beat phase-lock only grades fairly with audio.
+testability: audio-only
+cursor: true
+audio: audio.mp3
+audio_features: [beat, sections, stems, key]
+notes: |
+  ## Thesis
+  Velocity is light. A 2304-particle field is advected by a divergence-free
+  curl-noise flow; colour is driven by speed^2 (literal kinetic energy) on a
+  warm ember -> amber -> cream-white ramp over near-black. Fast particles are
+  bright and leave long streaks; slow ones sink to dim embers. The beat winds
+  the flow up (u_beat_phase ramp) and the downbeat releases it as a radial
+  burst from a wandering blast centre — visible phase-lock as geometry, not
+  brightness. Seeded by Strano's "Kinetic energy"
+  (brainstorming/pieces/kinetic-energy.md + inspirations/x-finds-2026-06-10.md).
+
+  ## Brief gates
+  canonical_ref: swarm (fragment-gather particle template — runtime has no
+    arbitrary vertex scatter) + Strano "Kinetic energy" chiaroscuro.
+  eye_landing_candidates:
+    - the brightest burst cluster right after a downbeat
+    - the drifting macro hot-zones the squint reads as light/dark
+  warm_cycle: [ember, amber, cream]   # luminance ramp, not a hue cycle
+  idle_behaviour: living baseline flow (drive floored at 0.6 when silent) +
+    drifting hot-zones + always-on sub-beat jitter; cursor stirs the field.
+  arch_rationale: C — particle position/velocity must persist across frames
+    (ping-pong rgba16f), and the trail aesthetic needs a feedback accumulation
+    buffer. Fragment-gather (sim -> bins -> trails -> display), swarm-style,
+    because the runtime's vertex scatter is locked to Clifford/chaos-game.
+
+  ## Three timescales of liveness
+  - section: alternate sections reverse the curl circulation (sim sgn flip).
+  - beat:    u_beat_phase wind-up + u_downbeat / drums-stem burst.
+  - sub-beat: per-particle velocity jitter, every frame.
+duration: 202
+render_scale: 0.6
+uniforms: []
+published_at: null
+passes:
+  # Particle update. Target is sized generously (>=48px) on purpose; sim early-
+  # returns for texels past the 48x48 grid, so oversize is cheap.
+  - name: simulate
+    shader: sim.frag
+    target:
+      format: rgba16f
+      ping_pong: true
+      scale: 0.35
+    inputs:
+      u_state: simulate
+  # Spatial hash so the trail pass only gathers a local 3x3 neighbourhood.
+  # Cells past the 48x48 grid early-return, so cost is bounded by NUM, not size.
+  - name: bins
+    shader: bins.frag
+    target:
+      format: rgba16f
+      ping_pong: false
+      scale: 0.35
+    inputs:
+      u_state: simulate
+  # Light accumulation with feedback decay — the streaks live here.
+  - name: trails
+    shader: trails.frag
+    target:
+      format: rgba16f
+      ping_pong: true
+      scale: 1.0
+    inputs:
+      u_state: simulate
+      u_bins: bins
+      u_trails: trails
+  # Tonemap + glow + macro envelope + vignette to screen.
+  - name: display
+    shader: shader.frag
+    target: screen
+    inputs:
+      u_trails: trails
+rendered_at: null
