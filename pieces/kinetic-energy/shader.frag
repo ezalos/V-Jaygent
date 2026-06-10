@@ -24,16 +24,19 @@ out vec4 fragColor;
 
 // Cheap radial glow: a handful of taps of the trail buffer at growing radius.
 // Not a true Gaussian pyramid, but enough to make hot cores bleed into light.
+// Tight two-ring glow — a small crisp halo around hot cores, NOT a wide haze
+// (the blur was softening the whole frame). Fewer taps also pays for the
+// higher render_scale.
 vec3 glow(vec2 uv, float radius) {
-    vec3  sum = vec3(0.0);
+    vec3  sum  = vec3(0.0);
     float wsum = 0.0;
-    const int N = 12;
+    const int N = 8;
     for (int i = 0; i < N; i++) {
-        float a = float(i) / float(N) * TAU;
+        float a = float(i) / float(N) * TAU + 0.4;
         for (int k = 1; k <= 2; k++) {
-            float rr = radius * float(k);
+            float rr  = radius * float(k);
             vec2  off = vec2(cos(a), sin(a)) * rr;
-            float w   = 1.0 / float(k);
+            float w   = 1.0 / float(k * k);     // sharper falloff — tighter halo
             sum  += texture(u_trails, uv + off).rgb * w;
             wsum += w;
         }
@@ -74,10 +77,12 @@ void main() {
               + 0.45 * exp(-dot(p - h2, p - h2) / 0.07);
     col *= env;
 
-    // Beat breath: the frame dims slightly through the wind-up (beat_phase ramp)
-    // then the downbeat releases a bright flash — tension + release you can see.
-    col *= 1.0 - 0.14 * u_beat_phase + 0.07 * u_bar_phase;
-    col *= 1.0 + 0.7 * u_downbeat;
+    // Beat breath + staccato flash: the frame dims slightly through the wind-up
+    // (beat_phase ramp), then snaps bright on every beat (beatHit) with a bigger
+    // accent on the downbeat — tension + release you can see, on every hit.
+    float beatHit = exp(-u_beat_phase * 7.0);
+    col *= 1.0 - 0.12 * u_beat_phase + 0.06 * u_bar_phase;
+    col *= 1.0 + 0.85 * u_downbeat + 0.30 * beatHit;
 
     // Global arc: ease the whole piece up from the near-silent intro and back
     // down into the outro, so the song's shape is legible at the macro scale.

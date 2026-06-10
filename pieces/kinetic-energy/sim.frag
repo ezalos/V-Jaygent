@@ -32,10 +32,10 @@ out vec4 fragColor;
 const int   GRID      = 32;        // 32 x 32 = 1024 particles (sparse — sparks, not a fog)
 const int   NUM       = 1024;
 const float DT        = 0.016;
-const float MAX_SPEED = 0.65;
+const float MAX_SPEED = 0.78;
 const float MIN_SPEED = 0.012;
-const float DAMPING   = 0.94;      // strong drag — speed must come from forcing, so
-                                   // fast = "being driven now" (kinetic), slow = coasting
+const float DAMPING   = 0.90;      // snappier drag so particles punch outward on a hit
+                                   // and SETTLE between beats — staccato, not a swirl
 
 // Divergence-free curl of an fbmRot potential. fbmRot (NOT fbmGrid) per the
 // grid-artefact lesson; per-axis time multipliers so the field doesn't slide
@@ -91,12 +91,15 @@ void main() {
     vec2  blast = 0.5 + 0.34 * vec2(sin(u_time * 0.21), cos(u_time * 0.17));
     vec2  bd    = pos - blast; bd -= floor(bd + 0.5);
     float br    = length(bd) + 1e-4;
-    // Strong, impulsive radial shove on each downbeat / drum transient — this is
-    // the visible phase-lock: a ring of sparks flares outward from the blast
-    // centre on the beat. Transient (u_downbeat decays fast) so it doesn't
-    // accumulate. A near-blast falloff concentrates the punch at the centre.
-    float burst = (u_downbeat + 0.6 * u_audio_drums_stem) * (0.5 + 0.8 * smoothstep(0.45, 0.0, br));
-    vel += (bd / br) * burst * 1.9 * DT;
+    // Explosive, staccato radial shove. A sharp impulse fires on EVERY beat
+    // (beatHit, exp-decay off the beat_phase ramp) with a bigger accent on the
+    // downbeat and on drum transients — a ring of sparks flares outward then
+    // settles before the next hit. Transient, so it doesn't accumulate. The
+    // near-blast falloff concentrates the punch so the centre detonates.
+    float beatHit = exp(-u_beat_phase * 6.0);
+    float burst   = (1.5 * u_downbeat + 0.8 * beatHit + 0.7 * u_audio_drums_stem)
+                  * (0.45 + 1.0 * smoothstep(0.5, 0.0, br));
+    vel += (bd / br) * burst * 2.7 * DT;
 
     // --- Cursor as an instrument: a local attract that stirs the flow.
     // Toroidal delta so it wraps at the edges. Idle (u_mouse=0,0) → no pull.

@@ -39,7 +39,7 @@ notes: |
   - beat:    u_beat_phase wind-up + u_downbeat / drums-stem burst.
   - sub-beat: per-particle velocity jitter, every frame.
 duration: 202
-render_scale: 0.6
+render_scale: 1.0
 uniforms: []
 published_at: null
 passes:
