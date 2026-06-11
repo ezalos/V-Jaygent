@@ -11,6 +11,7 @@ let server;
 let baseUrl;
 let piecesDir;
 let layersDir;
+let critiquesDir;
 
 before(async () => {
   piecesDir = mkdtempSync(join(tmpdir(), 'vjaygent-test-'));
@@ -28,7 +29,14 @@ before(async () => {
     { recursive: true },
   );
 
-  server = createStudioServer({ piecesDir, layersDir });
+  critiquesDir = mkdtempSync(join(tmpdir(), 'vjaygent-critiques-test-'));
+  cpSync(
+    new URL('./fixtures/critiques', import.meta.url),
+    critiquesDir,
+    { recursive: true },
+  );
+
+  server = createStudioServer({ piecesDir, layersDir, critiquesDir });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address();
   baseUrl = `http://127.0.0.1:${port}`;
@@ -38,6 +46,7 @@ after(async () => {
   await new Promise((resolve) => server.close(resolve));
   rmSync(piecesDir, { recursive: true, force: true });
   rmSync(layersDir, { recursive: true, force: true });
+  rmSync(critiquesDir, { recursive: true, force: true });
 });
 
 test('GET / returns the studio html', async () => {
@@ -291,6 +300,94 @@ test('file route rejects invalid filenames', async () => {
 test('file route returns 404 for missing file', async () => {
   const res = await fetch(baseUrl + '/api/pieces/test-piece/file/nope.mp3');
   assert.equal(res.status, 404);
+});
+
+test('catalog sorts most-recent-first across created timestamps', async () => {
+  // js-yaml parses `created:` into Date objects; the historical bug compared
+  // String(date) — "Wed May 20…" — so order followed day-of-week names.
+  // 2026-05-20 is a Wednesday and 2026-05-21 a Thursday: lexically W > T,
+  // so the broken sort put the OLDER piece first.
+  const fs = await import('node:fs/promises');
+  for (const [slug, created] of [
+    ['sort-older', '2026-05-20T12:00:00.000Z'],
+    ['sort-newer', '2026-05-21T12:00:00.000Z'],
+  ]) {
+    await fs.mkdir(join(piecesDir, slug), { recursive: true });
+    await fs.writeFile(join(piecesDir, slug, 'meta.yaml'),
+      `title: ${slug}\nslug: ${slug}\ncreated: ${created}\nduration: 6\n`);
+    await fs.writeFile(join(piecesDir, slug, 'shader.frag'),
+      '#version 300 es\nprecision highp float;\nout vec4 fragColor;\nvoid main() { fragColor = vec4(0); }\n');
+  }
+  const body = await fetch(baseUrl + '/api/catalog').then((r) => r.json());
+  const slugs = body.map((p) => p.slug);
+  const newer = slugs.indexOf('sort-newer');
+  const older = slugs.indexOf('sort-older');
+  assert.ok(newer !== -1 && older !== -1, 'sort fixtures missing from catalog');
+  assert.ok(newer < older, `expected sort-newer before sort-older, got ${slugs.join(', ')}`);
+});
+
+test('GET /api/critic-summary returns the latest verdict per slug', async () => {
+  const res = await fetch(baseUrl + '/api/critic-summary');
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body['test-piece'].verdict, 'ship-it');     // v2-i1 wins over v1
+  assert.equal(body['test-piece'].version, 'v2-i1');
+  assert.equal(body['test-piece'].count, 2);
+  assert.equal(body['test-piece'].mesmerizing_passes, 5);
+  assert.equal(body['test-piece'].composite, 4.4);          // mean of 5,4,4,4,5 (n/a skipped)
+  assert.equal(body['prose-piece'].verdict, 'needs-tweak'); // scraped, no YAML tail
+});
+
+test('GET /api/pieces/:slug/critiques returns parsed critiques oldest-first', async () => {
+  const res = await fetch(baseUrl + '/api/pieces/test-piece/critiques');
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.slug, 'test-piece');
+  assert.equal(body.critiques.length, 2);
+  const [v1, v2] = body.critiques;
+  assert.equal(v1.version, 'v1');
+  assert.equal(v1.verdict, 'needs-tweak');
+  assert.equal(v1.structured, true);
+  assert.equal(v1.probes.mesmerizing.prediction, 'fail');
+  assert.equal(v1.probes.music.motion_over_luminance, 'shader-pass');
+  assert.equal(v1.scores.motion, 2);
+  assert.equal(v1.composite, 3.6);
+  assert.equal(v1.top_fix, 'add baseline per-beat motion');
+  assert.equal(v2.version, 'v2-i1');
+  assert.equal(v2.verdict, 'ship-it');
+  assert.equal(v2.passes.mesmerizing, 5);
+});
+
+test('prose-only critique falls back to a scraped verdict', async () => {
+  const res = await fetch(baseUrl + '/api/pieces/prose-piece/critiques');
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.critiques.length, 1);
+  assert.equal(body.critiques[0].structured, false);
+  assert.equal(body.critiques[0].verdict, 'needs-tweak');
+  assert.equal(body.critiques[0].scores, null);
+});
+
+test('piece without critiques returns an empty list', async () => {
+  const res = await fetch(baseUrl + '/api/pieces/sort-newer/critiques');
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.deepEqual(body.critiques, []);
+});
+
+test('GET /api/critiques/:file serves raw critique markdown', async () => {
+  const res = await fetch(baseUrl + '/api/critiques/test-piece-v1.md');
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type') ?? '', /text\/plain/);
+  const body = await res.text();
+  assert.match(body, /# Critique: test-piece v1/);
+});
+
+test('critique file route rejects traversal and non-md names', async () => {
+  for (const bad of ['..%2F..%2Fpackage.json', 'test-piece-v1', '.hidden.md', 'sub%2Ffile.md', 'nope.md']) {
+    const res = await fetch(baseUrl + '/api/critiques/' + bad);
+    assert.equal(res.status, 404, `expected 404 for ${bad}`);
+  }
 });
 
 test('file route honors Range requests', async () => {

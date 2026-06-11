@@ -34,6 +34,16 @@ const errorEl = document.getElementById('error');
 const hintEl = document.getElementById('hint');
 const catalogEl = document.getElementById('catalog');
 const catalogInner = catalogEl?.querySelector('.catalog-inner');
+const gradesEl = document.getElementById('grades');
+// Catalog capability badges. `key` matches the server's capabilities object
+// (server.mjs capabilitiesOf); the same keys back the filter chips in index.html.
+const CAP_BADGES = [
+  { key: 'sound', emoji: '🔊', label: 'sound' },
+  { key: 'cursor', emoji: '🖱️', label: 'cursor' },
+  { key: 'keyboard', emoji: '🎹', label: 'keyboard' },
+];
+// Active filter capabilities; multiple = AND (a piece must have all of them).
+const catalogFilter = new Set();
 const fpsEl = document.getElementById('fps');
 const audioUiEl       = document.getElementById('audio-ui');
 const audioProgressEl = document.getElementById('audio-progress');
@@ -353,6 +363,9 @@ let startTime = performance.now();
 let frameCount = 0;
 let mouse = [0, 0];
 let catalog = [];
+// Latest critic verdict per slug (/api/critic-summary), fetched when the
+// catalog opens. Backs the verdict chips and the grades overlay.
+let criticSummary = {};
 let hudOn = true;
 let renderScale = 1.0;
 let fpsSamples = [];
@@ -566,7 +579,10 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'r' || e.key === 'R') startTime = performance.now();
   else if (e.key === 'h') toggleHud();
   else if (e.key === 'c' || e.key === 'C') toggleCatalog();
-  else if (e.key === 'Escape') { closeCatalog(); closeHelpPanel(); }
+  else if (e.key === 'Escape') {
+    if (gradesOpen()) closeGrades();
+    else { closeCatalog(); closeHelpPanel(); }
+  }
   else if (e.key === ' ') {
     // Always preventDefault so space never scrolls the page, even during the
     // boot window where audioEl hasn't attached yet. The browser's sticky
@@ -1976,11 +1992,43 @@ async function toggleCatalog() {
   else closeCatalog();
 }
 
+// Capabilities for a catalog entry. Prefer the server-computed object; fall
+// back to deriving from raw meta fields so the UI still works against an older
+// server response that predates the capabilities field.
+function pieceCaps(p) {
+  if (p.capabilities) return p.capabilities;
+  return {
+    sound: Boolean(p.audio),
+    cursor: p.cursor === true,
+    keyboard: p.keyboard_synth === true,
+  };
+}
+
 async function openCatalog() {
   if (!catalogEl || !catalogInner) return;
-  await refreshCatalog();
+  await Promise.all([refreshCatalog(), refreshCriticSummary()]);
+  wireCatalogFilter();
+  renderCatalog();
+  catalogEl.classList.remove('hidden');
+}
+
+async function refreshCriticSummary() {
+  try {
+    criticSummary = await (await fetch('/api/critic-summary')).json();
+  } catch { criticSummary = {}; }
+}
+
+// Render cards for the pieces matching the active filter (AND across chips).
+function renderCatalog() {
+  if (!catalogInner) return;
   catalogInner.replaceChildren();
-  for (const p of catalog) {
+  const active = [...catalogFilter];
+  const shown = catalog.filter((p) => {
+    const caps = pieceCaps(p);
+    return active.every((k) => caps[k]);
+  });
+  for (const p of shown) {
+    const caps = pieceCaps(p);
     const card = document.createElement('div');
     card.className = 'card' + (p.slug === currentSlug ? ' active' : '');
     const title = document.createElement('div');
@@ -1993,6 +2041,35 @@ async function openCatalog() {
     notes.className = 'n';
     notes.textContent = (p.notes ?? '').split('\n')[0].slice(0, 140);
     card.append(title, sub, notes);
+    const present = CAP_BADGES.filter((b) => caps[b.key]);
+    if (present.length) {
+      const badges = document.createElement('div');
+      badges.className = 'badges';
+      for (const b of present) {
+        const span = document.createElement('span');
+        span.textContent = b.emoji;
+        span.title = b.label;
+        badges.appendChild(span);
+      }
+      card.appendChild(badges);
+    }
+    const crit = criticSummary[p.slug];
+    if (crit) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = `verdict-chip verdict-${verdictClass(crit.verdict)}`;
+      // Oldest critiques predate the verdict vocabulary — fall back to the
+      // composite score, or a plain "critique" affordance.
+      let label = crit.verdict ?? (crit.composite != null ? `${crit.composite}/5` : 'critique');
+      if (crit.verdict && crit.composite != null) label += ` · ${crit.composite}`;
+      chip.textContent = label;
+      chip.title = 'critic grades';
+      chip.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openGrades(p);
+      });
+      card.appendChild(chip);
+    }
     card.addEventListener('click', () => {
       userOverride = true;
       loadPiece(p.slug);
@@ -2000,11 +2077,219 @@ async function openCatalog() {
     });
     catalogInner.appendChild(card);
   }
-  catalogEl.classList.remove('hidden');
+  const countEl = document.getElementById('catalog-count');
+  if (countEl) {
+    countEl.textContent = active.length
+      ? `${shown.length} of ${catalog.length}`
+      : `${catalog.length} pieces`;
+  }
+}
+
+// Wire the filter chips once. Toggling a chip updates catalogFilter and
+// re-renders; the clear button drops all active filters.
+let catalogFilterWired = false;
+function wireCatalogFilter() {
+  if (catalogFilterWired || !catalogEl) return;
+  catalogFilterWired = true;
+  for (const chip of catalogEl.querySelectorAll('.chip[data-cap]')) {
+    chip.addEventListener('click', () => {
+      const cap = chip.dataset.cap;
+      if (catalogFilter.has(cap)) catalogFilter.delete(cap);
+      else catalogFilter.add(cap);
+      chip.setAttribute('aria-pressed', catalogFilter.has(cap) ? 'true' : 'false');
+      syncClearButton();
+      renderCatalog();
+    });
+  }
+  const clearBtn = document.getElementById('catalog-filter-clear');
+  clearBtn?.addEventListener('click', () => {
+    catalogFilter.clear();
+    for (const chip of catalogEl.querySelectorAll('.chip[data-cap]')) {
+      chip.setAttribute('aria-pressed', 'false');
+    }
+    syncClearButton();
+    renderCatalog();
+  });
+}
+
+function syncClearButton() {
+  const clearBtn = document.getElementById('catalog-filter-clear');
+  clearBtn?.classList.toggle('hidden', catalogFilter.size === 0);
 }
 
 function closeCatalog() {
   catalogEl?.classList.add('hidden');
+  closeGrades();
+}
+
+// ---------- critic grades overlay ----------
+// Opens from the verdict chip on a catalog card. Shows the grouped note
+// (latest verdict + composite), every per-probe grade from the latest
+// structured critique, the six dimension scores, and the iteration history
+// with links to the full critique markdown.
+
+const PROBE_GROUP_TITLES = {
+  mesmerizing: 'Mesmerizing',
+  interaction: 'Interaction',
+  music: 'Music (per-frame)',
+  song_level: 'Song-level',
+  dual_input: 'Dual-input',
+  layered: 'Layered composition',
+};
+
+function verdictClass(v) {
+  return String(v ?? '').toLowerCase().replace(/[^a-z-]/g, '') || 'unknown';
+}
+
+// pass → green, weak* → amber, fail → red, shader-pass → muted, n/a → grey.
+function probeClass(v) {
+  const s = String(v ?? '').toLowerCase();
+  if (s === 'pass') return 'pass';
+  if (s.includes('fail')) return 'fail';
+  if (s.includes('weak')) return 'weak';
+  if (s.includes('shader')) return 'shader';
+  if (s === 'n/a' || s === 'na' || s === '') return 'na';
+  return 'na';
+}
+
+function probeLabel(key) {
+  return key.replaceAll('_', ' ');
+}
+
+async function openGrades(piece) {
+  if (!gradesEl) return;
+  wireGrades();
+  let critiques = [];
+  try {
+    const body = await (await fetch(`/api/pieces/${piece.slug}/critiques`)).json();
+    critiques = Array.isArray(body?.critiques) ? body.critiques : [];
+  } catch {}
+  renderGrades(piece, critiques);
+  gradesEl.classList.remove('hidden');
+}
+
+// Click on the dimmed backdrop (not the panel) closes, like Esc.
+let gradesWired = false;
+function wireGrades() {
+  if (gradesWired || !gradesEl) return;
+  gradesWired = true;
+  gradesEl.addEventListener('click', (e) => {
+    if (e.target === gradesEl) closeGrades();
+  });
+}
+
+function closeGrades() {
+  gradesEl?.classList.add('hidden');
+}
+
+function gradesOpen() {
+  return Boolean(gradesEl && !gradesEl.classList.contains('hidden'));
+}
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function renderGrades(piece, critiques) {
+  gradesEl.replaceChildren();
+  const panel = el('div', 'grades-panel');
+
+  const head = el('div', 'grades-head');
+  head.append(
+    el('div', 'grades-title', piece.title ?? piece.slug),
+    el('div', 'grades-sub', piece.slug),
+  );
+  const closeBtn = el('button', 'grades-close', '×');
+  closeBtn.type = 'button';
+  closeBtn.setAttribute('aria-label', 'close grades');
+  closeBtn.addEventListener('click', closeGrades);
+  head.appendChild(closeBtn);
+  panel.appendChild(head);
+
+  if (critiques.length === 0) {
+    panel.appendChild(el('div', 'grades-empty', 'no critiques recorded for this piece'));
+  } else {
+    // Latest structured critique carries the probe data; prose-only ones
+    // (pre-YAML-tail era) at most contribute a verdict to the history.
+    const latest = [...critiques].reverse().find((c) => c.structured) ?? critiques[critiques.length - 1];
+
+    // Grouped note: the one-line aggregate read of the latest critique.
+    const note = el('div', 'grades-note');
+    if (latest.verdict) note.appendChild(el('span', `verdict-pill verdict-${verdictClass(latest.verdict)}`, latest.verdict));
+    const parts = [];
+    if (latest.composite != null) parts.push(`avg dims ${latest.composite}/5`);
+    // mesmerizing_passes is usually a number, but some critiques wrote "1/5".
+    const mes = latest.passes?.mesmerizing;
+    if (mes != null && mes !== 'n/a') parts.push(`mesmerizing ${String(mes).includes('/') ? mes : `${mes}/5`}`);
+    if (latest.claim_check != null) parts.push(`claim ${latest.claim_check}`);
+    parts.push(latest.version, `${critiques.length} critique${critiques.length > 1 ? 's' : ''}`);
+    note.appendChild(el('span', 'grades-note-text', parts.join(' · ')));
+    panel.appendChild(note);
+
+    if (latest.structured) {
+      const groups = el('div', 'grades-groups');
+      for (const [key, probes] of Object.entries(latest.probes ?? {})) {
+        const group = el('div', 'grades-group');
+        const passCount = latest.passes?.[key];
+        group.appendChild(el('div', 'grades-group-h',
+          (PROBE_GROUP_TITLES[key] ?? probeLabel(key)) + (passCount != null && passCount !== 'n/a' ? ` — ${passCount}` : '')));
+        for (const [probe, value] of Object.entries(probes)) {
+          const row = el('div', 'grades-row');
+          row.append(
+            el('span', 'grades-probe', probeLabel(probe)),
+            el('span', `grades-value pv-${probeClass(value)}`, String(value)),
+          );
+          group.appendChild(row);
+        }
+        groups.appendChild(group);
+      }
+      if (latest.scores) {
+        const group = el('div', 'grades-group');
+        group.appendChild(el('div', 'grades-group-h', 'Dimensions'));
+        for (const [dim, score] of Object.entries(latest.scores)) {
+          const row = el('div', 'grades-row');
+          row.appendChild(el('span', 'grades-probe', probeLabel(dim)));
+          if (typeof score === 'number') {
+            const bar = el('span', 'grades-bar');
+            const fill = el('span', 'grades-bar-fill');
+            fill.style.width = `${(score / 5) * 100}%`;
+            bar.appendChild(fill);
+            row.append(bar, el('span', 'grades-score', `${score}/5`));
+          } else {
+            row.appendChild(el('span', 'grades-value pv-na', String(score)));
+          }
+          group.appendChild(row);
+        }
+        groups.appendChild(group);
+      }
+      panel.appendChild(groups);
+    } else {
+      panel.appendChild(el('div', 'grades-empty', 'latest critique predates structured grading — verdict only'));
+    }
+
+    const hist = el('div', 'grades-group grades-history');
+    hist.appendChild(el('div', 'grades-group-h', 'History'));
+    for (const c of critiques) {
+      const row = el('div', 'grades-row');
+      row.append(
+        el('span', 'grades-probe', c.version),
+        el('span', `grades-value verdict-${verdictClass(c.verdict)}`, c.verdict ?? '—'),
+        el('span', 'grades-score', c.composite != null ? `${c.composite}/5` : ''),
+      );
+      const link = el('a', 'grades-link', 'full critique ↗');
+      link.href = `/api/critiques/${encodeURIComponent(c.file)}`;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      row.appendChild(link);
+      hist.appendChild(row);
+    }
+    panel.appendChild(hist);
+  }
+
+  gradesEl.appendChild(panel);
 }
 
 // ---------- audio ----------

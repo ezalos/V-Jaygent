@@ -70,8 +70,17 @@
   </div>
 
   <div id="catalog" class="catalog hidden">
+    <div class="catalog-filter" id="catalog-filter">
+      <button type="button" class="chip" data-cap="sound" aria-pressed="false"><span class="chip-emoji">🔊</span> sound</button>
+      <button type="button" class="chip" data-cap="cursor" aria-pressed="false"><span class="chip-emoji">🖱️</span> cursor</button>
+      <button type="button" class="chip" data-cap="keyboard" aria-pressed="false"><span class="chip-emoji">🎹</span> keyboard</button>
+      <button type="button" class="chip chip-clear hidden" id="catalog-filter-clear">× clear</button>
+      <span class="catalog-count" id="catalog-count"></span>
+    </div>
     <div class="catalog-inner"></div>
   </div>
+
+  <div id="grades" class="grades hidden"></div>
 
   <div id="fps" class="fps">—</div>
 

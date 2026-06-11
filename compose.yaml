@@ -31,6 +31,9 @@ services:
       - ./layers:/app/layers
       # Stats persist across container restarts.
       - ./data:/app/data
+      # Critic critiques back the catalog's grades view (/api/critic-summary,
+      # /api/pieces/<slug>/critiques). Read-only: the server never writes them.
+      - ./brainstorming/critiques:/app/brainstorming/critiques:ro
 
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:7777/api/catalog"]

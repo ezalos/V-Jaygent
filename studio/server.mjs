@@ -14,6 +14,7 @@ const LAYER_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
 const STUDIO_DIR = fileURLToPath(new URL('.', import.meta.url));
 const LIB_DIR    = fileURLToPath(new URL('../lib/', import.meta.url));
 const LAYERS_DIR = fileURLToPath(new URL('../layers/', import.meta.url));
+const CRITIQUES_DIR = fileURLToPath(new URL('../brainstorming/critiques/', import.meta.url));
 
 const STATIC_MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -38,15 +39,16 @@ const FILE_MIME = {
 
 const FILENAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
-export function createStudioServer({ piecesDir, studioDir = STUDIO_DIR, libDir = LIB_DIR, layersDir = LAYERS_DIR, stats = null, statsToken = null } = {}) {
+export function createStudioServer({ piecesDir, studioDir = STUDIO_DIR, libDir = LIB_DIR, layersDir = LAYERS_DIR, critiquesDir = CRITIQUES_DIR, stats = null, statsToken = null } = {}) {
   if (!piecesDir) throw new Error('piecesDir is required');
   const piecesRoot = resolvePath(piecesDir);
   const libRoot    = resolvePath(libDir);
   const layersRoot = resolvePath(layersDir);
+  const critiquesRoot = resolvePath(critiquesDir);
 
   return createServer(async (req, res) => {
     try {
-      await handle(req, res, { piecesRoot, libRoot, layersRoot, studioDir, stats, statsToken });
+      await handle(req, res, { piecesRoot, libRoot, layersRoot, critiquesRoot, studioDir, stats, statsToken });
     } catch (err) {
       console.error('[studio]', err);
       send(res, 500, 'text/plain', 'internal error');
@@ -54,7 +56,7 @@ export function createStudioServer({ piecesDir, studioDir = STUDIO_DIR, libDir =
   });
 }
 
-async function handle(req, res, { piecesRoot, libRoot, layersRoot, studioDir, stats, statsToken }) {
+async function handle(req, res, { piecesRoot, libRoot, layersRoot, critiquesRoot, studioDir, stats, statsToken }) {
   if (req.method !== 'GET') return send(res, 405, 'text/plain', 'method not allowed');
 
   const url = new URL(req.url, 'http://localhost');
@@ -88,6 +90,28 @@ async function handle(req, res, { piecesRoot, libRoot, layersRoot, studioDir, st
   if (path === '/api/stats')         return apiStats(req, res, url, stats, statsToken);
   if (path === '/api/catalog')       return apiCatalog(res, piecesRoot);
   if (path === '/api/current')       return apiCurrent(res, piecesRoot);
+  if (path === '/api/critic-summary') return apiCriticSummary(res, critiquesRoot);
+
+  // Per-piece critic history — every critique for the slug, structured data
+  // parsed from the YAML tail each critique ends with (see vjay-iterate skill).
+  const critiquesMatch = path.match(/^\/api\/pieces\/([^/]+)\/critiques$/);
+  if (critiquesMatch) {
+    const slug = decodeURIComponent(critiquesMatch[1]);
+    if (!SLUG_RE.test(slug)) return send(res, 404, 'text/plain', 'not found');
+    return apiPieceCritiques(res, critiquesRoot, slug);
+  }
+
+  // Raw critique markdown, for "read the full critique" links.
+  const critiqueFileMatch = path.match(/^\/api\/critiques\/([^/]+)$/);
+  if (critiqueFileMatch) {
+    const name = decodeURIComponent(critiqueFileMatch[1]);
+    if (!FILENAME_RE.test(name) || !name.endsWith('.md')) {
+      return send(res, 404, 'text/plain', 'not found');
+    }
+    const body = await readFile(join(critiquesRoot, name)).catch(() => null);
+    if (body === null) return send(res, 404, 'text/plain', 'not found');
+    return send(res, 200, 'text/plain; charset=utf-8', body);
+  }
 
   const pieceMatch = path.match(/^\/api\/pieces\/([^/]+)\/(shader\.frag|meta|mtime|analysis)$/);
   if (pieceMatch) {
@@ -167,16 +191,173 @@ async function serveStatic(res, dir, name) {
   }
 }
 
+// Capability badges for the catalog. Each is read from an authoritative
+// meta.yaml field: sound from `audio:`, keyboard from `keyboard_synth:`,
+// cursor from the explicit `cursor:` field (backfilled by bin/backfill-cursor.mjs,
+// emitted by bin/new-piece.mjs going forward).
+function capabilitiesOf(meta) {
+  return {
+    sound: Boolean(meta?.audio),
+    cursor: meta?.cursor === true,
+    keyboard: meta?.keyboard_synth === true,
+  };
+}
+
 async function apiCatalog(res, piecesRoot) {
   const entries = await readdir(piecesRoot, { withFileTypes: true }).catch(() => []);
   const pieces = [];
   for (const e of entries) {
     if (!e.isDirectory() || !SLUG_RE.test(e.name)) continue;
     const meta = await loadMeta(piecesRoot, e.name);
-    if (meta) pieces.push({ slug: e.name, ...meta });
+    if (meta) pieces.push({ slug: e.name, ...meta, capabilities: capabilitiesOf(meta) });
   }
-  pieces.sort((a, b) => String(b.created ?? '').localeCompare(String(a.created ?? '')));
+  // js-yaml parses `created:` timestamps into Date objects, whose String()
+  // form starts with the day-of-week name — never compare those lexically.
+  pieces.sort((a, b) => createdMs(b) - createdMs(a));
   sendJson(res, 200, pieces);
+}
+
+function createdMs(meta) {
+  const v = meta?.created;
+  if (v instanceof Date) return v.getTime();
+  const t = Date.parse(String(v ?? ''));
+  return Number.isFinite(t) ? t : 0;
+}
+
+// ---------- critic grades ----------
+// Critiques live in brainstorming/critiques/<slug>-<version>.md where
+// <version> is vN, vN-iM, vN-blocked, or blocked. Each ends with a fenced
+// ```yaml tail (the vjay-iterate skill contract): verdict, claim_check,
+// per-probe pass/fail/weak groups, six dimension scores, top_fix. Critiques
+// that predate the contract are prose-only — for those we scrape the verdict
+// from the "## Verdict" heading (or "**status:**" metadata) and mark the
+// entry structured: false.
+
+const CRITIQUE_VERSION_RE = /^(?:v(\d+)(?:-i(\d+))?(?:-blocked)?|blocked)$/;
+const VERDICTS = ['chef-doeuvre', 'ship-it', 'needs-tweak', 'structural-rethink', 'premise-wrong', 'blocked', 'shipped'];
+const PROBE_GROUPS = ['mesmerizing', 'interaction', 'music', 'song_level', 'dual_input', 'layered'];
+
+// Sort key for critique versions: bare "blocked" predates v1.
+function critiqueOrder(version) {
+  const m = version.match(CRITIQUE_VERSION_RE);
+  if (!m || m[1] === undefined) return [0, 0];
+  return [Number(m[1]), Number(m[2] ?? 0)];
+}
+
+function normalizeVerdict(text) {
+  const flat = text.toLowerCase().replace(/['’]/g, '').replace(/œ/g, 'oe');
+  return VERDICTS.find((v) => flat.includes(v)) ?? null;
+}
+
+// Mean of the numeric dimension scores ("n/a" entries excluded), 1 decimal.
+function compositeOf(scores) {
+  if (!scores || typeof scores !== 'object') return null;
+  const nums = Object.values(scores).filter((v) => typeof v === 'number' && Number.isFinite(v));
+  if (nums.length === 0) return null;
+  return Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 10) / 10;
+}
+
+function parseCritique(raw, file, version) {
+  const entry = {
+    file,
+    version,
+    structured: false,
+    verdict: null,
+    claim_check: null,
+    iteration: null,
+    probes: {},
+    passes: {},
+    scores: null,
+    composite: null,
+    top_fix: null,
+  };
+
+  const fences = [...raw.matchAll(/```yaml\s*\n([\s\S]*?)\n```/g)];
+  if (fences.length > 0) {
+    try {
+      const data = yaml.load(fences[fences.length - 1][1]);
+      if (data && typeof data === 'object') {
+        entry.structured = true;
+        entry.verdict = typeof data.verdict === 'string' ? normalizeVerdict(data.verdict) ?? data.verdict : null;
+        entry.claim_check = data.claim_check ?? null;
+        entry.iteration = data.iteration ?? null;
+        entry.scores = data.scores ?? null;
+        entry.composite = compositeOf(data.scores);
+        entry.top_fix = data.top_fix ?? null;
+        for (const g of PROBE_GROUPS) {
+          if (data[`${g}_probes`] && typeof data[`${g}_probes`] === 'object') {
+            entry.probes[g] = data[`${g}_probes`];
+          }
+          if (data[`${g}_passes`] !== undefined) entry.passes[g] = data[`${g}_passes`];
+        }
+        // mesmerizing_passes is the historical name for the first group's count.
+        if (data.mesmerizing_passes !== undefined) entry.passes.mesmerizing = data.mesmerizing_passes;
+        return entry;
+      }
+    } catch {}
+  }
+
+  // Prose-only critique: take the text following a "## Verdict" heading
+  // (the verdict is either on the heading line or in the next paragraph),
+  // else the "**status:**" metadata line.
+  const heading = raw.match(/^#+\s*Verdict:?[^\n]*\n?([\s\S]{0,300})/mi);
+  const status = raw.match(/\*\*status:\*\*\s*([^\n]+)/i);
+  entry.verdict = normalizeVerdict((heading ? heading[0] : '') + ' ' + (status ? status[1] : ''));
+  return entry;
+}
+
+async function critiqueFilesBySlug(critiquesRoot) {
+  const entries = await readdir(critiquesRoot).catch(() => []);
+  const bySlug = new Map();
+  for (const name of entries) {
+    const m = name.match(/^([a-z0-9-]+?)-(v\d+(?:-i\d+)?(?:-blocked)?|blocked)\.md$/);
+    if (!m || !SLUG_RE.test(m[1])) continue;
+    if (!bySlug.has(m[1])) bySlug.set(m[1], []);
+    bySlug.get(m[1]).push({ file: name, version: m[2] });
+  }
+  for (const list of bySlug.values()) {
+    list.sort((a, b) => {
+      const [av, ai] = critiqueOrder(a.version);
+      const [bv, bi] = critiqueOrder(b.version);
+      return av - bv || ai - bi;
+    });
+  }
+  return bySlug;
+}
+
+// All critiques for one piece, oldest → newest, with structured data.
+async function apiPieceCritiques(res, critiquesRoot, slug) {
+  const bySlug = await critiqueFilesBySlug(critiquesRoot);
+  const files = bySlug.get(slug) ?? [];
+  const critiques = [];
+  for (const { file, version } of files) {
+    const raw = await readFile(join(critiquesRoot, file), 'utf8').catch(() => null);
+    if (raw === null) continue;
+    critiques.push(parseCritique(raw, file, version));
+  }
+  sendJson(res, 200, { slug, critiques });
+}
+
+// Latest verdict per slug — one cheap call for catalog chips. Only the
+// newest critique of each piece is parsed.
+async function apiCriticSummary(res, critiquesRoot) {
+  const bySlug = await critiqueFilesBySlug(critiquesRoot);
+  const summary = {};
+  for (const [slug, files] of bySlug) {
+    const latest = files[files.length - 1];
+    const raw = await readFile(join(critiquesRoot, latest.file), 'utf8').catch(() => null);
+    if (raw === null) continue;
+    const c = parseCritique(raw, latest.file, latest.version);
+    summary[slug] = {
+      verdict: c.verdict,
+      version: c.version,
+      composite: c.composite,
+      mesmerizing_passes: c.passes.mesmerizing ?? null,
+      claim_check: c.claim_check,
+      count: files.length,
+    };
+  }
+  sendJson(res, 200, summary);
 }
 
 function apiStats(req, res, url, stats, requiredToken) {

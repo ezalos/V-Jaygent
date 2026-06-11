@@ -13,10 +13,12 @@ studio/.stats.json
 studio/.stats.json.tmp
 studio/.studio.log
 
-# Tooling state, not needed in image
+# Tooling state, not needed in image — except critiques, which back the
+# catalog's critic-grades view (Dockerfile COPYs them as the no-mount default).
 .superpowers/
 .claude/
 brainstorming/
+!brainstorming/critiques/
 tests/
 VISION.md
 README.md
