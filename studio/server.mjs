@@ -306,12 +306,17 @@ function parseCritique(raw, file, version) {
     file,
     version,
     structured: false,
+    schema: 1,
     verdict: null,
     claim_check: null,
     iteration: null,
     probes: {},
     passes: {},
-    scores: null,
+    scores: null,          // schema 1: six 1-5 dimension scores
+    dimensions: null,      // schema 2: six binary-criteria panels
+    dim_passes: null,      // schema 2: "N/M" across all dimension criteria
+    metrics: null,         // schema 2: machine-panel summary
+    harness_gaps: [],      // schema 2: untestable criteria (counted as fails)
     composite: null,
     top_fix: null,
     evidence: [],
@@ -326,8 +331,29 @@ function parseCritique(raw, file, version) {
         entry.verdict = typeof data.verdict === 'string' ? normalizeVerdict(data.verdict) ?? data.verdict : null;
         entry.claim_check = data.claim_check ?? null;
         entry.iteration = data.iteration ?? null;
+        entry.schema = Number(data.schema) === 2 ? 2 : 1;
         entry.scores = data.scores ?? null;
         entry.composite = compositeOf(data.scores);
+        // Schema 2: dimensions are binary-criteria panels, not 1-5 scores.
+        if (entry.schema === 2 && data.dimensions && typeof data.dimensions === 'object') {
+          entry.dimensions = data.dimensions;
+          let passed = 0, total = 0;
+          for (const panel of Object.values(data.dimensions)) {
+            if (!panel || typeof panel !== 'object') continue;
+            for (const v of Object.values(panel)) {
+              if (v === 'n/a') continue;
+              total++;
+              if (v === 'pass') passed++;
+            }
+          }
+          entry.dim_passes = total > 0 ? `${passed}/${total}` : null;
+        }
+        if (entry.schema === 2) {
+          entry.metrics = data.metrics ?? null;
+          if (Array.isArray(data.harness_gaps)) {
+            entry.harness_gaps = data.harness_gaps.filter((g) => g && typeof g === 'object');
+          }
+        }
         entry.top_fix = data.top_fix ?? null;
         // Evidence paths are relative to the critiques dir and must point
         // inside evidence/<dir>/ — anything else is dropped, not served.

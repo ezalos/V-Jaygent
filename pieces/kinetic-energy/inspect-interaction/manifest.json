@@ -1,0 +1,21 @@
+{
+ "slug": "kinetic-energy",
+ "captured_at_audio_t": 147.3,
+ "time_source": "wall",
+ "stills_comparable": false,
+ "captures": [
+  "cursor-a.png",
+  "cursor-b.png",
+  "cursor-c.png",
+  "cursor-active.png",
+  "cursor-idle.png",
+  "cursor-aba-0.png",
+  "cursor-aba-1.png",
+  "latency.mp4",
+  "matrix-both.mp4",
+  "matrix-music.mp4",
+  "matrix-cursor.mp4",
+  "matrix-neither.mp4"
+ ],
+ "layers": []
+}

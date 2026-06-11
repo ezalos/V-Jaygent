@@ -355,6 +355,10 @@ let currentProgram = null;
 let currentUniforms = {};
 let currentPipeline = null;
 let currentLayerEngine = null;  // set when meta.yaml has a `layers:` array
+// Harness-only: when set (via __vj.soloLayer), only the named layer reaches
+// the compositor — all layers still render their FBOs so publishes/consumes
+// stay live. Powers the per-layer solo captures (inspect-interaction).
+let soloLayerName = null;
 let currentSlug = null;
 let currentMeta = null;
 let currentMtime = 0;
@@ -1895,6 +1899,10 @@ function runLayerEngine(engine, now, audioSample) {
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
+        // Solo mode: render every layer's FBO (consumers need fresh publishes)
+        // but composite only the soloed one.
+        if (soloLayerName !== null && layer.name !== soloLayerName) continue;
+
         // (b) run the compositor: write-side acc = blend(read-side acc, layer output)
         gl.bindFramebuffer(gl.FRAMEBUFFER, engine.accFbos[writeIdx]);
         gl.viewport(0, 0, w, h);
@@ -2041,6 +2049,7 @@ async function loadPiece(slug) {
     currentMeta = meta;
     currentSlug = slug;
     currentMtime = mtime;
+    soloLayerName = null;   // never carry a harness solo across piece loads
     // Reconfigure the billiard sim on every piece load. If the piece
     // declared its own ball setup, use that; otherwise fall back to the
     // library defaults (4 balls, unit mass, default radius).
@@ -2432,10 +2441,13 @@ function buildGradesPanel(piece, critiques, { list }) {
     if (tip) note.appendChild(tip);
   }
   const parts = [];
-  if (latest.composite != null) parts.push(`avg dims ${latest.composite}/5`);
+  if (latest.schema === 2 && latest.dim_passes) parts.push(`dims ${latest.dim_passes}`);
+  else if (latest.composite != null) parts.push(`avg dims ${latest.composite}/5`);
+  if (latest.schema === 2 && latest.metrics?.gate) parts.push(`metric gate ${latest.metrics.gate}`);
   // mesmerizing_passes is usually a number, but some critiques wrote "1/5".
   const mes = latest.passes?.mesmerizing;
-  if (mes != null && mes !== 'n/a') parts.push(`mesmerizing ${String(mes).includes('/') ? mes : `${mes}/5`}`);
+  const mesDen = latest.schema === 2 ? 9 : 5;
+  if (mes != null && mes !== 'n/a') parts.push(`mesmerizing ${String(mes).includes('/') ? mes : `${mes}/${mesDen}`}`);
   if (latest.claim_check != null) parts.push(`claim ${latest.claim_check}`);
   parts.push(latest.version, `${critiques.length} critique${critiques.length > 1 ? 's' : ''}`);
   note.appendChild(el('span', 'grades-note-text', parts.join(' · ')));
@@ -2464,7 +2476,44 @@ function buildGradesPanel(piece, critiques, { list }) {
       }
       groups.appendChild(group);
     }
-    if (latest.scores) {
+    // Schema 2: dimensions are binary-criteria panels — render like probe groups.
+    if (latest.schema === 2 && latest.dimensions) {
+      for (const [dim, panel] of Object.entries(latest.dimensions)) {
+        if (!panel || typeof panel !== 'object') continue;
+        const group = el('div', 'grades-group');
+        const head = el('div', 'grades-group-h');
+        const tip = infoTip(probeInfo?.scores?.[dim]);
+        if (tip) head.appendChild(tip);
+        const passed = Object.values(panel).filter((v) => v === 'pass').length;
+        const total = Object.values(panel).filter((v) => v !== 'n/a').length;
+        head.appendChild(el('span', '', `${probeLabel(dim)} — ${passed}/${total}`));
+        group.appendChild(head);
+        for (const [crit, value] of Object.entries(panel)) {
+          const row = el('div', 'grades-row');
+          const label = el('span', 'grades-probe');
+          const ctip = infoTip(probeInfo?.criteria?.[crit]);
+          if (ctip) label.appendChild(ctip);
+          label.appendChild(el('span', '', probeLabel(crit)));
+          row.append(label, gradeValue(value));
+          group.appendChild(row);
+        }
+        groups.appendChild(group);
+      }
+    }
+    if (latest.schema === 2 && latest.harness_gaps?.length) {
+      const group = el('div', 'grades-group');
+      group.appendChild(el('div', 'grades-group-h', `Harness gaps — ${latest.harness_gaps.length} (counted as fails)`));
+      for (const g of latest.harness_gaps) {
+        const row = el('div', 'grades-row');
+        row.append(
+          el('span', 'grades-probe', probeLabel(String(g.criterion ?? '?'))),
+          el('span', 'grades-value pv-fail', String(g.missing ?? 'missing capture')),
+        );
+        group.appendChild(row);
+      }
+      groups.appendChild(group);
+    }
+    if (latest.schema !== 2 && latest.scores) {
       const group = el('div', 'grades-group');
       group.appendChild(el('div', 'grades-group-h', 'Dimensions'));
       for (const [dim, score] of Object.entries(latest.scores)) {
@@ -2504,7 +2553,9 @@ function buildGradesPanel(piece, critiques, { list }) {
     row.append(
       el('span', 'grades-probe', c.version),
       el('span', `grades-value verdict-${verdictClass(c.verdict)}`, c.verdict ?? '—'),
-      el('span', 'grades-score', c.composite != null ? `${c.composite}/5` : ''),
+      el('span', 'grades-score',
+        c.schema === 2 && c.dim_passes ? `dims ${c.dim_passes}`
+          : (c.composite != null ? `${c.composite}/5` : '')),
     );
     // "details" opens the full critique rendered inside this overlay, with
     // that version's own evidence — the dig-into-the-eval view.
@@ -3159,7 +3210,9 @@ function showFatal(msg) {
   document.body.replaceChildren(pre);
 }
 
-let idleTimer = null;
+// var, not let: pointermove can fire wakeOverlays() during module evaluation
+// (top-level awaits yield before this line runs) — `let` here is a TDZ crash.
+var idleTimer = null;
 function wakeOverlays() {
   if (!hudOn) return;
   document.body.classList.add('active');
@@ -3262,6 +3315,13 @@ function exposeRecordingHooks() {
     return { ok: true, at: audioEl.currentTime, duration: audioEl.duration };
   };
   window.__vj.getAudioTime = () => audioEl ? audioEl.currentTime : null;
+  window.__vj.pauseAudio = () => { if (audioEl) audioEl.pause(); return Boolean(audioEl); };
+  // Solo a layer by name (null restores the full stack). Returns the layer
+  // names so the harness can iterate without re-parsing meta.yaml.
+  window.__vj.soloLayer = (name = null) => {
+    soloLayerName = name;
+    return currentLayerEngine ? currentLayerEngine.layers.map((l) => l.name) : [];
+  };
   window.__vj.isAudioReady = () => Boolean(audioEl) && audioEl.readyState >= 2;
   window.__vj.waitForAudio = (timeoutMs = 5000) => new Promise((resolve) => {
     const deadline = Date.now() + timeoutMs;

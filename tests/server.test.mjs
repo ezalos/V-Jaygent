@@ -330,11 +330,11 @@ test('GET /api/critic-summary returns the latest verdict per slug', async () => 
   const res = await fetch(baseUrl + '/api/critic-summary');
   assert.equal(res.status, 200);
   const body = await res.json();
-  assert.equal(body['test-piece'].verdict, 'ship-it');     // v2-i1 wins over v1
-  assert.equal(body['test-piece'].version, 'v2-i1');
-  assert.equal(body['test-piece'].count, 2);
-  assert.equal(body['test-piece'].mesmerizing_passes, 5);
-  assert.equal(body['test-piece'].composite, 4.4);          // mean of 5,4,4,4,5 (n/a skipped)
+  assert.equal(body['test-piece'].verdict, 'ship-it');     // v3 (schema 2) is latest
+  assert.equal(body['test-piece'].version, 'v3');
+  assert.equal(body['test-piece'].count, 3);
+  assert.equal(body['test-piece'].mesmerizing_passes, '8/9');
+  assert.equal(body['test-piece'].composite, null);         // schema 2 has no 1-5 scores
   assert.equal(body['prose-piece'].verdict, 'needs-tweak'); // scraped, no YAML tail
 });
 
@@ -343,7 +343,7 @@ test('GET /api/pieces/:slug/critiques returns parsed critiques oldest-first', as
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.slug, 'test-piece');
-  assert.equal(body.critiques.length, 2);
+  assert.equal(body.critiques.length, 3);
   const [v1, v2] = body.critiques;
   assert.equal(v1.version, 'v1');
   assert.equal(v1.verdict, 'needs-tweak');
@@ -356,6 +356,24 @@ test('GET /api/pieces/:slug/critiques returns parsed critiques oldest-first', as
   assert.equal(v2.version, 'v2-i1');
   assert.equal(v2.verdict, 'ship-it');
   assert.equal(v2.passes.mesmerizing, 5);
+});
+
+test('schema-2 critiques parse dimensions, metrics, and harness gaps', async () => {
+  const res = await fetch(baseUrl + '/api/pieces/test-piece/critiques');
+  const body = await res.json();
+  const v3 = body.critiques.find((c) => c.version === 'v3');
+  assert.equal(v3.schema, 2);
+  assert.equal(v3.verdict, 'ship-it');
+  assert.equal(v3.dimensions.palette_cohesion.warm_arc, 'pass');
+  assert.equal(v3.dim_passes, '8/9');            // 9 applicable criteria (one n/a), 8 pass
+  assert.equal(v3.metrics.gate, 'pass');
+  assert.equal(v3.harness_gaps.length, 1);
+  assert.equal(v3.harness_gaps[0].criterion, 'multi_scale_desync');
+  assert.equal(v3.composite, null);               // no 1-5 scores in schema 2
+  // schema-1 critiques in the same history keep their legacy fields
+  const v2 = body.critiques.find((c) => c.version === 'v2-i1');
+  assert.equal(v2.schema, 1);
+  assert.equal(v2.composite, 4.4);
 });
 
 test('prose-only critique falls back to a scraped verdict', async () => {
@@ -379,7 +397,7 @@ test('GET /api/critiques returns every critique grouped by slug', async () => {
   const res = await fetch(baseUrl + '/api/critiques');
   assert.equal(res.status, 200);
   const body = await res.json();
-  assert.equal(body['test-piece'].length, 2);
+  assert.equal(body['test-piece'].length, 3);
   assert.equal(body['test-piece'][0].version, 'v1');
   assert.equal(body['test-piece'][1].verdict, 'ship-it');
   assert.equal(body['prose-piece'].length, 1);

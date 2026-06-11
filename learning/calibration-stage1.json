@@ -249,6 +249,34 @@
     "all": true,
     "core": true,
     "value": 0.28
+   },
+   "window_divergence": {
+    "all": false,
+    "core": false,
+    "value": {
+     "min_ncd": 0.938,
+     "min_flowhist": 0.0
+    }
+   },
+   "motion_dynamic_range": {
+    "all": true,
+    "core": true,
+    "value": 0.0
+   },
+   "trackability_all": {
+    "all": true,
+    "core": true,
+    "value": null
+   },
+   "never_frozen_all": {
+    "all": false,
+    "core": false,
+    "value": null
+   },
+   "jerk_smooth_all": {
+    "all": true,
+    "core": true,
+    "value": null
    }
   }
  },
@@ -374,6 +402,34 @@
     "all": true,
     "core": true,
     "value": 0.051
+   },
+   "window_divergence": {
+    "all": false,
+    "core": false,
+    "value": {
+     "min_ncd": 0.965,
+     "min_flowhist": 0.0
+    }
+   },
+   "motion_dynamic_range": {
+    "all": false,
+    "core": false,
+    "value": 0.636
+   },
+   "trackability_all": {
+    "all": true,
+    "core": true,
+    "value": null
+   },
+   "never_frozen_all": {
+    "all": true,
+    "core": true,
+    "value": null
+   },
+   "jerk_smooth_all": {
+    "all": true,
+    "core": true,
+    "value": null
    }
   }
  },
@@ -437,6 +493,34 @@
     "all": true,
     "core": true,
     "value": -0.039
+   },
+   "window_divergence": {
+    "all": true,
+    "core": true,
+    "value": {
+     "min_ncd": 0.953,
+     "min_flowhist": 0.015
+    }
+   },
+   "motion_dynamic_range": {
+    "all": true,
+    "core": true,
+    "value": 0.133
+   },
+   "trackability_all": {
+    "all": true,
+    "core": true,
+    "value": null
+   },
+   "never_frozen_all": {
+    "all": true,
+    "core": true,
+    "value": null
+   },
+   "jerk_smooth_all": {
+    "all": false,
+    "core": false,
+    "value": null
    }
   }
  },
@@ -521,6 +605,34 @@
     "all": true,
     "core": true,
     "value": -0.533
+   },
+   "window_divergence": {
+    "all": true,
+    "core": true,
+    "value": {
+     "min_ncd": 0.984,
+     "min_flowhist": 0.024
+    }
+   },
+   "motion_dynamic_range": {
+    "all": true,
+    "core": true,
+    "value": 0.413
+   },
+   "trackability_all": {
+    "all": true,
+    "core": true,
+    "value": null
+   },
+   "never_frozen_all": {
+    "all": true,
+    "core": true,
+    "value": null
+   },
+   "jerk_smooth_all": {
+    "all": true,
+    "core": true,
+    "value": null
    }
   }
  },

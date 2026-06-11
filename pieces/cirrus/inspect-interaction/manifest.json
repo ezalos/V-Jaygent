@@ -1,0 +1,34 @@
+{
+ "slug": "cirrus",
+ "captured_at_audio_t": 135,
+ "time_source": "audio",
+ "stills_comparable": true,
+ "captures": [
+  "cursor-a.png",
+  "cursor-b.png",
+  "cursor-c.png",
+  "cursor-active.png",
+  "cursor-idle.png",
+  "cursor-aba-0.png",
+  "cursor-aba-1.png",
+  "latency.mp4",
+  "solo-solid-warm.png",
+  "solo-haze-drift.png",
+  "solo-coprime-wheels.png",
+  "solo-hub-bloom.png",
+  "solo-key-rays.png",
+  "solo-vignette-grain.png",
+  "matrix-both.mp4",
+  "matrix-music.mp4",
+  "matrix-cursor.mp4",
+  "matrix-neither.mp4"
+ ],
+ "layers": [
+  "solid-warm",
+  "haze-drift",
+  "coprime-wheels",
+  "hub-bloom",
+  "key-rays",
+  "vignette-grain"
+ ]
+}

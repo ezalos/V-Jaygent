@@ -227,10 +227,273 @@ def piece_metrics(stills):
     return out
 
 
+# ---------- Stage-2 clip metrics (optical flow + divergence) ----------
+#
+# Implements the research report's motion markers from the existing
+# multi-window clips: trackability #16 (flow-warping error — Lai 2018 — plus
+# pursuit-speed ceiling), jerk #17, never-frozen #19, motion dynamic range
+# (#28 adapted: lowest-motion window vs highest), and two-timescale
+# divergence #22/#23 (pairwise NCD on luminance-normalized frame stacks +
+# flow-histogram distance). Windows are the harness's 5 s clips — an
+# approximation of the doctrine's 20 s windows until the harness captures
+# longer ones (knob: clip duration lives in bin/inspect-music.mjs).
+
+import lzma
+
+CLIP_THRESH = {
+    "flow_scale": (256, 144),     # decode size for flow (speed/quality tradeoff)
+    "frame_step": 2,              # use every 2nd frame (≈30 fps effective)
+    "px_per_deg": 36.6 * (256 / 1280.0),  # 1280 px ≅ 35° full-screen assumption, rescaled
+    # Corpus-fitted 2026-06-12 (positive-tier clips, n=25 clips / 4 pieces —
+    # PROVISIONAL until more multi-window-clip pieces exist):
+    "pursuit_deg_s_max": 30.0,    # 16 — pursuit ceiling (Meyer 1985); corpus speeds sit far below
+    "warp_err_max": 0.12,         # 16 — positives p90 = 0.08
+    "frozen_floor": 0.0005,       # 19 — positives' quiet windows reach 0.0008; sub-beat shimmer
+                                  #      is below flow resolution at 256px — catches true freezes only
+    "jerk_max": 0.20,             # 17 — positives p90 = 0.12
+    "ncd_min": 0.90,              # 22 — positives p10 = 0.94 (lzma NCD); a looping piece compresses lower
+    "flowhist_min": 0.002,        # 23 — count-normalized hists are small-magnitude; positives p50 = 0.0075
+    "dyn_range_max": 0.55,        # 28 — positives p50 = 0.27
+}
+
+
+def decode_clip(path, max_frames=160):
+    import cv2
+    cap = cv2.VideoCapture(str(path))
+    w, h = CLIP_THRESH["flow_scale"]
+    frames = []
+    i = 0
+    while len(frames) < max_frames:
+        ok, frame = cap.read()
+        if not ok:
+            break
+        if i % CLIP_THRESH["frame_step"] == 0:
+            g = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            # uint8 — Farnebäck's defaults assume 0..255 intensity; float [0,1]
+            # input silently yields all-zero flow.
+            frames.append(cv2.resize(g, (w, h), interpolation=cv2.INTER_AREA))
+        i += 1
+    cap.release()
+    return frames
+
+
+def clip_metrics(path):
+    import cv2
+    frames = decode_clip(path)
+    if len(frames) < 10:
+        return None
+    h, w = frames[0].shape
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    warp_errs, speeds, jerks, mags = [], [], [], []
+    hist = np.zeros(20)
+    prev_flow = None
+    for a, b in zip(frames, frames[1:]):
+        flow = cv2.calcOpticalFlowFarneback(a, b, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+        af, bf = a.astype(np.float32) / 255.0, b.astype(np.float32) / 255.0
+        warped = cv2.remap(af, xx + flow[..., 0], yy + flow[..., 1], cv2.INTER_LINEAR)
+        denom = max(float(bf.std()), 1e-3)
+        warp_errs.append(float(np.abs(warped - bf).mean()) / denom)
+        mag = np.hypot(flow[..., 0], flow[..., 1])
+        mags.append(float(mag.mean()))
+        speeds.append(float(np.median(mag)))
+        hist += np.histogram(np.log1p(mag), bins=20, range=(0, 3))[0]
+        hist_n = len(mags)  # frames accumulated (for count-normalization below)
+        if prev_flow is not None:
+            jerks.append(float(np.abs(flow - prev_flow).mean()))
+        prev_flow = flow
+    fps_eff = 60.0 / CLIP_THRESH["frame_step"]
+    med_speed_deg_s = float(np.median(speeds)) * fps_eff / CLIP_THRESH["px_per_deg"]
+    # luminance-normalized thumbnail stack for NCD (divergence must survive
+    # brightness normalization — report marker #23). Std is floored so a
+    # near-black window stays flat instead of becoming amplified noise.
+    stack = []
+    for f in frames[:: max(1, len(frames) // 12)]:
+        t = cv2.resize(f, (64, 36), interpolation=cv2.INTER_AREA).astype(np.float32) / 255.0
+        t = (t - t.mean()) / max(float(t.std()), 0.02)
+        stack.append(np.clip(t * 32 + 128, 0, 255).astype(np.uint8).tobytes())
+    # Flow histogram normalized by accumulation count (NOT by its own mass):
+    # a zero-motion window keeps its mass in bin 0 and stays comparable.
+    denom_hist = max(hist_n, 1) * h * w
+    return {
+        "warp_err": round(float(np.median(warp_errs)), 4),
+        "median_speed_deg_s": round(med_speed_deg_s, 2),
+        "mean_flow": round(float(np.mean(mags)), 4),
+        "jerk": round(float(np.mean(jerks)), 4) if jerks else 0.0,
+        "_ncd_blob": b"".join(stack),
+        "_flow_hist": (hist / denom_hist).tolist(),
+    }
+
+
+def ncd(x, y):
+    # lzma, not zlib: zlib's 32 KB window saturates on ~27 KB frame stacks,
+    # driving NCD to ~1.0 for ANY pair (Cilibrasi & Vitányi's compressor
+    # requirement: the window must exceed the concatenated input).
+    c = lambda d: len(lzma.compress(d, preset=1))
+    cx, cy = c(x), c(y)
+    return (c(x + y) - min(cx, cy)) / max(cx, cy)
+
+
+def piece_clip_metrics(slug):
+    clips = sorted((REPO / "pieces" / slug / "inspect-music").glob("clip-w*.mp4"))
+    if len(clips) < 3:
+        return None
+    per = {}
+    for c in clips:
+        m = clip_metrics(c)
+        if m:
+            per[c.name] = m
+    if len(per) < 3:
+        return None
+    names = list(per)
+    out = {"clips": {}, "piece": {}}
+    for n, m in per.items():
+        out["clips"][n] = {
+            "trackability": {"value": {"warp_err": m["warp_err"], "speed_deg_s": m["median_speed_deg_s"]},
+                             "pass": m["warp_err"] <= CLIP_THRESH["warp_err_max"]
+                                     and m["median_speed_deg_s"] <= CLIP_THRESH["pursuit_deg_s_max"]},
+            "never_frozen": {"value": m["mean_flow"], "pass": m["mean_flow"] >= CLIP_THRESH["frozen_floor"]},
+            "jerk_smooth": {"value": m["jerk"], "pass": m["jerk"] <= CLIP_THRESH["jerk_max"]},
+        }
+    ncds, fdists = [], []
+    for i in range(len(names)):
+        for j in range(i + 1, len(names)):
+            ncds.append(ncd(per[names[i]]["_ncd_blob"], per[names[j]]["_ncd_blob"]))
+            a = np.array(per[names[i]]["_flow_hist"])
+            b = np.array(per[names[j]]["_flow_hist"])
+            fdists.append(float(np.linalg.norm(a - b)))
+    out["piece"]["window_divergence"] = {
+        "value": {"min_ncd": round(min(ncds), 3), "min_flowhist": round(min(fdists), 3)},
+        "pass": min(ncds) >= CLIP_THRESH["ncd_min"] and min(fdists) >= CLIP_THRESH["flowhist_min"],
+    }
+    flows = [per[n]["mean_flow"] for n in names]
+    ratio = min(flows) / max(max(flows), 1e-6)
+    out["piece"]["motion_dynamic_range"] = {"value": round(ratio, 3),
+                                            "pass": ratio <= CLIP_THRESH["dyn_range_max"]}
+    out["piece"]["trackability_all"] = {"pass": all(c["trackability"]["pass"] for c in out["clips"].values())}
+    out["piece"]["never_frozen_all"] = {"pass": all(c["never_frozen"]["pass"] for c in out["clips"].values())}
+    out["piece"]["jerk_smooth_all"] = {"pass": all(c["jerk_smooth"]["pass"] for c in out["clips"].values())}
+    return out
+
+
+# ---------- Stage-3 interaction metrics (from bin/inspect-interaction.mjs) ----------
+
+INTER_THRESH = {
+    "triptych_corr_max": 0.90,   # 31 — some cursor-position pair must differ structurally
+    "reversibility_corr_min": 0.92,  # 32 — a→b→a returns the frame (stateful pieces legitimately fail → n/a-stateful via meta)
+    "dominance_delta_max": 0.30,     # 33 — with/without-cursor energy delta ≤ 30%
+    "solo_corr_max": 0.80,           # 44 — every pair of layer solos must be distinct
+    "additive_residual_min": 0.10,   # 43 — composite must differ from the additive sum of solos
+}
+
+
+def _gray_vec(path, size=(32, 32)):
+    img = Image.open(path).convert("L").resize(size, Image.LANCZOS)
+    return np.asarray(img, dtype=np.float64).ravel() / 255.0
+
+
+def _corr(a, b):
+    if a.std() < 1e-6 or b.std() < 1e-6:
+        return 1.0 if (a.std() < 1e-6 and b.std() < 1e-6) else 0.0
+    return float(np.corrcoef(a, b)[0, 1])
+
+
+def interaction_metrics(slug):
+    d = REPO / "pieces" / slug / "inspect-interaction"
+    if not (d / "manifest.json").exists():
+        return None
+    man = json.loads((d / "manifest.json").read_text())
+    comparable = bool(man.get("stills_comparable"))
+    out = {"stills_comparable": comparable, "tests": {}}
+
+    tript = [d / f"cursor-{t}.png" for t in "abc"]
+    if all(p.exists() for p in tript):
+        vs = [_gray_vec(p) for p in tript]
+        corrs = [_corr(vs[i], vs[j]) for i in range(3) for j in range(i + 1, 3)]
+        out["tests"]["cursor_composition"] = {
+            "value": round(min(corrs), 3),
+            "pass": min(corrs) <= INTER_THRESH["triptych_corr_max"],
+            "note": None if comparable else "wall-clock piece: time delta contaminates the comparison",
+        }
+
+    aba = [d / "cursor-aba-0.png", d / "cursor-aba-1.png"]
+    if all(p.exists() for p in aba):
+        c = _corr(_gray_vec(aba[0]), _gray_vec(aba[1]))
+        out["tests"]["cursor_reversibility"] = {
+            "value": round(c, 3),
+            "pass": c >= INTER_THRESH["reversibility_corr_min"],
+            "note": None if comparable else "wall-clock piece: time delta contaminates the comparison",
+        }
+
+    pair = [d / "cursor-active.png", d / "cursor-idle.png"]
+    if all(p.exists() for p in pair):
+        a, b = (np.asarray(Image.open(p).convert("L"), dtype=np.float64) / 255.0 for p in pair)
+        delta = float(np.abs(a - b).mean() / max((a.mean() + b.mean()) / 2, 1e-3))
+        out["tests"]["cursor_bounded"] = {
+            "value": round(delta, 3),
+            "pass": delta <= INTER_THRESH["dominance_delta_max"],
+            "note": None if comparable else "wall-clock piece: time delta contaminates the comparison",
+        }
+
+    solos = sorted(d.glob("solo-*.png"))
+    if len(solos) >= 2:
+        vs = {p.stem: _gray_vec(p) for p in solos}
+        names = list(vs)
+        worst = max(_corr(vs[a], vs[b]) for i, a in enumerate(names) for b in names[i + 1:])
+        out["tests"]["layer_distinct"] = {"value": round(worst, 3),
+                                          "pass": worst <= INTER_THRESH["solo_corr_max"]}
+        comp = d / "cursor-idle.png"
+        if comp.exists():
+            full = [np.asarray(Image.open(p).convert("L"), dtype=np.float64) / 255.0 for p in solos]
+            additive = np.clip(np.sum(full, axis=0), 0, 1)
+            composite = np.asarray(Image.open(comp).convert("L"), dtype=np.float64) / 255.0
+            resid = float(np.abs(additive - composite).mean() / max(composite.mean(), 1e-3))
+            out["tests"]["layer_interaction"] = {"value": round(resid, 3),
+                                                 "pass": resid >= INTER_THRESH["additive_residual_min"]}
+
+    cells = {c: d / f"matrix-{c}.mp4" for c in ("both", "music", "cursor", "neither")}
+    if all(p.exists() for p in cells.values()):
+        flows = {}
+        for cell, p in cells.items():
+            m = clip_metrics(p)
+            if m:
+                flows[cell] = m["mean_flow"]
+        if len(flows) == 4:
+            out["tests"]["idle_matrix_alive"] = {
+                "value": {k: round(v, 4) for k, v in flows.items()},
+                "pass": all(v >= CLIP_THRESH["frozen_floor"] for v in flows.values()),
+            }
+    return out
+
+
 # ---------- corpus calibration ----------
 
 POSITIVE = {"chef-doeuvre", "ship-it", "shipped"}
 VERSION_RE = re.compile(r"^([a-z0-9-]+?)-(v\d+(?:-i\d+)?(?:-blocked)?|blocked)\.md$")
+
+# Tests that hard-gate (passed 14/14 positives at calibration 2026-06-12).
+# Everything else is advisory until the negative corpus exists.
+HARD_GATES = ["no_blowout", "dominant_hues"]
+
+
+def palette_exception(slug):
+    """meta.yaml `palette_exception:` sanctions a non-warm palette for one piece."""
+    try:
+        import yaml
+        meta = yaml.safe_load((REPO / "pieces" / slug / "meta.yaml").read_text()) or {}
+        return meta.get("palette_exception") or None
+    except Exception:
+        return None
+
+
+def apply_palette_exception(pm, slug):
+    exc = palette_exception(slug)
+    if not exc:
+        return pm
+    for m in pm["stills"].values():
+        if not m["warm_arc"]["pass"]:
+            m["warm_arc"] = {"value": m["warm_arc"].get("value"), "pass": True,
+                             "note": f"sanctioned exception: {exc}"}
+    return pm
 
 
 def latest_verdicts():
@@ -270,7 +533,7 @@ def calibrate():
         stills, source = stills_for(slug, stem)
         if not stills:
             continue
-        pm = piece_metrics(stills)
+        pm = apply_palette_exception(piece_metrics(stills), slug)
         core = list(pm["stills"].values())[1:-1] or list(pm["stills"].values())
         row = {"slug": slug, "verdict": verdict, "source": source, "tests": {}}
         for t in next(iter(pm["stills"].values())).keys():
@@ -281,6 +544,11 @@ def calibrate():
         for t, r in pm["piece"].items():
             row["tests"][t] = {"all": r["pass"], "core": r["pass"], "value": r["value"]}
             tests_seen.add(t)
+        cm = piece_clip_metrics(slug)
+        if cm:
+            for t, r in cm["piece"].items():
+                row["tests"][t] = {"all": r["pass"], "core": r["pass"], "value": r.get("value")}
+                tests_seen.add(t)
         rows.append(row)
 
     lines = [
@@ -324,20 +592,38 @@ def calibrate():
 
 
 def main():
-    if len(sys.argv) >= 3 and sys.argv[1] == "piece":
+    if len(sys.argv) >= 3 and sys.argv[1] in ("piece", "gate", "clips", "interaction"):
         slug = sys.argv[2]
+        if sys.argv[1] == "clips":
+            result = piece_clip_metrics(slug)
+            if result is None:
+                sys.exit(f"no usable clip-w*.mp4 for {slug}")
+            print(json.dumps(result, indent=1))
+            return
+        if sys.argv[1] == "interaction":
+            result = interaction_metrics(slug)
+            if result is None:
+                sys.exit(f"no inspect-interaction captures for {slug} (run bin/inspect-interaction.mjs first)")
+            print(json.dumps(result, indent=1))
+            return
         verdicts = latest_verdicts()
         stem = verdicts.get(slug, (None, ""))[1]
         stills, source = stills_for(slug, stem)
         if not stills:
             sys.exit(f"no section stills found for {slug}")
-        result = piece_metrics(stills)
+        result = apply_palette_exception(piece_metrics(stills), slug)
         result["source"] = source
+        if sys.argv[1] == "gate":
+            core = list(result["stills"].values())[1:-1] or list(result["stills"].values())
+            failures = [t for t in HARD_GATES if not all(s[t]["pass"] for s in core)]
+            print(json.dumps({"gates": HARD_GATES, "failures": failures}, indent=1))
+            sys.exit(1 if failures else 0)
+        result["clips"] = piece_clip_metrics(slug)
         print(json.dumps(result, indent=1))
     elif len(sys.argv) >= 2 and sys.argv[1] == "calibrate":
         calibrate()
     else:
-        sys.exit("usage: aesthetic-metrics.py piece <slug> | calibrate")
+        sys.exit("usage: aesthetic-metrics.py piece <slug> | clips <slug> | gate <slug> | calibrate")
 
 
 if __name__ == "__main__":

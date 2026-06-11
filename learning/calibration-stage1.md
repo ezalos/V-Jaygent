@@ -10,23 +10,23 @@ Positive tier = chef-doeuvre / ship-it / shipped. A useful binary test
 should pass most positives and fail most negatives — or be understood as
 a different axis the verdict doesn't encode.
 
-| piece | verdict | arc | depth_octaves | dominant_hues | empty_zones | hue_drift_smooth | layout_varies | lum_not_hue | no_blowout | one_over_f | rms_contrast | squint_macro | warm_arc |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| anemone | chef-doeuvre | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| aurora | structural-rethink | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| chamber | ship-it | ✗ | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✓ |
-| danzas-percs | ship-it | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ |
-| eclipse | ship-it | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| ink-bloom | ship-it | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ |
-| kinetic-energy | chef-doeuvre | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ | ✓ |
-| le-mystere-abyssal | chef-doeuvre | ✓ | ✗ | ✓ | ✗ | ✗ | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ |
-| mozart-rondo-alla-turca-turkish-march | ship-it | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| murmuration | ship-it | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ |
-| plume | ship-it | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| prism | ship-it | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
-| shoal | ship-it | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| watershed | chef-doeuvre | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| we-owe-no-one | ship-it | ✓ | ✗ | ✓ | ✗ | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ | ✓ |
+| piece | verdict | arc | depth_octaves | dominant_hues | empty_zones | hue_drift_smooth | jerk_smooth_all | layout_varies | lum_not_hue | motion_dynamic_range | never_frozen_all | no_blowout | one_over_f | rms_contrast | squint_macro | trackability_all | warm_arc | window_divergence |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| anemone | chef-doeuvre | ✓ | ✓ | ✓ | ✗ | ✓ | — | ✓ | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
+| aurora | structural-rethink | ✓ | ✓ | ✓ | ✗ | ✓ | — | ✓ | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
+| chamber | ship-it | ✗ | ✗ | ✓ | ✓ | ✓ | — | ✗ | ✗ | — | — | ✓ | ✗ | ✗ | ✗ | — | ✓ | — |
+| danzas-percs | ship-it | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ | ✓ | ✗ | ✓ | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ |
+| eclipse | ship-it | ✗ | ✓ | ✓ | ✗ | ✓ | — | ✓ | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
+| ink-bloom | ship-it | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ |
+| kinetic-energy | chef-doeuvre | ✓ | ✗ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ | ✓ | ✓ | ✓ |
+| le-mystere-abyssal | chef-doeuvre | ✓ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ | ✗ | ✓ |
+| mozart-rondo-alla-turca-turkish-march | ship-it | ✓ | ✓ | ✓ | ✓ | ✓ | — | ✓ | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
+| murmuration | ship-it | ✗ | ✓ | ✓ | ✗ | ✓ | — | ✓ | ✓ | — | — | ✓ | ✓ | ✓ | ✗ | — | ✓ | — |
+| plume | ship-it | ✓ | ✓ | ✓ | ✓ | ✓ | — | ✓ | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
+| prism | ship-it | ✗ | ✗ | ✓ | ✗ | ✗ | — | ✓ | ✗ | — | — | ✓ | ✓ | ✓ | ✓ | — | ✗ | — |
+| shoal | ship-it | ✓ | ✓ | ✓ | ✗ | ✓ | — | ✓ | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
+| watershed | chef-doeuvre | ✗ | ✓ | ✓ | ✗ | ✓ | — | ✓ | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
+| we-owe-no-one | ship-it | ✓ | ✗ | ✓ | ✗ | ✓ | — | ✓ | ✗ | — | — | ✓ | ✗ | ✗ | ✗ | — | ✓ | — |
 
 ## Separation by tier (core rule)
 
@@ -37,48 +37,59 @@ a different axis the verdict doesn't encode.
 | dominant_hues | 14/14 | 1/1 |
 | empty_zones | 4/14 | 0/1 |
 | hue_drift_smooth | 11/14 | 1/1 |
+| jerk_smooth_all | 3/4 | 0/0 |
 | layout_varies | 13/14 | 1/1 |
 | lum_not_hue | 9/14 | 1/1 |
+| motion_dynamic_range | 3/4 | 0/0 |
+| never_frozen_all | 3/4 | 0/0 |
 | no_blowout | 14/14 | 1/1 |
 | one_over_f | 10/14 | 1/1 |
 | rms_contrast | 10/14 | 1/1 |
 | squint_macro | 7/14 | 1/1 |
+| trackability_all | 4/4 | 0/0 |
 | warm_arc | 11/14 | 1/1 |
+| window_divergence | 2/4 | 0/0 |
 
-## Findings & threshold decisions (2026-06-12, hand-written — re-appending needed if the table is regenerated)
+## Findings & threshold decisions (updated 2026-06-12, hand-written — re-append if the table is regenerated)
 
-**Headline: the research-report theory thresholds mostly did NOT transfer
-to the house aesthetic; corpus fitting fixed most of them.** Near-black
-glow fields have global RMS contrast ~0.04–0.17 (theory wanted ≥ 0.15 —
-that number came from a different, layer-level house measurement), and
-1/f power slopes of −2.4 to −4.3 (art-corpus theory expected ≈ −2). After
-fitting thresholds to positive-tier p10/p90: rms_contrast 1/14 → 10/14,
-one_over_f 3/14 → 10/14, lum_not_hue 1/14 → 9/14, squint_macro 0/14 → 7/14.
+**Stills (n=14 positive pieces):** theory thresholds mostly did NOT
+transfer to the house near-black glow aesthetic; corpus-fitted
+thresholds (positive-tier p10/p90) recovered most tests: rms_contrast
+1/14 → 10/14, one_over_f 3/14 → 10/14 (house spectra sit at −2.4…−4.3,
+far steeper than the art-corpus −2), lum_not_hue 1/14 → 9/14,
+squint_macro 0/14 → 7/14. Working as-is: no_blowout 14/14,
+dominant_hues 14/14 (the two HARD GATES), layout_varies 13/14,
+hue_drift_smooth 11/14, warm_arc 11/14 — warm_arc's three "fails" are
+the two sanctioned non-warm pieces (danzas-percs cold, le-mystere-abyssal
+blue; now handled via meta.yaml `palette_exception:`) plus prism (to
+inspect). Demoted: empty_zones (descriptive — the house fills frames
+with glow), arc-from-still-luminance (weak proxy; real test is
+clip-based).
 
-**Tests that work as-is (good v1 gate candidates):** no_blowout (14/14),
-dominant_hues (14/14), layout_varies (13/14), hue_drift_smooth (11/14),
-warm_arc (11/14 — and its 3 "failures" are danzas-percs and
-le-mystere-abyssal, the two SANCTIONED non-warm pieces, plus prism to
-inspect: the test is correct and needs a `palette_exception` flag read
-from meta.yaml).
+**Clips (n=4 pieces with multi-window clips — PROVISIONAL):**
+trackability_all 4/4; never_frozen, jerk_smooth, motion_dynamic_range
+3/4; window_divergence 2/4. Implementation lessons that changed the
+code: Farnebäck needs uint8 frames (float [0,1] silently returns zero
+flow), and NCD requires lzma (zlib's 32 KB window saturates on ~27 KB
+frame stacks, driving NCD→1 for any pair). The frozen floor is set at
+the true-freeze level (0.0005 px/frame): sub-beat shimmer is below
+flow resolution at 256 px — never_frozen catches dead pieces, not
+quiet ones.
 
-**Tests needing more work before gating:** squint_macro (7/14 — mask
-level 0.6 is a guess; sweep it), arc (8/14 — mean-luminance per still is
-a weak energy proxy; the real test is clip-based, Stage 2), depth_octaves
-(9/14 — inspect the 5 failures before trusting), empty_zones (4/14 —
-positives' median dark-rest area is 0.9%: the house aesthetic fills the
-frame with glow; verdicts don't gate on this → demoted to descriptive).
+**Interaction captures (first data, 2026-06-12):** cirrus —
+cursor_composition FAIL (triptych corr 0.993: the cursor does not
+recompose the mandala), reversibility pass, dominance pass, all six
+layer solos distinct, layer stack strongly non-additive (residual
+0.86), idle matrix alive in all four cells. Wall-clock pieces
+(kinetic-energy) get their stills flagged non-comparable in
+manifest.json — the grader sees the caveat.
 
-**Hard caveat: the corpus has only ONE negative-tier piece with stills**
-(most needs-tweak/structural-rethink versions were fixed in place or
-lack section stills). Pass rates on positives measure *recall*, not
-discrimination. To measure false-positive rates we need negative
-evidence — the evidence-snapshot convention (started 2026-06-11) will
-accumulate it naturally; deliberately keeping pre-fix evidence dirs
-(like kinetic-energy-v1) is exactly the right habit.
+**Corpus skew caveat stands:** one negative-tier piece with stills.
+Positive pass-rates measure recall, not discrimination. Negative
+evidence accumulates via the evidence-snapshot convention.
 
-**Implication for the binary-rubric rework:** Stage-1 metrics are ready
-to run as an ADVISORY panel in critiques now (values + pass/fail in a
-new `metrics:` YAML key), but should not hard-gate verdicts until the
-negative corpus exists. Tests at 14/14 on positives can gate
-immediately as necessary conditions (no_blowout, dominant_hues).
+**Status in the v2 rubric:** hard gates = no_blowout, dominant_hues
+(`bin/aesthetic-metrics.py gate <slug>`); everything else feeds the
+critique's `metrics:` panel as authoritative-unless-documented-misfire;
+thresholds live in THRESH/CLIP_THRESH/INTER_THRESH with fit provenance
+in comments.
