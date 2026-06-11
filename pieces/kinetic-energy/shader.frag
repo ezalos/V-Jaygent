@@ -22,22 +22,21 @@ uniform float u_audio_playing;
 
 out vec4 fragColor;
 
-// Cheap radial glow: a handful of taps of the trail buffer at growing radius.
-// Not a true Gaussian pyramid, but enough to make hot cores bleed into light.
-// Tight two-ring glow — a small crisp halo around hot cores, NOT a wide haze
-// (the blur was softening the whole frame). Fewer taps also pays for the
-// higher render_scale.
+// Radial gaussian blur of the trail buffer. Three rings with gaussian radial
+// weights so it stays smooth even at a LARGE radius — that's what lets it
+// double as the out-of-focus state, not just a tight halo. Drive `radius`
+// small for a crisp accent, large for dreamy defocus.
 vec3 glow(vec2 uv, float radius) {
     vec3  sum  = vec3(0.0);
     float wsum = 0.0;
-    const int N = 8;
+    const int N = 10;
     for (int i = 0; i < N; i++) {
-        float a = float(i) / float(N) * TAU + 0.4;
-        for (int k = 1; k <= 2; k++) {
-            float rr  = radius * float(k);
-            vec2  off = vec2(cos(a), sin(a)) * rr;
-            float w   = 1.0 / float(k * k);     // sharper falloff — tighter halo
-            sum  += texture(u_trails, uv + off).rgb * w;
+        float a   = float(i) / float(N) * TAU + 0.3;
+        vec2  dir = vec2(cos(a), sin(a));
+        for (int k = 1; k <= 3; k++) {
+            float fk = float(k);
+            float w  = exp(-fk * fk * 0.4);      // gaussian radial falloff
+            sum  += texture(u_trails, uv + dir * radius * fk).rgb * w;
             wsum += w;
         }
     }
@@ -50,19 +49,32 @@ void main() {
 
     vec3 base = texture(u_trails, uv).rgb;
 
-    // Cursor widens the glow locally — a second channel that reacts to input,
-    // so interactivity isn't ghettoised in the sim pass alone.
-    float glowR = 0.0032 + 0.002 * u_energy_smooth;   // tight halo, not a haze
+    // --- AUDIO-DRIVEN FOCUS PULL ---------------------------------------------
+    // focus = 1 -> crisp sharp sparks; focus = 0 -> dreamy out-of-focus haze.
+    // Tension-release mapping: quiet sections + the wind-up before each beat
+    // soften the image (anticipation), the downbeat SNAPS it into focus (the
+    // payoff). energy sets the macro level, beat_phase the micro softening,
+    // downbeat the snap. A soft floor keeps it from ever going to pure mush.
+    float focus = clamp(0.30 + 0.72 * u_energy_smooth
+                              - 0.40 * u_beat_phase
+                              + 0.85 * u_downbeat, 0.06, 1.0);
+    float defocus = 1.0 - focus;
+
+    // Glow radius swells wide when defocused (dreamy bloom) and tightens to a
+    // crisp halo in focus. Cursor adds a local focus-softening so you can smear
+    // the field by hand — a second interactive channel.
+    float glowR = mix(0.0030, 0.020, defocus * defocus);
     if (dot(u_mouse, u_mouse) > 1.0) {
         vec2  mp = u_mouse / u_resolution;
         float md = length((uv - mp) * vec2(aspect, 1.0));
-        glowR += 0.006 * smoothstep(0.25, 0.0, md);
+        glowR += 0.012 * smoothstep(0.28, 0.0, md);
     }
     vec3 bloom = glow(uv, glowR);
 
-    // Sharp streak cores carry the image; the glow is just a thin light halo
-    // around them. Keep its weight low so it accents rather than blurs.
-    vec3 col = base + bloom * 0.22;
+    // In focus: sharp streak cores carry the image, thin glow accent. Defocused:
+    // the cores fade and the wide bloom takes over -> the sparks melt into
+    // glowing clouds. This is the visible breathing in and out of focus.
+    vec3 col = base * mix(1.0, 0.45, defocus) + bloom * mix(0.22, 1.7, defocus);
 
     // --- Macro brightness envelope: two slowly-wandering hot-zones so the
     // squint sees light/dark structure across the frame, not flat texture.
