@@ -63,6 +63,12 @@ context, the `Why:` line, and the `How to apply:` rule.
   diagonal-flow shimmer gotcha (same time multiplier on both axes
   of `vnoise(p*A + time*B)` slides the field diagonally).
   (`feedback_cyclic_palette.md`)
+- **Critique files are the record** — every piece-creation/iterate
+  run must write `brainstorming/critiques/<slug>-vN.md` and commit
+  it; the studio grades view renders only from those files, so a
+  verdict that lives in conversation or a commit message is
+  invisible to the catalog. Check `ls brainstorming/critiques/<slug>-*`
+  before the run's commit. (`feedback_critique_files_are_the_record.md`)
 
 ## How to add a new lesson
 
