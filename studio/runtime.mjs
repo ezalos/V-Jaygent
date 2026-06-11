@@ -23,6 +23,13 @@ void main() {
 
 const qs = new URLSearchParams(location.search);
 const RECORD_MODE = qs.get('record') === '1';
+
+// Offline support: the service worker makes audio cache-first and the rest
+// network-first-with-fallback, so a loaded piece keeps playing without
+// internet. Skipped in record mode to keep headless runs hermetic.
+if (!RECORD_MODE && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
 // Slug can come from either a path segment (/in-seven) or ?piece=.
 const PATH_MATCH  = location.pathname.match(/^\/([a-z0-9][a-z0-9-]*)$/);
 const FORCED_SLUG = qs.get('piece') ?? (PATH_MATCH ? PATH_MATCH[1] : null);
@@ -539,8 +546,102 @@ function ensureKeyboardSynth() {
   return keyboardSynth;
 }
 
+// ---------- keyboard shortcuts: registry + '?' overlay + debug HUD ----------
+// ONE table drives the '?' overlay. CONTRACT: when you bind a new key in the
+// keydown handler below (or in keyboard-music.mjs), ADD A ROW HERE — the
+// overlay renders straight from this list, so the manual maintains itself.
+const SHORTCUTS = [
+  { keys: '?',         scope: 'studio', desc: 'show / hide this shortcut list' },
+  { keys: 'space',     scope: 'studio', desc: 'play / pause the track' },
+  { keys: '← →',       scope: 'studio', desc: 'previous / next piece (or lightbox image)' },
+  { keys: 'c',         scope: 'studio', desc: 'catalog' },
+  { keys: 'v · V',     scope: 'studio', desc: 'critic grades: this piece · all pieces' },
+  { keys: 'h',         scope: 'studio', desc: 'toggle HUD' },
+  { keys: 'Shift+H',   scope: 'studio', desc: 'synth controls panel' },
+  { keys: 'Shift+D',   scope: 'studio', desc: 'debug HUD — click the timecode to copy it' },
+  { keys: 'r',         scope: 'studio', desc: 'restart wall-clock time' },
+  { keys: 'Esc',       scope: 'studio', desc: 'close overlays' },
+  { keys: 'a s d f g h j k l', scope: 'synth pieces', desc: 'white piano keys (also drive the visuals)' },
+  { keys: 'w e t y u o',       scope: 'synth pieces', desc: 'black piano keys' },
+  { keys: 'z · x',     scope: 'synth pieces', desc: 'octave down · up' },
+  { keys: '1…5',       scope: 'synth pieces', desc: 'instrument: organ / pluck / pad / bell / chip' },
+  { keys: '[ · ]',     scope: 'synth pieces', desc: 'looper: record-play-overdub cycle · clear' },
+];
+
+let shortcutsEl = null;
+function toggleShortcuts(force) {
+  if (!shortcutsEl) {
+    shortcutsEl = document.createElement('div');
+    shortcutsEl.id = 'shortcuts';
+    shortcutsEl.style.cssText =
+      'position:fixed;inset:0;z-index:60;display:flex;align-items:center;' +
+      'justify-content:center;background:rgba(4,8,14,0.82);backdrop-filter:blur(4px);' +
+      'font:13px/1.7 ui-monospace,monospace;color:#cfe3ee;cursor:pointer;';
+    // innerHTML is safe here: every string interpolated below comes from
+    // the static SHORTCUTS literals above — no user or network input.
+    let rows = '';
+    let lastScope = '';
+    for (const s of SHORTCUTS) {
+      if (s.scope !== lastScope) {
+        rows += `<div style="margin-top:12px;color:#7da3b8;text-transform:uppercase;font-size:11px;letter-spacing:0.12em">${s.scope}</div>`;
+        lastScope = s.scope;
+      }
+      rows += `<div style="display:flex;gap:16px"><span style="min-width:150px;color:#ffd9a0">${s.keys}</span><span>${s.desc}</span></div>`;
+    }
+    shortcutsEl.innerHTML =
+      `<div style="max-width:560px;padding:28px 34px;border:1px solid #1d3a4d;border-radius:10px;background:rgba(7,14,22,0.96)">
+        <div style="font-size:15px;color:#fff;margin-bottom:4px">keyboard</div>${rows}
+        <div style="margin-top:14px;color:#5d7d92">press ? or Esc to close</div>
+      </div>`;
+    shortcutsEl.addEventListener('click', () => toggleShortcuts(false));
+    document.body.appendChild(shortcutsEl);
+    shortcutsEl.style.display = 'none';
+  }
+  const show = force !== undefined ? force : shortcutsEl.style.display === 'none';
+  shortcutsEl.style.display = show ? 'flex' : 'none';
+}
+function shortcutsOpen() { return !!shortcutsEl && shortcutsEl.style.display !== 'none'; }
+
+// Debug HUD: always-visible timecode for precise feedback. Click → copies
+// "m:ss.t (t=SS.SS)" to the clipboard.
+let debugEl = null;
+let debugOpen = false;
+function toggleDebugHud() {
+  debugOpen = !debugOpen;
+  if (!debugEl) {
+    debugEl = document.createElement('div');
+    debugEl.id = 'debug-hud';
+    debugEl.style.cssText =
+      'position:fixed;top:10px;right:12px;z-index:55;padding:6px 10px;' +
+      'font:12px/1.5 ui-monospace,monospace;color:#ffd9a0;cursor:copy;' +
+      'background:rgba(7,14,22,0.85);border:1px solid #1d3a4d;border-radius:6px;';
+    debugEl.title = 'click to copy the timecode';
+    debugEl.addEventListener('click', () => {
+      const tc = debugEl.dataset.timecode ?? '';
+      navigator.clipboard?.writeText(tc).then(() => {
+        debugEl.style.borderColor = '#ffd9a0';
+        setTimeout(() => { debugEl.style.borderColor = '#1d3a4d'; }, 350);
+      }).catch(() => {});
+    });
+    document.body.appendChild(debugEl);
+  }
+  debugEl.style.display = debugOpen ? 'block' : 'none';
+}
+function updateDebugHud(audioT) {
+  if (!debugOpen || !debugEl) return;
+  const m = Math.floor(audioT / 60);
+  const s = (audioT - m * 60).toFixed(1).padStart(4, '0');
+  const tc = `${m}:${s} (t=${audioT.toFixed(2)})`;
+  debugEl.dataset.timecode = tc;
+  debugEl.textContent = `${currentMeta?.slug ?? ''}  ${tc}`;
+}
+
 window.addEventListener('keydown', (e) => {
   if (e.repeat) return;  // ignore OS auto-repeat — synth treats hold as one press
+  // '?' — shortcut overlay; Shift+D — debug HUD. Both above the synth path
+  // (they need Shift, which the synth path already excludes).
+  if (e.key === '?') { toggleShortcuts(); e.preventDefault(); return; }
+  if (e.key === 'D' || (e.key === 'd' && e.shiftKey)) { toggleDebugHud(); e.preventDefault(); return; }
   // Piano-on-keyboard shortcut path. Active only when the current piece
   // declares keyboard_synth: true. Lowercase a..l with no modifier keys
   // strikes a note; suppresses the existing h/c single-letter shortcuts
@@ -583,7 +684,8 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'v') toggleGrades();        // critic grades, current piece
   else if (e.key === 'V') toggleAllGrades();     // critic grades, every piece
   else if (e.key === 'Escape') {
-    if (lightboxOpen()) closeLightbox();
+    if (shortcutsOpen()) toggleShortcuts(false);
+    else if (lightboxOpen()) closeLightbox();
     else if (gradesOpen()) closeGrades();
     else { closeCatalog(); closeHelpPanel(); }
   }
@@ -754,6 +856,7 @@ function render() {
   const audioTNow = audioEl ? audioEl.currentTime
                   : liveStream ? now
                   : 0.0;
+  updateDebugHud(audioTNow);
   const nowMs = performance.now();
   const dtAnalysis = Math.max(0, (nowMs - lastAnalysisSampleT) / 1000);
   lastAnalysisSampleT = nowMs;
