@@ -1,0 +1,7 @@
+name: deep-life
+identity: "small lights in the dark"
+default_blend: screen
+uniforms: {}
+reads: []
+publishes: []
+consumes: []

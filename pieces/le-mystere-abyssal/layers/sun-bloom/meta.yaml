@@ -1,0 +1,7 @@
+name: sun-bloom
+identity: "the underwater sun"
+default_blend: add
+uniforms: {}
+reads: []
+publishes: []
+consumes: []

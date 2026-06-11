@@ -33,7 +33,11 @@ layers:
     blend: screen
   - layer: light-shaft
     blend: add
+  - layer: sun-bloom
+    blend: add
   - layer: bubbles
+    blend: screen
+  - layer: deep-life
     blend: screen
   - layer: events
     blend: add
