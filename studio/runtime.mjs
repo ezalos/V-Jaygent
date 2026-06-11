@@ -2185,6 +2185,15 @@ function infoTip(text) {
   return tip;
 }
 
+// A grade value badge (pass / weak / shader-pass / ...) carrying its own
+// legend tooltip, so the vocabulary explains itself where it's met.
+function gradeValue(value) {
+  const span = el('span', `grades-value pv-${probeClass(value)}`, String(value));
+  const legend = probeInfo?.values?.[String(value).toLowerCase()];
+  if (legend) span.dataset.tip = legend;
+  return span;
+}
+
 async function openGrades(piece) {
   if (!gradesEl) return;
   wireGrades();
@@ -2335,18 +2344,19 @@ function buildGradesPanel(piece, critiques, { list }) {
       const group = el('div', 'grades-group');
       const passCount = latest.passes?.[key];
       const groupHead = el('div', 'grades-group-h');
-      groupHead.appendChild(el('span', '',
-        (PROBE_GROUP_TITLES[key] ?? probeLabel(key)) + (passCount != null && passCount !== 'n/a' ? ` — ${passCount}` : '')));
+      // ⓘ leads the line (Louis's preference, 2026-06-11).
       const groupTip = infoTip(probeInfo?.groups?.[key]);
       if (groupTip) groupHead.appendChild(groupTip);
+      groupHead.appendChild(el('span', '',
+        (PROBE_GROUP_TITLES[key] ?? probeLabel(key)) + (passCount != null && passCount !== 'n/a' ? ` — ${passCount}` : '')));
       group.appendChild(groupHead);
       for (const [probe, value] of Object.entries(probes)) {
         const row = el('div', 'grades-row');
         const label = el('span', 'grades-probe');
-        label.appendChild(el('span', '', probeLabel(probe)));
         const tip = infoTip(probeInfo?.probes?.[key]?.[probe]);
         if (tip) label.appendChild(tip);
-        row.append(label, el('span', `grades-value pv-${probeClass(value)}`, String(value)));
+        label.appendChild(el('span', '', probeLabel(probe)));
+        row.append(label, gradeValue(value));
         group.appendChild(row);
       }
       groups.appendChild(group);
@@ -2357,9 +2367,9 @@ function buildGradesPanel(piece, critiques, { list }) {
       for (const [dim, score] of Object.entries(latest.scores)) {
         const row = el('div', 'grades-row');
         const label = el('span', 'grades-probe');
-        label.appendChild(el('span', '', probeLabel(dim)));
         const tip = infoTip(probeInfo?.scores?.[dim]);
         if (tip) label.appendChild(tip);
+        label.appendChild(el('span', '', probeLabel(dim)));
         row.appendChild(label);
         if (typeof score === 'number') {
           const bar = el('span', 'grades-bar');

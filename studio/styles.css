@@ -557,9 +557,45 @@ body.hud-off .fps { display: none; }
 }
 /* Probe rows sit in narrow grid columns near the panel edge — anchor those
    tooltips to the label's left so they stay inside the viewport. */
-.grades-probe .info-tip::after {
+.grades-probe .info-tip::after,
+.grades-group-h .info-tip::after {
   left: 0;
   transform: none;
+}
+/* ⓘ leads the line on probe / dimension / group rows. */
+.grades-probe .info-tip:first-child,
+.grades-group-h .info-tip:first-child {
+  margin-left: 0;
+  margin-right: 6px;
+}
+
+/* Grade value badges carry their own legend tooltip (right-anchored —
+   values sit at the row's right edge). */
+.grades-value[data-tip] { position: relative; cursor: help; }
+.grades-value[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 7px);
+  width: max-content;
+  max-width: 280px;
+  background: rgba(8, 8, 10, 0.97);
+  border: 1px solid rgba(232, 230, 223, 0.25);
+  color: var(--ink);
+  font-size: 10.5px;
+  line-height: 1.5;
+  padding: 8px 11px;
+  white-space: normal;
+  text-align: left;
+  z-index: 12;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 120ms ease-out;
+}
+.grades-value[data-tip]:hover::after {
+  opacity: 1;
+  visibility: visible;
 }
 .card .n { font-size: 11px; color: var(--ink-dim); margin-top: 8px; line-height: 1.4; }
 
