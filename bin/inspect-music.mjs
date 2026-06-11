@@ -37,6 +37,9 @@ function parseArgs(argv) {
     else if (a === '--times') {
       out.times = argv[++i].split(',').map(Number).filter(n => Number.isFinite(n) && n >= 0);
     }
+    else if (a === '--clip-times') {
+      out.clipTimes = argv[++i].split(',').map(Number).filter(n => Number.isFinite(n) && n >= 0);
+    }
     else if (!a.startsWith('--') && !out.slug) out.slug = a;
   }
   return out;
@@ -287,7 +290,7 @@ try {
 
     // Dedupe windows that would land within 4s of each other (short pieces
     // can have overlapping section centres).
-    const windows = [];
+    let windows = [];
     for (const spec of winSpecs) {
       const len = Math.max(2, spec.sec.end - spec.sec.start);
       let start = spec.prePeak
@@ -297,6 +300,14 @@ try {
       if (windows.every(w => Math.abs(w.start - start) > 4.0)) {
         windows.push({ label: spec.label, start });
       }
+    }
+    // --clip-times overrides: narrative pieces need windows at story
+    // moments, not at energy-envelope anchors.
+    if (args.clipTimes && args.clipTimes.length > 0) {
+      windows = args.clipTimes.map(s => ({
+        label: `t${Math.round(s)}`,
+        start: Math.min(s, Math.max(0, totalDur - 5.5)),
+      }));
     }
     // Coverage pass: the role-based picks above sample only the argmax-energy
     // section, so a song with TWO long high-energy sections (danzas-percs: a

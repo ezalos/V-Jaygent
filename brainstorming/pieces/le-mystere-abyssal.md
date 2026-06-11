@@ -32,17 +32,17 @@ identically into every layer):
 
 | Stage | t (s) | Story | depth(t) | Vocabulary |
 |---|---|---|---|---|
-| A1 SURFACE | 0–23.1 | instrumental intro | aerial | Sugimoto bisected horizon, turquoise lagoon glitter, the near-black disc of the blue hole, small |
+| A1 SURFACE | 0–23.1 | instrumental intro | aerial | accretion, one element per ~5s: calm Sugimoto bisection → waves (4.5s) → glitter (6.5s) → sky reflections on the water (8s) → watercolor wash into the sky (10.5s) → **the hole arrives with the chords (12.8s)** |
 | A2 LEGEND | 23.1–43.2 | stories, Cousteau, "bout du monde" | aerial | disc breathes/beckons on slow clock, caustic shimmer drifts |
 | A3 EXPEDITION | 43.2–64.0 | set sail; "guidés par le sonar" @59.0 | aerial | sonar rings expand from disc on downbeats; disc grows (approach); wake lines |
 | B1 TIP-UNDER | 64.0–83.6 | **Chorus 1**; "soleil sous l'eau" @69.0 | 0→0.15 | disc fills frame and inverts: dark-disc-in-turquoise becomes bright-Snell-disc-in-blue; god rays open; FAINT warm glimmer far below |
 | B2 DESCENT | 83.6–124.7 | dice @83.6; "elle est partie" @88.7; radio @93.6; trace lost ~97; "les bulles" @98.9; questions; "le gong" @118.7 | 0.15→0.55 | double-six snap; silhouette descends against the ray cone; one bright radio-thread to the disc; thread frays + **severs ~97**; bubbles become the only voice (vocal stem); red/orange/yellow die in order |
-| B3 TWILIGHT | 124.7–142.9 | **Chorus 2** | 0.55→0.78 | Snell disc a dim coin; sun glimmer closer/warmer; bubble rims catch gold |
+| B3 TWILIGHT | 124.7–142.9 | **Chorus 2** | 0.55→0.78 | **the narcosis dream** (l'ivresse des profondeurs): five-fold interference field breathes through the dark, gold crest seams; bubbles slow to large lazy gold-rimmed orbs; sun glimmer nearer |
 | B4 ABYSS | 142.9–154.6 | instrumental break (deepest) | 0.78→1.0 | pass the **milky H₂S stratum** (143–147) into near-black; bioluminescence only; one lure-light; silhouette **dissolves into marine snow** |
 | C1 REVERSAL | 154.6–174.5 | "le temps a repris son cours" | 1.0→0.25 | Viola reversal: snow drifts upward, we rise; palette returns but changed |
 | C2 REMEMBRANCE | 174.5–195.2 | "quand l'un de nous décroche"; bulles @189.2 | ~0.15 hover | just under the surface; occasional friend-light slips below the waterline; bubble trains arrive from the dark |
-| C3 SUN BLOOM | 195.2–215.0 | **Chorus 3** | ~0.18 | the gold sun rises from below and floods the blue — the myth embraced; gentle orbital drift of everything around it |
-| D OUTRO | 215.0–228.5 | ooho fade | →0.02 | bubbles ascend to the bright surface; horizon bookend; the hole's disc remains far below, a small dark coin |
+| C3 SUN BLOOM | 195.2–215.0 | **Chorus 3** | ~0.18 | the gold sun rises and the water/window step back (darkness carved so gold reads); bubbles + snow wheel slowly around it (Néry's *Ocean Gravity*) |
+| D OUTRO | 215.0–228.5 | ooho fade | →0.02 | RESURFACING: breaking the surface through a pale light bloom; the horizon bookend returns; the hole recedes to a small coin with a warm ember inside — she kept the sun |
 
 Key one-shot events: dice double-flash (6-fold) @83.61 · thread sever @97.0 ·
 milky wipe @142.88 · chorus rings @64.04 / 124.66 / 195.25.
@@ -80,20 +80,32 @@ Palette anchors (lit, not printed; Reinhard at composite):
 2. **caustics-veil** (screen) — voronoi-filament caustics; gain fades with
    depth; axis rotates with u_bar_phase; doubles as A-stage surface glitter.
    Cursor: local agitation brightens filaments.
-3. **light-shaft** (add) — Snell disc + god rays + silhouette occluder +
-   radio-thread. Rays bend toward cursor. Dims with depth, dies in B4.
-4. **sun-bloom** (add) — the warm radial glow below. Faint B1, closer B3, floods
-   C3. Held-key sum feeds gain (+limit). Bypasses extinction.
-5. **bubbles** (screen) — rising columns w/ wobble, rim+glint render (NO
-   u_history: it holds the full composite, trails would smear the window);
-   emission gated by **u_audio_vocals_stem** (her voice = bubbles) from B2 on,
-   arriving in per-column trains; keyboard = bubble burst at key x (white aqua
-   / black violet); cursor deflects columns; gold bubbles on choruses 2/3.
-6. **deep-life** (screen) — marine snow (direction flips at C1 reversal),
-   dinoflagellate sparkle around cursor motion (in B4: touch is the only
-   light), lure-light at B4, silhouette dissolution particles.
-7. **events** (add) — sonar rings (A3 downbeats), dice snap, chorus one-shot
-   rings, brief radio-static chroma flicker at trace-loss (~96–98s).
+3. **light-shaft** (add) — Snell disc + god rays + the scaphandrier (hard-hat
+   suit SDF: helmet/torso/arms/boots, limbs on slow clocks, helmet glint) +
+   radio-thread meeting the helmet. Rays bend toward cursor. Dims with depth,
+   dies in B4; steps back when sunPresence rises.
+4. **sun-bloom** (add) — the warm radial glow below: saturated gold body with
+   a tiny white-hot heart. Faint star B1/B2, nearer B3, floods C3 (with
+   upward rays), sinks through D. Held-key sum feeds gain (+limit). Bypasses
+   extinction; the REST of the stack carves darkness for it via sunPresence().
+5. **narcosis** (screen) — chorus-2 only: the five-fold interference dream,
+   deep-blue troughs / pale-gold crest seams, breathing with the band stem,
+   bending around the cursor.
+6. **bubbles** (normal, reads u_below) — GLASS: each bubble refracts the
+   composite beneath it (lens bend, fresnel rim, mirrored glint); perfect
+   circles; emission gated by **u_audio_vocals_stem** (her voice = bubbles)
+   from B2 on, arriving in per-column trains; keyboard = bubble burst at key
+   x (white aqua / black violet); cursor deflects columns; gold rims on
+   choruses 2/3; slow large orbs in the dream; wheels around the sun in C3.
+7. **deep-life** (screen) — marine snow (direction flips at C1 reversal,
+   streaking vertically there — the rising rush), dinoflagellate sparkle
+   around cursor motion (in B4: touch is the only light), lure-light at B4,
+   silhouette dissolution particles, wheels around the sun in C3.
+8. **events** (add) — dice snap on the words "un double six est sorti"
+   (~87.4s), chorus one-shot rings, radio static at trace-loss (~96–98s),
+   question lights. Sonar is NOT drawn here: it is a warping pressure pulse
+   inside water-column + caustics-veil (legend: gentle 8s breath; expedition:
+   bar-locked), bending waves/glitter/rim light as it passes.
 
 Add-blend budget: light-shaft is depth-dimmed; events sparse one-shots;
 sun-bloom strong only when shafts are weak (C3). Keep summed add ≤1.4.
