@@ -15,6 +15,7 @@ uniform float u_bar_phase;        // slow per-bar ramp
 uniform int   u_section_id;       // recompose the hot-zones per section
 uniform float u_song_progress;    // global arc / edge fades
 uniform float u_section_progress; // within-section build
+uniform float u_to_section_change;// implosion timer — soft-focus the gather
 uniform float u_audio_playing;
 
 #include "math.glsl"
@@ -55,9 +56,16 @@ void main() {
     // soften the image (anticipation), the downbeat SNAPS it into focus (the
     // payoff). energy sets the macro level, beat_phase the micro softening,
     // downbeat the snap. A soft floor keeps it from ever going to pure mush.
+    // The implosion gather pulls focus soft (a dreamy converging knot); the
+    // boundary detonation snaps it razor-sharp as the sparks explode — the
+    // focus and the physics breathe together through the drop.
+    float gather   = smoothstep(4.0, 0.4, u_to_section_change);
+    float detonate = smoothstep(0.07, 0.0, u_section_progress);
     float focus = clamp(0.30 + 0.72 * u_energy_smooth
                               - 0.40 * u_beat_phase
-                              + 0.85 * u_downbeat, 0.06, 1.0);
+                              + 0.85 * u_downbeat
+                              - 0.55 * gather
+                              + 0.90 * detonate, 0.05, 1.0);
     float defocus = 1.0 - focus;
 
     // Glow radius swells wide when defocused (dreamy bloom) and tightens to a

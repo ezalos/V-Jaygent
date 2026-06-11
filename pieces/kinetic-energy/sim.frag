@@ -18,6 +18,7 @@ uniform float u_downbeat;       // decaying impulse at each bar start — the bu
 uniform float u_bar_phase;      // [0,1) sawtooth per bar
 uniform int   u_section_id;     // section index; flips the flow at boundaries
 uniform float u_section_progress;
+uniform float u_to_section_change;  // seconds until next boundary — drives the implosion
 uniform float u_song_progress;
 uniform float u_energy_smooth;
 uniform float u_audio_drums_stem;
@@ -83,23 +84,38 @@ void main() {
     // (slow particles -> dark), the drop drives them hard (fast -> white-hot).
     float drive   = live * (0.16 + 1.8 * u_audio_bass_stem + 1.1 * u_energy_smooth);
     float windup  = 1.0 + 1.6 * u_beat_phase * u_beat_phase;  // eased anticipation
+
+    // Blast centre — slowly wandering. The implosion gathers TO it and the
+    // explosion detonates FROM it, so the two are spatially coherent.
+    vec2  blast = 0.5 + 0.34 * vec2(sin(u_time * 0.21), cos(u_time * 0.17));
+    vec2  bd    = pos - blast; bd -= floor(bd + 0.5);   // blast -> particle (outward)
+    float br    = length(bd) + 1e-4;
+
+    // ---- IMPLOSION: in the last ~4s before a section boundary, a gravity well
+    // at the blast centre pulls every particle inward — a held-breath gather
+    // that tightens as the drop approaches. The curl flow is suppressed during
+    // the gather so the convergence into a knot reads cleanly.
+    float gather = smoothstep(4.0, 0.4, u_to_section_change);
+    drive *= (1.0 - 0.6 * gather);                          // keep some flow alive
+    vel  += (-bd / br) * gather * 2.4 * DT;                 // strong inward pull —
+                                                           // particles streak inward, bright
+
     vel += curlVel(pos, u_time, sgn) * drive * windup * DT;
 
-    // --- Burst: at each downbeat (and on drum transients) shove particles
-    // radially outward from a slowly-wandering blast centre. This is the
-    // visible phase-lock — geometry, not brightness.
-    vec2  blast = 0.5 + 0.34 * vec2(sin(u_time * 0.21), cos(u_time * 0.17));
-    vec2  bd    = pos - blast; bd -= floor(bd + 0.5);
-    float br    = length(bd) + 1e-4;
-    // Explosive, staccato radial shove. A sharp impulse fires on EVERY beat
-    // (beatHit, exp-decay off the beat_phase ramp) with a bigger accent on the
-    // downbeat and on drum transients — a ring of sparks flares outward then
-    // settles before the next hit. Transient, so it doesn't accumulate. The
-    // near-blast falloff concentrates the punch so the centre detonates.
-    float beatHit = exp(-u_beat_phase * 6.0);
-    float burst   = (1.5 * u_downbeat + 0.8 * beatHit + 0.7 * u_audio_drums_stem)
-                  * (0.45 + 1.0 * smoothstep(0.5, 0.0, br));
-    vel += (bd / br) * burst * 2.7 * DT;
+    // ---- EXPLOSION + staccato bursts. Sharp impulses fire on every beat
+    // (beatHit) with a downbeat/drums accent — radial flares that settle before
+    // the next hit; muted during the gather so the implosion isn't fought. At a
+    // section boundary (section_progress -> 0) a big outward DETONATION fires
+    // immediately, scaled by energy: the DROP explodes, a wind-down only puffs.
+    float beatHit  = exp(-u_beat_phase * 6.0);
+    float burst    = (1.5 * u_downbeat + 0.8 * beatHit + 0.7 * u_audio_drums_stem)
+                   * (0.45 + 1.0 * smoothstep(0.5, 0.0, br)) * (1.0 - gather);
+    // Punchy and not throttled by the (lagging) energy at the boundary — a high
+    // floor so the DROP detonates hard the instant the section flips; the wider
+    // window carries the blast through the energy ramp-up.
+    float detonate = smoothstep(0.07, 0.0, u_section_progress)
+                   * (0.7 + 0.6 * u_energy_smooth);
+    vel += (bd / br) * (burst * 2.7 + detonate * 7.5) * DT;
 
     // --- Cursor as an instrument: a local attract that stirs the flow.
     // Toroidal delta so it wraps at the edges. Idle (u_mouse=0,0) → no pull.
