@@ -173,7 +173,9 @@ void main() {
     }
 
     // Wetness gates the flow: pigment only travels where the paper is wet.
-    float mobility = 0.02 + 0.98 * smoothstep(0.03, 0.30, wet);
+    // Soft lower threshold — even the faint capillary halo lets pigment
+    // creep, so motion fades out at a wash's edge instead of hard-stopping.
+    float mobility = 0.02 + 0.98 * smoothstep(0.005, 0.22, wet);
     vel *= mobility;
 
     // --- Semi-Lagrangian advection (gather) + wet diffusion. vel is uv/s;
@@ -194,9 +196,18 @@ void main() {
                  + 0.33 * vec2(sin(u_time * 0.047 + 2.0), cos(u_time * 0.035)));
     float plight = (0.35 + 0.65 * energy) * exp(-dot(hd, hd) / 0.17);
 
-    float diff = (0.012 + 0.12 * smoothstep(0.05, 0.5, wet))
-               * (0.85 + 0.45 * plight);
-    vec4 state = mix(adv, nb * 0.25, diff);
+    // Pigment diffuses only where wet, but WATER wicks ahead of it into dry
+    // paper (capillary front, ~3x faster). A fresh drop's halo then keeps
+    // expanding and pigment feathers out into it, decelerating gradually —
+    // without this, pigment piles up in a ring against the dry boundary of
+    // its own splat (visible on isolated early-song drops; late-song paper
+    // is wet everywhere so the wall never appears).
+    float diffP = (0.012 + 0.12 * smoothstep(0.01, 0.40, wet))
+                * (0.85 + 0.45 * plight);
+    float diffW = min(0.45, diffP * 3.2 + 0.015);
+    vec4 state;
+    state.rgb = mix(adv.rgb, nb.rgb * 0.25, diffP);
+    state.a   = mix(adv.a,   nb.a   * 0.25, diffW);
 
     vec3  dens = state.rgb;
     wet = state.a;
