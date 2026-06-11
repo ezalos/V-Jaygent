@@ -67,18 +67,15 @@ void main() {
 
     vec3 col = vec3(0.0);
 
-    // ---- Sonar pings (expedition): a ring leaves the hole every bar ----
-    if (stage == 2) {
-        float ph = mix(fract(t / 2.5), u_bar_phase, u_audio_playing);
-        float ringR = 0.10 + ph * 1.05;
-        vec2 q = (p - DISC_C) * vec2(1.0, 2.0);
-        float front = smoothstep(0.030, 0.0, abs(length(q) - ringR));
-        col += vec3(0.45, 0.95, 0.85) * front * exp(-ph * 3.2) * 0.55;
-    }
+    // (Sonar is no longer drawn here — it lives as a warping pressure
+    // pulse inside water-column and caustics-veil, bending what exists
+    // instead of adding an overlay ring.)
 
-    // ---- The dice: double six — two hexagonal snaps (83.61, 83.91) -----
+    // ---- The dice: double six — two hexagonal snaps. Fired on the words
+    // "un double six est sorti" (~87.4s), not at the line start: v1 put
+    // them at 83.61 and the link to the lyric was lost.
     for (int i = 0; i < 2; i++) {
-        float t0 = 83.61 + float(i) * 0.30;
+        float t0 = 87.40 + float(i) * 0.30;
         float age = t - t0;
         if (age < 0.0 || age > 0.9) continue;
         float k = age / 0.9;

@@ -44,6 +44,14 @@ vec3 extinction(float d) {
 float aerialAmount(int stage, float sp) {
     if (stage < 3) return 1.0;
     if (stage == 3) return 1.0 - smoothstep(0.35, 0.60, sp);
+    if (stage == 10) return smoothstep(0.30, 0.85, sp);
+    return 0.0;
+}
+
+float sunPresence(int stage, float sp) {
+    if (stage == 5) return 0.45;
+    if (stage == 9) return smoothstep(0.0, 0.5, sp);
+    if (stage == 10) return 1.0 - smoothstep(0.0, 0.7, sp);
     return 0.0;
 }
 // ==================================================== end NARRATIVE ====

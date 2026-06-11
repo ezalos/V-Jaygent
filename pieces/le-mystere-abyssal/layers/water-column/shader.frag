@@ -12,6 +12,7 @@ uniform float u_time;
 uniform vec2  u_mouse;
 uniform float u_audio_bass;
 uniform float u_audio_playing;
+uniform float u_bar_phase;
 out vec4 fragColor;
 
 // ======================= NARRATIVE (keep in sync across layers) ========
@@ -41,22 +42,38 @@ vec3 extinction(float d) {
     return vec3(r, g, b);
 }
 
-// 1 above the surface (stages A), eases to 0 across B1 (the tip-under).
-// The crossfade hides inside the swallowed-disc darkness (sp 0.35-0.60).
+// 1 above the surface (stages A), eases to 0 across B1 (the tip-under),
+// and RETURNS across the outro (stage 10) — the piece resurfaces to the
+// horizon bookend. The tip-under crossfade hides inside the swallowed-disc
+// darkness (sp 0.35-0.60).
 float aerialAmount(int stage, float sp) {
     if (stage < 3) return 1.0;
     if (stage == 3) return 1.0 - smoothstep(0.35, 0.60, sp);
+    if (stage == 10) return smoothstep(0.30, 0.85, sp);
     return 0.0;
 }
 
 // Blue-hole disc radius in p-space: breathes (legend), grows (approach),
-// swallows the frame by sp=0.35 of the tip-under.
+// swallows the frame by sp=0.35 of the tip-under, and recedes to a small
+// dark coin behind us as we resurface.
 float discRadius(int stage, float sp) {
     if (stage == 0) return 0.105;
     if (stage == 1) return mix(0.105, 0.13, sp);
     if (stage == 2) return mix(0.13, 0.34, sp * sp);
     if (stage == 3) return mix(0.34, 2.0, smoothstep(0.0, 0.35, sp));
+    if (stage == 10) return mix(0.40, 0.12, smoothstep(0.30, 0.90, sp));
     return 2.0;
+}
+
+// How present the myth-sun is (0..1). Other layers consult this to carve
+// darkness for the gold — add-blended gold over bright blue reads white
+// (v1 critique), so when the sun comes, the water and the real surface
+// light step back.
+float sunPresence(int stage, float sp) {
+    if (stage == 5) return 0.45;
+    if (stage == 9) return smoothstep(0.0, 0.5, sp);
+    if (stage == 10) return 1.0 - smoothstep(0.0, 0.7, sp);
+    return 0.0;
 }
 
 // Surface-window centre slides down-frame as depth grows, so the receding
@@ -79,52 +96,108 @@ const vec3 MIDNIGHT    = vec3(0.008, 0.05, 0.16);
 const vec3 ABYSS       = vec3(0.001, 0.012, 0.035);
 const vec3 MILKY       = vec3(0.42, 0.50, 0.52);
 
+// Accretion gate: part 1 assembles itself one element at a time.
+float accr(float t, float t0, float ramp) {
+    return smoothstep(t0, t0 + ramp, t);
+}
+
+// The pulse: a travelling pressure front from the hole that WARPS the
+// water (texture, glitter, rim light bend as it passes) instead of being
+// a drawn ring. Gentle 8s breathing on the legend; bar-locked and strong
+// on the expedition. Returns front strength; outputs the warp offset.
+float holePulse(vec2 p, float t, int stage, float barPhase, float playing,
+                out vec2 warp) {
+    warp = vec2(0.0);
+    if (stage != 1 && stage != 2) return 0.0;
+    float ph = (stage == 1)
+        ? fract((t - 23.1) / 8.0)
+        : mix(fract(t / 2.5), barPhase, playing);
+    float amp = (stage == 1) ? 0.45 : 1.0;
+    vec2 q = (p - DISC_C) * vec2(1.0, 2.0);
+    float r = max(length(q), 1e-4);
+    float ringR = 0.12 + ph * 1.05;
+    float band = exp(-pow((r - ringR) / 0.085, 2.0));
+    float front = band * exp(-ph * 2.4) * amp;
+    warp = (q / r) * vec2(1.0, 0.5) * front * 0.05;
+    return front;
+}
+
 // Aerial view: Sugimoto bisected horizon, lagoon, the dark disc with its
 // pale reef rim. The disc is vertically compressed (oblique view of the
 // sea plane).
-vec3 aerialColor(vec2 p, vec2 uv, float t, int stage, float sp) {
+vec3 aerialColor(vec2 p, vec2 uv, float t, int stage, float sp,
+                 float barPhase, float playing) {
     // Horizon height in uv.y. During the tip-under we nose-dive into the
     // hole: the horizon (and the sky with it) rises out of the frame.
     float H = 0.80;
     if (stage == 3) H += 0.65 * smoothstep(0.02, 0.32, sp);
 
-    // Sky band — pale at the horizon, slightly deeper above.
+    // --- the first minute assembles itself (one element per ~5s) ---
+    float gWave  = accr(t, 4.5, 3.5);    // waves wake the water
+    float gRefl  = accr(t, 8.0, 3.5);    // the sky reflects into it
+    float gSkyWC = accr(t, 10.5, 4.0);   // the water colours the sky
+    float gHole  = accr(t, 12.8, 3.5);   // the hole arrives with the chords
+
+    // --- the pulse warps everything that follows ---
+    vec2 warp;
+    float front = holePulse(p, t, stage, barPhase, playing, warp);
+    vec2 pw = p + warp;
+
+    // Sky band — pale at the horizon, deeper above, and (once the water
+    // has claimed it) washed with drifting watercolor pigment.
     vec3 sky = mix(SKY_PALE, SKY_HIGH, smoothstep(H, 1.0, uv.y));
-
-    // Sea — bright lagoon near the viewer, deepening toward the horizon.
-    // Two texture scales: wave bands (anisotropic, finer toward the
-    // horizon for perspective) and broad drifting cloud-shadow patches.
-    float toward = smoothstep(0.0, H, uv.y);
-    vec3 sea = mix(LAGOON_NEAR, LAGOON_FAR, toward);
-    float wave = fbmRot(vec2(p.x * mix(2.5, 6.5, toward), uv.y * 9.0)
-                        + vec2(t * 0.060, t * 0.018));
-    sea *= 0.88 + 0.20 * wave;
-    float cloud = fbmRot(p * 0.85 + vec2(t * 0.009, -t * 0.004));
-    sea *= 0.90 + 0.16 * cloud;
-
-    // The blue hole: ellipse on the sea plane.
-    float R = discRadius(stage, sp);
-    if (stage == 1) R *= 1.0 + 0.025 * sin(t * 0.42); // the legend breathes
-    vec2 q = (p - DISC_C) * vec2(1.0, 2.0);           // oblique compression
-    float r = length(q);
-
-    // The legend: a faint echo-ring leaves the hole every 8s (stage A2) —
-    // the rumour radiating outward.
-    if (stage == 1) {
-        float tt = mod(t - 23.1, 8.0);
-        float ringR = R + tt * 0.13;
-        float echo = smoothstep(0.030, 0.0, abs(r - ringR)) * exp(-tt * 0.55);
-        sea += vec3(0.10, 0.30, 0.28) * echo;
+    if (gSkyWC > 0.001) {
+        float wcA = fbmRot(p * vec2(1.4, 2.8) + vec2(t * 0.011, t * 0.004));
+        float wcB = fbmRot(p * vec2(3.1, 5.2) - vec2(t * 0.007, t * 0.013) + 4.7);
+        float blot = smoothstep(0.42, 0.78, wcA) * (0.55 + 0.45 * wcB);
+        float grain = 0.85 + 0.15 * vnoise(p * 28.0);   // paper tooth
+        vec3 pigment = mix(vec3(0.55, 0.80, 0.78), vec3(0.88, 0.93, 0.84), wcB);
+        sky = mix(sky, pigment, blot * grain * 0.50 * gSkyWC);
     }
 
-    // Pale reef rim just outside the hole.
-    float rim = smoothstep(R * 1.30, R * 1.04, r) * smoothstep(R * 0.98, R * 1.06, r);
-    sea = mix(sea, LAGOON_NEAR * 1.13, rim * 0.8);
+    // Sea — bright lagoon near the viewer, deepening toward the horizon.
+    float toward = smoothstep(0.0, H, uv.y);
+    vec3 sea = mix(LAGOON_NEAR, LAGOON_FAR, toward);
+    float wave = fbmRot(vec2(pw.x * mix(2.5, 6.5, toward), uv.y * 9.0)
+                        + vec2(t * 0.060, t * 0.018));
+    sea *= 1.0 + gWave * (0.20 * wave - 0.10);
+    float cloud = fbmRot(pw * 0.85 + vec2(t * 0.009, -t * 0.004));
+    sea *= 1.0 + gWave * (0.16 * cloud - 0.08);
 
-    // Hole interior: cobalt edge falling to near-black navy at centre.
-    vec3 hole = mix(COBALT * 0.65, HOLE_DISC, smoothstep(R * 0.85, R * 0.25, r));
-    float inside = smoothstep(R * 1.015, R * 0.985, r);
-    sea = mix(sea, hole, inside);
+    // Sky reflections: vertical pale streaks lying on the water.
+    if (gRefl > 0.001) {
+        float streak = fbmRot(vec2(pw.x * 7.0, uv.y * 2.2 - t * 0.025));
+        float sMask = smoothstep(0.55, 0.85, streak) * (1.0 - toward * 0.55);
+        sea = mix(sea, SKY_PALE * 0.92, sMask * 0.35 * gRefl);
+    }
+
+    // The blue hole — born at 12.8s, belonging to the water: its contour
+    // is displaced by the same wave field that textures the surface, its
+    // rim light shimmers with the wave phase and flares when the pulse
+    // front crosses it.
+    if (gHole > 0.001) {
+        float R = discRadius(stage, sp) * gHole;
+        if (stage == 1) R *= 1.0 + 0.025 * sin(t * 0.42); // the legend breathes
+        vec2 q = (p - DISC_C) * vec2(1.0, 2.0);
+        float rWob = (wave - 0.5) * 0.16 * R + (cloud - 0.5) * 0.07 * R;
+        float r = length(q) + rWob;
+
+        float rim = smoothstep(R * 1.30, R * 1.04, r) * smoothstep(R * 0.98, R * 1.06, r);
+        sea = mix(sea, LAGOON_NEAR * (1.04 + 0.18 * wave + 0.50 * front),
+                  rim * 0.8 * gHole);
+
+        vec3 hole = mix(COBALT * 0.65, HOLE_DISC, smoothstep(R * 0.85, R * 0.25, r));
+        // surface texture continues over the edge and drowns toward centre
+        float edgeTex = smoothstep(R * 0.30, R * 0.95, r);
+        hole *= 1.0 + (0.20 * wave - 0.10) * edgeTex * gWave;
+        // outro: she kept the sun — a faint warm ember deep in the hole
+        if (stage >= 10) {
+            hole += vec3(0.60, 0.32, 0.10)
+                  * exp(-pow(length(q) / max(R * 0.45, 1e-3), 2.0)) * 0.40;
+        }
+        float inside = smoothstep(R * 1.015, R * 0.985, r);
+        sea = mix(sea, hole, inside * gHole);
+    }
 
     // Horizon line — a quiet bright seam (the Sugimoto bookend).
     float seam = smoothstep(0.006, 0.0, abs(uv.y - H));
@@ -173,6 +246,23 @@ vec3 underwaterColor(vec2 p, vec2 uv, float t, int stage, float sp, float dep,
     // water resolves as the tip-under completes.
     if (stage == 3) col *= mix(0.20, 1.0, smoothstep(0.38, 0.95, sp));
 
+    // The reversal has its own light: as we rise, dawn grows from above —
+    // the surface calling us back (gives C1 a legible signature; v1 read
+    // as undifferentiated dark).
+    if (stage == 7) {
+        float dawn = smoothstep(0.05, 0.85, sp);
+        col += vec3(0.05, 0.16, 0.24) * dawn * smoothstep(0.25, 1.0, uv.y);
+    }
+
+    // When the myth-sun is present, the water steps back — darkness is
+    // carved under the bloom so the gold survives add-blend compositing
+    // (v1 critique: gold over bright blue reads white).
+    float presence = sunPresence(stage, sp);
+    if (presence > 0.001) {
+        float lower = 0.45 + 0.55 * smoothstep(0.9, 0.0, uv.y);
+        col *= 1.0 - 0.60 * presence * lower;
+    }
+
     // Cursor pressure pocket: the water parts and darkens around the hand.
     if (!mouseIdle) {
         float cd = dot(p - mp, p - mp);
@@ -198,13 +288,21 @@ void main() {
 
     vec3 col;
     if (aer >= 1.0) {
-        col = aerialColor(p, uv, u_time, stage, sp);
+        col = aerialColor(p, uv, u_time, stage, sp, u_bar_phase, u_audio_playing);
     } else if (aer <= 0.0) {
         col = underwaterColor(p, uv, u_time, stage, sp, dep, bassDrive, mp, mouseIdle);
     } else {
-        vec3 a = aerialColor(p, uv, u_time, stage, sp);
+        vec3 a = aerialColor(p, uv, u_time, stage, sp, u_bar_phase, u_audio_playing);
         vec3 b = underwaterColor(p, uv, u_time, stage, sp, dep, bassDrive, mp, mouseIdle);
         col = mix(a, b, smoothstep(0.0, 1.0, 1.0 - aer));
+        // Resurfacing (stage 10): breaking the surface is a passage through
+        // light, not a double exposure — a pale bloom peaks mid-crossfade
+        // and hides the dissolve (the tip-under solved this with darkness;
+        // the return solves it with brightness).
+        if (stage == 10) {
+            float breakthrough = 4.0 * aer * (1.0 - aer);
+            col += vec3(0.75, 0.88, 0.90) * breakthrough * 0.55;
+        }
     }
 
     fragColor = vec4(col, 1.0);

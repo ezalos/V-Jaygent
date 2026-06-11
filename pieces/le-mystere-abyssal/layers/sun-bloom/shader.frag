@@ -36,9 +36,12 @@ void narrative(float t, out int stage, out float sp, out float dep) {
 }
 // ==================================================== end NARRATIVE ====
 
-const vec3 SUN_CORE = vec3(1.00, 0.92, 0.72);
-const vec3 SUN_GOLD = vec3(1.00, 0.72, 0.30);
-const vec3 SUN_AMBR = vec3(0.85, 0.45, 0.12);
+// Gold, not white: v1's cream core + add-blend over bright blue measured
+// R/B 0.90 at the chorus-3 climax — the myth read as a white lamp. The
+// core stays saturated gold and the white-hot point is kept tiny.
+const vec3 SUN_CORE = vec3(1.00, 0.84, 0.42);
+const vec3 SUN_GOLD = vec3(1.00, 0.66, 0.22);
+const vec3 SUN_AMBR = vec3(0.80, 0.38, 0.08);
 
 // Where the myth lives at each stage: position y, radius, gain.
 void sunParams(int stage, float sp, float t, out vec2 c, out float r, out float g) {
@@ -108,9 +111,13 @@ void main() {
     float core = exp(-d * d / (sunR * sunR * 0.20));
     float mid  = exp(-d * d / (sunR * sunR * 1.20)) * 0.55;
     float halo = exp(-d * 2.4) * 0.30;
+    // a tiny white-hot heart so the core still reads as burning, without
+    // bleaching the gold body
+    float heart = exp(-d * d / (sunR * sunR * 0.035)) * 0.5;
     float breath = 0.85 + 0.30 * drive;
 
-    vec3 col = (SUN_CORE * core + SUN_GOLD * mid + SUN_AMBR * halo) * gain * breath;
+    vec3 col = (SUN_CORE * core + SUN_GOLD * mid + SUN_AMBR * halo
+              + vec3(1.0, 0.95, 0.85) * heart) * gain * breath;
 
     // chorus 3: rays of gold reach upward through the water
     if (stage == 9 || stage == 10) {

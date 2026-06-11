@@ -46,6 +46,7 @@ vec3 extinction(float d) {
 float aerialAmount(int stage, float sp) {
     if (stage < 3) return 1.0;
     if (stage == 3) return 1.0 - smoothstep(0.35, 0.60, sp);
+    if (stage == 10) return smoothstep(0.30, 0.85, sp);
     return 0.0;
 }
 
@@ -54,7 +55,15 @@ float discRadius(int stage, float sp) {
     if (stage == 1) return mix(0.105, 0.13, sp);
     if (stage == 2) return mix(0.13, 0.34, sp * sp);
     if (stage == 3) return mix(0.34, 2.0, smoothstep(0.0, 0.35, sp));
+    if (stage == 10) return mix(0.40, 0.12, smoothstep(0.30, 0.90, sp));
     return 2.0;
+}
+
+float sunPresence(int stage, float sp) {
+    if (stage == 5) return 0.45;
+    if (stage == 9) return smoothstep(0.0, 0.5, sp);
+    if (stage == 10) return 1.0 - smoothstep(0.0, 0.7, sp);
+    return 0.0;
 }
 
 vec2 snellCenter(float dep) {
@@ -114,9 +123,26 @@ void main() {
 
     // ---- Aerial glitter on the lagoon ----------------------------------
     if (aer > 0.001) {
+        // accretion: the glitter wakes with the waves (~6.5s in)
+        float gGlit = smoothstep(6.5, 10.0, u_time);
+        // the hole's pressure pulse warps the sparkle as it passes
+        vec2 warp = vec2(0.0);
+        float front = 0.0;
+        if (stage == 1 || stage == 2) {
+            float ph = (stage == 1)
+                ? fract((u_time - 23.1) / 8.0)
+                : mix(fract(u_time / 2.5), u_bar_phase, u_audio_playing);
+            float amp = (stage == 1) ? 0.45 : 1.0;
+            vec2 q = (p - DISC_C) * vec2(1.0, 2.0);
+            float r0 = max(length(q), 1e-4);
+            float ringR = 0.12 + ph * 1.05;
+            float band = exp(-pow((r0 - ringR) / 0.085, 2.0));
+            front = band * exp(-ph * 2.4) * amp;
+            warp = (q / r0) * vec2(1.0, 0.5) * front * 0.05;
+        }
         // finer toward the horizon so the sparkle sits on the sea plane
         float persp = mix(2.6, 5.5, smoothstep(0.0, 0.80, uv.y));
-        vec2 gp = p * persp + vec2(u_time * 0.05, u_time * 0.012);
+        vec2 gp = (p + warp) * persp + vec2(u_time * 0.05, u_time * 0.012);
         gp += agit * 0.05 * sin(20.0 * p + u_time * 6.0);
         float g = caustic(gp, u_time * 1.6);
         // only on the sea, fading at the horizon, never on the hole
@@ -125,8 +151,8 @@ void main() {
         float R = discRadius(stage, sp);
         float r = length((p - DISC_C) * vec2(1.0, 2.0));
         float outside = smoothstep(R * 0.99, R * 1.06, r);
-        col += vec3(0.95, 0.98, 0.92) * g * 0.45 * seaMask * outside
-             * (0.7 + 0.5 * midDrive) * (1.0 + 1.6 * agit);
+        col += vec3(0.95, 0.98, 0.92) * g * 0.45 * seaMask * outside * gGlit
+             * (0.7 + 0.5 * midDrive) * (1.0 + 1.6 * agit) * (1.0 + 0.9 * front);
         col *= aer;
     }
 

@@ -46,6 +46,7 @@ vec3 extinction(float d) {
 float aerialAmount(int stage, float sp) {
     if (stage < 3) return 1.0;
     if (stage == 3) return 1.0 - smoothstep(0.35, 0.60, sp);
+    if (stage == 10) return smoothstep(0.30, 0.85, sp);
     return 0.0;
 }
 
@@ -54,7 +55,15 @@ float discRadius(int stage, float sp) {
     if (stage == 1) return mix(0.105, 0.13, sp);
     if (stage == 2) return mix(0.13, 0.34, sp * sp);
     if (stage == 3) return mix(0.34, 2.0, smoothstep(0.0, 0.35, sp));
+    if (stage == 10) return mix(0.40, 0.12, smoothstep(0.30, 0.90, sp));
     return 2.0;
+}
+
+float sunPresence(int stage, float sp) {
+    if (stage == 5) return 0.45;
+    if (stage == 9) return smoothstep(0.0, 0.5, sp);
+    if (stage == 10) return 1.0 - smoothstep(0.0, 0.7, sp);
+    return 0.0;
 }
 
 vec2 snellCenter(float dep) {
@@ -101,6 +110,10 @@ void main() {
     float bWin = mix(0.85, 0.02, smoothstep(0.0, 0.92, dep));
     // eyes adjusting after the tip-under: the light blooms in
     if (stage == 3) bWin *= smoothstep(0.45, 0.95, sp);
+    // when the myth-sun blooms, the real surface light steps back —
+    // the gold must own the frame (v1: white-out under add-blend)
+    float presence = sunPresence(stage, sp);
+    bWin *= 1.0 - 0.65 * presence;
 
     vec2 SNELL_C = snellCenter(dep);
     vec2 q = p - SNELL_C;
@@ -133,6 +146,7 @@ void main() {
     float radial = exp(-len * 1.05) * smoothstep(rs * 0.55, rs * 1.35, len);
     float rayGain = pow(1.0 - dep, 2.2) * (0.30 + 0.50 * highDrive);
     if (stage == 3) rayGain *= smoothstep(0.45, 0.95, sp);
+    rayGain *= 1.0 - 0.55 * presence;
 
     vec3 rays = vec3(0.85, 0.95, 1.00) * (f1 + f2) * flicker * downMask * radial * rayGain;
     col += rays;
