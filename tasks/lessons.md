@@ -92,3 +92,10 @@ file is the human-readable index.
 - **Watchthrough lessons loop** — aesthetic redlines ARE corrections;
   every batch ends with a lessons pass, now contractual in CLAUDE.md.
   (`feedback_watchthrough_lessons_loop.md`)
+- **Binary critic criteria** — every critic criterion must be a simple
+  unambiguous binary question; weak/weak-pass, shader-\*, and
+  \*-unclear grades are abolished (can't-tell = fail; harness gaps get
+  new captures, not code-reading); the 1–5 dimensions get decomposed
+  too. Rework staged behind the deep-research pass — brief at
+  `learning/critic-rework-research-brief.md`.
+  (`feedback_binary_critic_criteria.md`)
