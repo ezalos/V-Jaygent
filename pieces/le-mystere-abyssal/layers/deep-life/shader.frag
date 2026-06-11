@@ -95,6 +95,9 @@ void main() {
     if (stage == 7) snowGain = max(snowGain, 0.8 * (1.0 - sp)); // visible while rising
     if (snowGain > 0.002) {
         float flow = snowFlow(stage, sp);
+        // at the reversal the snow IS the scene — denser, larger, brighter
+        float rev = (stage == 7) ? 1.0 : 0.0;
+        float density = mix(0.12, 0.26, rev);
         for (int o = 0; o < 2; o++) {                  // two parallax sheets
             float scale = (o == 0) ? 22.0 : 38.0;
             float spd = flow * ((o == 0) ? 1.0 : 0.55);
@@ -102,13 +105,13 @@ void main() {
             vec2 cell = floor(sPos * scale);
             vec2 fp = fract(sPos * scale);
             float h = hash21(cell + float(o) * 17.3);
-            if (h > 0.12) continue;
+            if (h > density) continue;
             vec2 jitter = hash22(cell * 1.7) * 0.6 + 0.2;
             float d = length(fp - jitter);
-            float mote = exp(-d * d * 42.0);
+            float mote = exp(-d * d * mix(42.0, 28.0, rev));
             float tw = 0.75 + 0.25 * sin(t * 1.4 + h * 40.0);
             col += vec3(0.70, 0.82, 0.90) * mote * tw * snowGain
-                 * ((o == 0) ? 0.42 : 0.26);
+                 * ((o == 0) ? 0.42 : 0.26) * (1.0 + 0.6 * rev);
         }
     }
 

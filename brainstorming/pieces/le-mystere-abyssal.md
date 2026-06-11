@@ -84,9 +84,11 @@ Palette anchors (lit, not printed; Reinhard at composite):
    radio-thread. Rays bend toward cursor. Dims with depth, dies in B4.
 4. **sun-bloom** (add) — the warm radial glow below. Faint B1, closer B3, floods
    C3. Held-key sum feeds gain (+limit). Bypasses extinction.
-5. **bubbles** (screen) — rising columns w/ wobble, u_history trails; emission
-   gated by **u_audio_vocals_stem** (her voice = bubbles) from B2 on; keyboard
-   = bubble burst at key x (white aqua / black violet); cursor deflects columns.
+5. **bubbles** (screen) — rising columns w/ wobble, rim+glint render (NO
+   u_history: it holds the full composite, trails would smear the window);
+   emission gated by **u_audio_vocals_stem** (her voice = bubbles) from B2 on,
+   arriving in per-column trains; keyboard = bubble burst at key x (white aqua
+   / black violet); cursor deflects columns; gold bubbles on choruses 2/3.
 6. **deep-life** (screen) — marine snow (direction flips at C1 reversal),
    dinoflagellate sparkle around cursor motion (in B4: touch is the only
    light), lure-light at B4, silhouette dissolution particles.

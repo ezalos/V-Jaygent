@@ -16,6 +16,23 @@ Entry format:
 
 ---
 
+## 2026-06-11 — record-mode clip capture broken (empty webm / no program)
+**Context:** le-mystere-abyssal phase 3 — running the standard
+`bin/inspect-music.mjs` clip pass for the motion check.
+**Observation:** `window.__vj.record()` (studio/runtime.mjs:2937,
+canvas.captureStream + MediaRecorder vp9) returns a 110-byte empty webm,
+crashing the ffmpeg convert at bin/inspect-music.mjs:318. Reproduction is
+flaky: a fresh page with `?record=1` recorded 79KB/2s once, but
+seek-then-record and repeat runs fail with `no program compiled in time`
+(waitForProgram → currentProgram null) or empty bytes. anemone also fails
+shader compile in record mode. Screenshots work fine throughout — only
+captureStream/MediaRecorder and the GPU-init race are affected. Last
+known-good clip recording: 2026-05-25 (anemone clip-peak.mp4, 5.7MB).
+Suspects: Playwright/Chromium update since 05-25; headless GPU context
+flakiness (memory: "GPU init race" caveat). Blocks /vjay-iterate's
+clip-based probes — fix before the le-mystere-abyssal critic pass.
+**Status:** open
+
 ## 2026-04-19 — smoke-shaders.mjs over-strict on console errors
 **Context:** Running `node bin/smoke-shaders.mjs touch-probe` during mobile-support Task 7 verification.
 **Observation:** `bin/smoke-shaders.mjs:67-71` treats ANY `console.error` (including incidental 404s on favicons, optional assets) as a shader-compile failure. Reproduces on `aperture` (no audio, simple shader) with a bare 404 message that the script doesn't surface the URL for. Should filter to GLSL / shader-specific console output, or explicitly list which fetch URLs count.
