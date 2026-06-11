@@ -35,6 +35,7 @@ const hintEl = document.getElementById('hint');
 const catalogEl = document.getElementById('catalog');
 const catalogInner = catalogEl?.querySelector('.catalog-inner');
 const gradesEl = document.getElementById('grades');
+const lightboxEl = document.getElementById('lightbox');
 // Catalog capability badges. `key` matches the server's capabilities object
 // (server.mjs capabilitiesOf); the same keys back the filter chips in index.html.
 const CAP_BADGES = [
@@ -574,15 +575,16 @@ window.addEventListener('keydown', (e) => {
       }
     }
   }
-  if (e.key === 'ArrowRight') { cycle(+1); e.preventDefault(); }
-  else if (e.key === 'ArrowLeft') { cycle(-1); e.preventDefault(); }
+  if (e.key === 'ArrowRight') { lightboxOpen() ? lightboxStep(+1) : cycle(+1); e.preventDefault(); }
+  else if (e.key === 'ArrowLeft') { lightboxOpen() ? lightboxStep(-1) : cycle(-1); e.preventDefault(); }
   else if (e.key === 'r' || e.key === 'R') startTime = performance.now();
   else if (e.key === 'h') toggleHud();
   else if (e.key === 'c' || e.key === 'C') toggleCatalog();
   else if (e.key === 'v') toggleGrades();        // critic grades, current piece
   else if (e.key === 'V') toggleAllGrades();     // critic grades, every piece
   else if (e.key === 'Escape') {
-    if (gradesOpen()) closeGrades();
+    if (lightboxOpen()) closeLightbox();
+    else if (gradesOpen()) closeGrades();
     else { closeCatalog(); closeHelpPanel(); }
   }
   else if (e.key === ' ') {
@@ -2259,6 +2261,7 @@ function wireGrades() {
 
 function closeGrades() {
   gradesEl?.classList.add('hidden');
+  closeLightbox();
 }
 
 function gradesOpen() {
@@ -2377,36 +2380,9 @@ function buildGradesPanel(piece, critiques, { list }) {
       'no structured grades in the latest critique — see the full-critique links below'));
   }
 
-  // What the critic saw — snapshot frames copied at critique time, served
-  // from brainstorming/critiques/evidence/. Click opens the full image.
-  if (Array.isArray(latest.evidence) && latest.evidence.length > 0) {
-    const ev = el('div', 'grades-group grades-evidence');
-    ev.appendChild(el('div', 'grades-group-h', `What the critic saw — ${latest.version}`));
-    const strip = el('div', 'grades-evidence-strip');
-    for (const p of latest.evidence) {
-      const m = String(p).match(/^evidence\/([a-z0-9-]+)\/([A-Za-z0-9._-]+)$/);
-      if (!m) continue;
-      const url = `/api/critiques/evidence/${encodeURIComponent(m[1])}/${encodeURIComponent(m[2])}`;
-      const a = el('a', 'grades-thumb');
-      a.href = url;
-      a.target = '_blank';
-      a.rel = 'noopener';
-      a.title = m[2];
-      if (/\.(png|jpe?g|webp)$/i.test(m[2])) {
-        const img = document.createElement('img');
-        img.loading = 'lazy';   // the all-grades list can hold hundreds of frames
-        img.src = url;
-        img.alt = m[2];
-        a.appendChild(img);
-      } else {
-        a.classList.add('grades-thumb-file');
-        a.textContent = m[2];
-      }
-      strip.appendChild(a);
-    }
-    ev.appendChild(strip);
-    panel.appendChild(ev);
-  }
+  // What the critic saw — snapshot frames copied at critique time.
+  const strip = buildEvidenceStrip(latest, `What the critic saw — ${latest.version}`);
+  if (strip) panel.appendChild(strip);
 
   const hist = el('div', 'grades-group grades-history');
   hist.appendChild(el('div', 'grades-group-h', 'History'));
@@ -2417,7 +2393,14 @@ function buildGradesPanel(piece, critiques, { list }) {
       el('span', `grades-value verdict-${verdictClass(c.verdict)}`, c.verdict ?? '—'),
       el('span', 'grades-score', c.composite != null ? `${c.composite}/5` : ''),
     );
-    const link = el('a', 'grades-link', 'full critique ↗');
+    // "details" opens the full critique rendered inside this overlay, with
+    // that version's own evidence — the dig-into-the-eval view.
+    const details = el('button', 'grades-link grades-details-btn', 'details');
+    details.type = 'button';
+    const back = list ? () => openAllGrades() : () => openGrades(piece);
+    details.addEventListener('click', () => openCritiqueDetail(piece, c, back));
+    row.appendChild(details);
+    const link = el('a', 'grades-link', 'raw ↗');
     link.href = `/api/critiques/${encodeURIComponent(c.file)}`;
     link.target = '_blank';
     link.rel = 'noopener';
@@ -2427,6 +2410,211 @@ function buildGradesPanel(piece, critiques, { list }) {
   panel.appendChild(hist);
 
   return panel;
+}
+
+// Evidence thumbnail strip for one critique. Click opens the lightbox;
+// middle-click / ctrl-click still opens the raw file via the href.
+function buildEvidenceStrip(critique, title) {
+  if (!Array.isArray(critique?.evidence) || critique.evidence.length === 0) return null;
+  const items = [];
+  for (const p of critique.evidence) {
+    const m = String(p).match(/^evidence\/([a-z0-9-]+)\/([A-Za-z0-9._-]+)$/);
+    if (!m) continue;
+    items.push({
+      url: `/api/critiques/evidence/${encodeURIComponent(m[1])}/${encodeURIComponent(m[2])}`,
+      name: m[2],
+      isImage: /\.(png|jpe?g|webp)$/i.test(m[2]),
+    });
+  }
+  if (items.length === 0) return null;
+  const images = items.filter((it) => it.isImage);
+
+  const ev = el('div', 'grades-group grades-evidence');
+  ev.appendChild(el('div', 'grades-group-h', title));
+  const strip = el('div', 'grades-evidence-strip');
+  for (const it of items) {
+    const a = el('a', 'grades-thumb');
+    a.href = it.url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.title = it.name;
+    if (it.isImage) {
+      const img = document.createElement('img');
+      img.loading = 'lazy';   // the all-grades list can hold hundreds of frames
+      img.src = it.url;
+      img.alt = it.name;
+      a.appendChild(img);
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        openLightbox(images, images.indexOf(it));
+      });
+    } else {
+      a.classList.add('grades-thumb-file');
+      a.textContent = it.name;
+    }
+    strip.appendChild(a);
+  }
+  ev.appendChild(strip);
+  return ev;
+}
+
+// ---------- critique detail (the full eval, rendered in-overlay) ----------
+
+async function openCritiqueDetail(piece, critique, backFn) {
+  let md = '';
+  try {
+    md = await (await fetch(`/api/critiques/${encodeURIComponent(critique.file)}`)).text();
+  } catch { md = '_failed to load critique_'; }
+
+  gradesEl.replaceChildren();
+  const panel = el('div', 'grades-panel grades-detail');
+
+  const head = el('div', 'grades-head');
+  const back = el('button', 'grades-back', '‹ back');
+  back.type = 'button';
+  back.addEventListener('click', backFn);
+  head.appendChild(back);
+  head.append(
+    el('div', 'grades-title', `${piece.title ?? piece.slug} — ${critique.version}`),
+    el('div', 'grades-sub', critique.file),
+  );
+  const closeBtn = el('button', 'grades-close', '×');
+  closeBtn.type = 'button';
+  closeBtn.addEventListener('click', closeGrades);
+  head.appendChild(closeBtn);
+  panel.appendChild(head);
+
+  if (critique.verdict) {
+    const note = el('div', 'grades-note');
+    note.appendChild(el('span', `verdict-pill verdict-${verdictClass(critique.verdict)}`, critique.verdict));
+    const tip = infoTip(probeInfo?.verdicts?.[verdictClass(critique.verdict)]);
+    if (tip) note.appendChild(tip);
+    if (critique.composite != null) note.appendChild(el('span', 'grades-note-text', `avg dims ${critique.composite}/5`));
+    panel.appendChild(note);
+  }
+
+  const strip = buildEvidenceStrip(critique, 'What the critic saw');
+  if (strip) panel.appendChild(strip);
+
+  panel.appendChild(renderMarkdown(md));
+  gradesEl.appendChild(panel);
+  gradesEl.scrollTop = 0;
+}
+
+// Minimal markdown renderer for critiques — headings, paragraphs, lists,
+// tables, fenced code, bold/italic/inline-code/links. Input is escaped
+// before any tags are introduced, so critique content can't inject HTML.
+function renderMarkdown(md) {
+  const escapeHtml = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const inline = (s) => escapeHtml(s)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|\W)\*([^*\s][^*]*)\*/g, '$1<em>$2</em>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s"]+|\/[^)\s"]*)\)/g,
+      '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+  const root = el('div', 'md');
+  const lines = md.split('\n');
+  let html = '';
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (/^```/.test(line)) {                       // fenced code block
+      const buf = [];
+      i++;
+      while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
+      i++;
+      html += `<pre>${escapeHtml(buf.join('\n'))}</pre>`;
+    } else if (/^#{1,6}\s/.test(line)) {           // heading
+      const level = Math.min(6, line.match(/^#+/)[0].length);
+      html += `<h${level}>${inline(line.replace(/^#+\s*/, ''))}</h${level}>`;
+      i++;
+    } else if (/^\s*\|/.test(line)) {              // table
+      const rows = [];
+      while (i < lines.length && /^\s*\|/.test(lines[i])) rows.push(lines[i++]);
+      const cells = (r) => r.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+      let body = '';
+      for (const [ri, r] of rows.entries()) {
+        if (/^\s*\|[\s:|-]+\|?\s*$/.test(r)) continue;   // separator row
+        const tag = ri === 0 ? 'th' : 'td';
+        body += `<tr>${cells(r).map((c) => `<${tag}>${inline(c)}</${tag}>`).join('')}</tr>`;
+      }
+      html += `<table>${body}</table>`;
+    } else if (/^\s*([-*]|\d+\.)\s/.test(line)) {  // list (flat)
+      const items = [];
+      while (i < lines.length && (/^\s*([-*]|\d+\.)\s/.test(lines[i]) || /^\s{2,}\S/.test(lines[i]))) {
+        if (/^\s*([-*]|\d+\.)\s/.test(lines[i])) items.push(lines[i].replace(/^\s*([-*]|\d+\.)\s/, ''));
+        else items[items.length - 1] += ' ' + lines[i].trim();   // hanging indent continuation
+        i++;
+      }
+      html += `<ul>${items.map((it) => `<li>${inline(it)}</li>`).join('')}</ul>`;
+    } else if (/^\s*$/.test(line)) {
+      i++;
+    } else if (/^---+\s*$/.test(line)) {
+      html += '<hr>';
+      i++;
+    } else {                                       // paragraph
+      const buf = [];
+      while (i < lines.length && !/^\s*$/.test(lines[i]) && !/^(#{1,6}\s|```|\s*\||\s*([-*]|\d+\.)\s|---+\s*$)/.test(lines[i])) {
+        buf.push(lines[i++]);
+      }
+      html += `<p>${inline(buf.join(' '))}</p>`;
+    }
+  }
+  root.innerHTML = html;
+  return root;
+}
+
+// ---------- evidence lightbox ----------
+
+let lightboxItems = [];
+let lightboxIdx = 0;
+
+function lightboxOpen() {
+  return Boolean(lightboxEl && !lightboxEl.classList.contains('hidden'));
+}
+
+let lightboxWired = false;
+function openLightbox(items, idx) {
+  if (!lightboxEl || items.length === 0) return;
+  if (!lightboxWired) {
+    lightboxWired = true;
+    lightboxEl.addEventListener('click', (e) => {
+      if (e.target === lightboxEl) closeLightbox();
+    });
+  }
+  lightboxItems = items;
+  lightboxIdx = Math.max(0, idx);
+  renderLightbox();
+  lightboxEl.classList.remove('hidden');
+}
+
+function closeLightbox() {
+  lightboxEl?.classList.add('hidden');
+}
+
+function lightboxStep(d) {
+  if (lightboxItems.length === 0) return;
+  lightboxIdx = (lightboxIdx + d + lightboxItems.length) % lightboxItems.length;
+  renderLightbox();
+}
+
+function renderLightbox() {
+  const it = lightboxItems[lightboxIdx];
+  if (!it) return;
+  lightboxEl.replaceChildren();
+  const img = document.createElement('img');
+  img.src = it.url;
+  img.alt = it.name;
+  img.addEventListener('click', (e) => { e.stopPropagation(); lightboxStep(+1); });
+  const caption = el('div', 'lightbox-caption',
+    `${it.name} · ${lightboxIdx + 1}/${lightboxItems.length} · ← → navigate · esc closes`);
+  const prev = el('button', 'lightbox-nav lightbox-prev', '‹');
+  const next = el('button', 'lightbox-nav lightbox-next', '›');
+  prev.type = next.type = 'button';
+  prev.addEventListener('click', (e) => { e.stopPropagation(); lightboxStep(-1); });
+  next.addEventListener('click', (e) => { e.stopPropagation(); lightboxStep(+1); });
+  lightboxEl.append(img, caption, prev, next);
 }
 
 // ---------- audio ----------

@@ -115,7 +115,10 @@ void main() {
     col *= mix(0.92, 1.06, u_section_progress);
 
     // Tonemap: push hot cores toward white, keep the ground near-black.
-    col = aces(col * (0.9 + 0.5 * u_energy_smooth));
+    // Exposure raised 0.9+0.5 -> 1.7+0.9 per critique v1 top_fix: the peak
+    // still measured mean L 0.0065 with 0.02% of pixels above half-brightness
+    // (squint probe fail) — the structure was there, the display pass hid it.
+    col = aces(col * (1.7 + 0.9 * u_energy_smooth));
 
     // Chiaroscuro vignette.
     float vig = smoothstep(1.15, 0.25, length((uv - 0.5) * vec2(aspect, 1.0)));

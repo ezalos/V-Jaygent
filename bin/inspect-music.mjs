@@ -141,6 +141,24 @@ function chooseStops() {
   return out;
 }
 
+// Wait until audio playback is actually ADVANCING after a seek. seekAudio
+// resolves as soon as currentTime is set + play() called, but the element
+// then re-buffers at the new position for up to ~2s (headless decode) while
+// the canvas keeps presenting a frozen frame (time_source: audio). Recording
+// during that stall is what produced the frozen lead-in on every clip.
+async function waitForAudioAdvance(page, { minAdvance = 0.25, timeoutMs = 6000 } = {}) {
+  const t0 = await page.evaluate(() => window.__vj?.getAudioTime?.() ?? null);
+  if (t0 === null) return false;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await page.waitForTimeout(120);
+    const t = await page.evaluate(() => window.__vj?.getAudioTime?.() ?? null);
+    if (t !== null && t - t0 >= minAdvance) return true;
+  }
+  console.warn('[inspect-music] audio did not advance after seek — capture may show a frozen frame');
+  return false;
+}
+
 const stops = chooseStops();
 console.log(`[inspect-music] piece=${args.slug} hasAudio=${hasAudio} hasAnalysis=${!!analysis} stops=${stops.length}`);
 for (const s of stops) {
@@ -196,7 +214,9 @@ try {
       if (!seekRes.ok) {
         console.warn(`[inspect-music] seek failed at ${s.label}: ${seekRes.reason}`);
       }
-      // Let audio + onset envelopes + smoothing buffers stabilise after seek.
+      // Wait for playback to actually resume at the new position, THEN let
+      // onset envelopes + smoothing buffers stabilise.
+      await waitForAudioAdvance(page);
       await page.waitForTimeout(900);
     } else {
       const delay = i === 0 ? s.wallT * 1000 : (s.wallT - stops[i - 1].wallT) * 1000;
@@ -278,6 +298,20 @@ try {
         windows.push({ label: spec.label, start });
       }
     }
+    // Coverage pass: the role-based picks above sample only the argmax-energy
+    // section, so a song with TWO long high-energy sections (danzas-percs: a
+    // 99s drop at energy rank #2) leaves one entirely unsampled. Add a window
+    // inside any long, energetic inner section that has none.
+    const maxInnerEnergy = Math.max(...inner.map(s => s.energy ?? 0));
+    for (const sec of inner) {
+      if (windows.length >= 7) break;
+      const len = sec.end - sec.start;
+      if (len < 30 || (sec.energy ?? 0) < 0.5 * maxInnerEnergy) continue;
+      if (windows.some(w => w.start >= sec.start && w.start < sec.end)) continue;
+      const start = Math.min(sec.start + len * 0.4, Math.max(0, totalDur - 5.5));
+      windows.push({ label: 'cover', start });
+      console.log(`[inspect-music] coverage window added for unsampled section ${sec.start.toFixed(1)}-${sec.end.toFixed(1)}s (energy ${(sec.energy ?? 0).toFixed(2)})`);
+    }
     // Sort by start time so clip filenames index in playback order.
     windows.sort((a, b) => a.start - b.start);
 
@@ -295,7 +329,10 @@ try {
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
           await page.evaluate(async (t) => { await window.__vj.seekAudio(t); }, win.start);
-          await page.waitForTimeout(450);
+          // Don't start recording until playback is rolling — the fixed 450ms
+          // wait used to bake a 1.5-2s frozen lead-in into every clip.
+          await waitForAudioAdvance(page);
+          await page.waitForTimeout(300);
           webmBytes = await page.evaluate(async (ms) => {
             return await window.__vj.record(ms);
           }, Math.round(clipDur * 1000));
