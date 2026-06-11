@@ -84,3 +84,4 @@ file is the human-readable index.
 - **Test player controls by hand** — pause/seek/resume are part of the
   piece; headless stills/clips never press them (the pause wall-clock
   bug shipped on every audio piece). (`feedback_test_player_controls.md`)
+- **Compact-support emission kernels + lint-seams** — box early-outs chop audio-widened glows into straight seams (luminous-verse peak, user-caught); kernels fade to zero inside the box, swell lives in the bloom pass, `bin/lint-seams.mjs` in every verification. (`feedback_compact_support_emission_kernels.md`)

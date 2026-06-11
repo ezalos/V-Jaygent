@@ -193,7 +193,7 @@ void main() {
             float adv = (g == -1 ? 0.46 : GW[g]) + 0.34;
             if (g >= 0) {
                 vec2 q = (p - vec2(ox_i, oy)) / S;
-                if (q.x > -0.45 && q.x < GW[g] + 0.45 && q.y > -0.5 && q.y < 1.5) {
+                if (q.x > -0.55 && q.x < GW[g] + 0.55 && q.y > -0.6 && q.y < 1.6) {
                     float d = 1e3;
                     for (int s = 0; s < 6; s++) {
                         if (s >= GCNT[g]) break;
@@ -236,7 +236,12 @@ void main() {
                     float flow = 0.6 + 0.4
                                * fbmRot(q * 2.3 + vec2(u_time * 0.9, float(i) * 1.3
                                         - u_time * 0.35));
-                    float edge = exp(-max(sd, 0.0) * (70.0 - 22.0 * u_audio_bass_stem));
+                    // COMPACT-SUPPORT glow: the analytic tail fades to exactly
+                    // zero well inside the bounding box, so the early-out can
+                    // never chop it into a straight seam. Wide halos (and the
+                    // bass swell) are the bloom pyramid's job, in the composite.
+                    float support = smoothstep(0.50 * S, 0.18 * S, sd);
+                    float edge = exp(-max(sd, 0.0) * 70.0) * support;
                     float core = exp(-max(sd, 0.0) * 340.0);
                     vec3  hue  = mix(accent, cream, 0.35 + 0.45 * kdrv);
                     col += hue   * edge * drive * 0.85
