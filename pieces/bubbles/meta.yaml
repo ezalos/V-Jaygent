@@ -7,10 +7,13 @@ default_instrument: bell
 notes: |
   A laboratory, not a finished piece: twelve bubble-rendering
   treatments from the 2026-06-11 deep research, to pick the language
-  for le-mystere-abyssal's bubbles. Auto-cycles every 12s; HOLD a
-  piano key to lock a treatment (release to resume the cycle — the
-  looper can hold one indefinitely). Tick row at the bottom shows the
-  current index.
+  for le-mystere-abyssal's bubbles.
+
+  Switching: CLICK a bottom tick to lock that treatment; click the
+  same tick again to return to the 12s auto-cycle; click anywhere
+  else to step to the next one. Holding a piano key still overrides
+  momentarily. Locked = steady warm tick with a ring; auto = pulsing
+  tick.
 
   a=1 photoreal lens (inverted minified refraction, Schlick rim,
       Snell-window highlight, astroid caustic)
@@ -30,3 +33,17 @@ notes: |
   Research: see the 2026-06-11 bubble-rendering brief (Shadertoy refs:
   4dl3zn, XtKyRK, ltKcWh, wXfyzn, wd3SzS, WtlGzS, ltffzl).
 duration: 144
+passes:
+  - name: select
+    shader: select.frag
+    target:
+      format: rgba16f
+      ping_pong: true
+      scale: 0.02
+    inputs:
+      u_state: select
+  - name: display
+    shader: shader.frag
+    target: screen
+    inputs:
+      u_state: select

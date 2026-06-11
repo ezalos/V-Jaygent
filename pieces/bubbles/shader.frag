@@ -12,6 +12,7 @@ uniform vec2  u_resolution;
 uniform float u_time;
 uniform vec2  u_mouse;
 uniform float u_keys[15];
+uniform sampler2D u_state;   // (selected treatment, touch flag) from select.frag
 out vec4 fragColor;
 
 // ---------------------------------------------------------------- shared --
@@ -353,8 +354,12 @@ void main() {
     vec2 uv = gl_FragCoord.xy / u_resolution;
     vec2 p  = (uv - 0.5) * vec2(aspect, 1.0);
 
-    // Treatment select: auto-cycle, or HOLD a key (strongest envelope wins).
-    int sel = int(mod(u_time / CYCLE, 12.0));
+    // Treatment select, three tiers: auto-cycle < click-lock < held key.
+    // Clicks live in the select pass state (tick = lock, same tick = auto,
+    // elsewhere = next); a held piano key overrides momentarily.
+    float lock = texture(u_state, vec2(0.5)).x;
+    bool locked = lock > -0.5;
+    int sel = locked ? int(lock + 0.5) : int(mod(u_time / CYCLE, 12.0));
     float bestEnv = 0.05;
     for (int i = 0; i < 12; i++) {
         if (u_keys[i] > bestEnv) { bestEnv = u_keys[i]; sel = i; }
@@ -374,13 +379,20 @@ void main() {
         sel == 10 ? tTargets(p, u_time) :
                     tPointillism(p, u_time);
 
-    // index ticks: twelve marks along the bottom, the live one warm
+    // index ticks (clickable): twelve marks along the bottom. Locked =
+    // steady warm with a ring; auto = the live tick pulses softly.
     for (int i = 0; i < 12; i++) {
         vec2 tick = vec2((float(i) - 5.5) * 0.05 * aspect, -0.47);
         float d = length((p - tick) * vec2(1.0, 2.2));
-        float on = (i == sel) ? 1.0 : 0.25;
-        vec3 tint = (i == sel) ? vec3(1.0, 0.8, 0.45) : vec3(0.5, 0.65, 0.72);
-        col = mix(col, tint, smoothstep(0.013, 0.007, d) * on);
+        bool isSel = (i == sel);
+        float pulse = locked ? 1.0 : 0.7 + 0.3 * sin(u_time * 3.0);
+        float on = isSel ? pulse : 0.25;
+        vec3 tint = isSel ? vec3(1.0, 0.8, 0.45) : vec3(0.5, 0.65, 0.72);
+        col = mix(col, tint, smoothstep(0.016, 0.009, d) * on);
+        if (isSel && locked) {
+            float ring = smoothstep(0.006, 0.002, abs(d - 0.024));
+            col = mix(col, vec3(1.0, 0.85, 0.55), ring * 0.8);
+        }
     }
 
     fragColor = vec4(col, 1.0);
