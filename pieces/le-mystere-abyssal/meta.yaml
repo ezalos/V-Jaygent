@@ -1,18 +1,35 @@
-title: "le-mystere-abyssal"
+title: "Le mystère abyssal"
 slug: le-mystere-abyssal
 created: 2026-06-11T09:38:04.761Z
+cursor: true
 notes: |
-  Scaffolded by bin/vjay-from-url.mjs from an audio URL. The layer stack
-  below is a placeholder — replace it with the actual artistic decisions
-  via /vjay-new-piece (or hand-edit) before iterating.
+  Pour Alexandre — joyeux anniversaire.
+
+  MPL, "Le mystère abyssal" (L'Étoile, 2020). One unbroken fall through
+  a water column: depth is loss, light is memory. The death of color
+  with depth tells the story of the diver who never resurfaced; the
+  warm sun under the water is the only warmth in the piece and blooms
+  on the choruses, when the friends choose myth over grief.
+
+  Narrative state machine gated on u_time (synced-lyric timestamps in
+  lyrics.lrc), NOT on u_section_id. 11 stages: surface / legend /
+  expedition / tip-under / descent / twilight / abyss / reversal /
+  remembrance / sun-bloom / outro. Master depth(t) + channel-ordered
+  extinction pasted as a NARRATIVE block in every layer.
+
+  Brief: brainstorming/pieces/le-mystere-abyssal.md
+  Build phase: 1 of 4 (spine) — bubbles, events, sun-bloom, deep-life
+  layers still to come.
 duration: 228
 audio: audio.mp3
 audio_features: [beat, sections, key]
-# Placeholder layer stack — REPLACE before iterating. Two global layers
-# wired so the piece renders something visible immediately.
+keyboard_synth: true
+default_instrument: pad
+time_source: audio
 layers:
-  - layer: solid-warm
+  - layer: water-column
     blend: normal
-  - layer: wave-distort
-    blend: replace
-    drivers: { strength: u_audio_bass_stem }
+  - layer: caustics-veil
+    blend: screen
+  - layer: light-shaft
+    blend: add

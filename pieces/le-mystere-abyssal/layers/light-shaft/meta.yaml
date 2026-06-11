@@ -1,0 +1,7 @@
+name: light-shaft
+identity: "surface light from below"
+default_blend: add
+uniforms: {}
+reads: []
+publishes: []
+consumes: []

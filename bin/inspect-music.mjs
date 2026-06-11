@@ -28,12 +28,15 @@ const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..');
 
 function parseArgs(argv) {
-  const out = { slug: null, video: true, frames: null, cursor: false };
+  const out = { slug: null, video: true, frames: null, cursor: false, times: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--no-video') out.video = false;
     else if (a === '--frames') out.frames = Number(argv[++i]);
     else if (a === '--cursor') out.cursor = true;
+    else if (a === '--times') {
+      out.times = argv[++i].split(',').map(Number).filter(n => Number.isFinite(n) && n >= 0);
+    }
     else if (!a.startsWith('--') && !out.slug) out.slug = a;
   }
   return out;
@@ -41,7 +44,7 @@ function parseArgs(argv) {
 
 const args = parseArgs(process.argv.slice(2));
 if (!args.slug || !SLUG_RE.test(args.slug)) {
-  console.error('usage: node bin/inspect-music.mjs <slug> [--no-video] [--frames N] [--cursor]');
+  console.error('usage: node bin/inspect-music.mjs <slug> [--no-video] [--frames N] [--cursor] [--times s1,s2,...]');
   process.exit(2);
 }
 
@@ -68,6 +71,14 @@ await mkdir(outDir, { recursive: true });
 // ---------- choose timestamps ----------
 
 function chooseStops() {
+  // Case 0: explicit --times — narrative pieces want exact story timestamps
+  if (args.times && args.times.length > 0 && hasAudio) {
+    return args.times.map(t => ({
+      label: `t${Math.round(t)}`,
+      mode: 'audio',
+      audioT: t,
+    }));
+  }
   // Case 1: no audio — wall-clock spread, mirror inspect.mjs
   if (!hasAudio) {
     const n = args.frames ?? 5;

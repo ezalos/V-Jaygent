@@ -1,0 +1,7 @@
+name: water-column
+identity: "depth-graded water base"
+default_blend: normal
+uniforms: {}
+reads: []
+publishes: []
+consumes: []
