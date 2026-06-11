@@ -1,0 +1,32 @@
+title: "bubbles — twelve treatments"
+slug: bubbles
+created: 2026-06-11T22:30:00.000Z
+cursor: true
+keyboard_synth: true
+default_instrument: bell
+notes: |
+  A laboratory, not a finished piece: twelve bubble-rendering
+  treatments from the 2026-06-11 deep research, to pick the language
+  for le-mystere-abyssal's bubbles. Auto-cycles every 12s; HOLD a
+  piano key to lock a treatment (release to resume the cycle — the
+  looper can hold one indefinitely). Tick row at the bottom shows the
+  current index.
+
+  a=1 photoreal lens (inverted minified refraction, Schlick rim,
+      Snell-window highlight, astroid caustic)
+  s=2 soap-film iridescence (thin-film OPD rainbow, draining skin)
+  d=3 dispersion prism (per-channel IOR, jewel rim)
+  f=4 champagne (nucleation seeds, R grows with height, pearl strings
+      fanning open, collar)
+  g=5 guinness reverse cascade (sinking at the walls, rising centre)
+  h=6 voronoi foam (every cell a bubble)
+  j=7 metaball coalescence (merge and split, gloss)
+  k=8 manga ink (outline + broken highlight arc)
+  l=9 seigaiha (tiled arc-fans, circle-as-water)
+  w=10 stained-glass roundels (backlit, cyclic palette)
+  e=11 concentric targets (complementary ring vibration)
+  t=12 pointillist effervescence (no bubble at all — pure fizz field)
+
+  Research: see the 2026-06-11 bubble-rendering brief (Shadertoy refs:
+  4dl3zn, XtKyRK, ltKcWh, wXfyzn, wd3SzS, WtlGzS, ltffzl).
+duration: 144
