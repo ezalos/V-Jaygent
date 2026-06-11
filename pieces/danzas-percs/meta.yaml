@@ -1,0 +1,69 @@
+title: "Danzas Percs"
+slug: danzas-percs
+created: 2026-06-11T08:37:18.131Z
+# architecture: C — ping-pong feedback (Gray-Scott needs persistent state).
+architecture: C
+# testability: audio-only — fronts/regimes are analysis-driven; idle survives on
+# the seeded RD field + cursor brush, but grading needs the track.
+testability: audio-only
+cursor: true
+audio: audio.mp3
+audio_features: [beat, sections, stems, key]
+notes: |
+  ## Thesis
+  The chemistry burns hot; the pattern settles cold. Canonical Gray-Scott
+  reaction-diffusion (ferment's proven kernel) rendered as brushed steel /
+  cobalt — and the live reaction term u·v² (state.b, EMA) glows ember, so
+  only the actively-burning loci are warm: kick-fronts and fresh wakes.
+  Kicks don't pulse the frame — each beat launches a travelling annulus
+  from a 2x2 lattice walked in a crossing dance-step (the "danzas"), and
+  the RD medium digests the wavefront into Turing wakes. Sections morph
+  the (F,k) regime: solitons -> spots -> worms -> coral labyrinth — the
+  vocabulary changes at every boundary, announced by a diagonal planar
+  sweep. One sustained transformation: both diffusion rates scale up
+  across the track, so the pattern wavelength slowly coarsens (the
+  6-minute filter-sweep analogue). The ending starves F — patterns
+  dissolve honestly to black substrate.
+
+  ## Cold-palette experiment (sanctioned)
+  This is the brainstorming/pieces/non-warm-experiment.md test piece, per
+  brainstorming/palettes/cold-question.md (steel-ember arc): cold body,
+  ember as rare accent. Expected: audit "cool literals" WARN — deliberate.
+  Success condition is taste — does cold beat warm here? — judged live.
+
+  ## Brief gates
+  canonical_ref: ferment (Gray-Scott on passes, F=0.037/k=0.060 proven) +
+    Pearson regime map for the section table.
+  eye_landing_candidates:
+    - the travelling ember front of the current beat
+    - the freshest wake where the new regime is re-patterning
+  warm_cycle: steel arc + ember accent (cold-question.md) — NOT the warm
+    default; see experiment note above.
+  idle_behaviour: seeded spots regime digests itself (RD always moves);
+    cursor Gaussian brush feeds v; no audio -> no fronts, no sweeps.
+  arch_rationale: C — two coupled PDE fields need frame-to-frame
+    persistence; ping-pong rgba16f at half res, 8 sub-steps per frame.
+
+  ## Three timescales of liveness
+  - section: (F,k) regime cross-fade + golden-angle planar sweep.
+  - beat:    travelling kick-front annulus (propagation, not pulse).
+  - sub-beat: film grain on highs + the RD field's own continuous motion.
+duration: 375
+render_scale: 1.0
+uniforms: []
+published_at: null
+passes:
+  - name: simulate
+    shader: sim.frag
+    target:
+      format: rgba16f
+      ping_pong: true
+      scale: 0.5
+    inputs:
+      u_state: simulate
+    iterations: 8
+  - name: display
+    shader: shader.frag
+    target: screen
+    inputs:
+      u_state: simulate

@@ -1,7 +1,20 @@
 # Reaction-diffusion piece
 
+> **Shipped twice.** The blocker fell when `passes:` landed; `ferment`
+> (2026-04-16) proved the canonical kernel, and `danzas-percs` (2026-06-11)
+> implemented this file's audio-reactivity section almost verbatim: kicks
+> inject activator as travelling annulus fronts, the melodic stem wobbles F,
+> live highs wobble k, and sections jump the (F,k) regime table —
+> solitons / spots / worms / mitosis / coral, hand-tailored to the track's
+> 8 analysed sections. Two lessons: (1) regime cross-fades and boundary
+> sweeps need a SECONDS clock, not a section-fraction clock — techno
+> sections run 9-160s (recover elapsed = progress·to_change/(1-progress));
+> (2) "show the reaction" needs a fast-minus-slow EMA band-pass of u·v² —
+> steady-state Gray-Scott metabolises on every living rim, so a plain EMA
+> paints the whole pattern hot instead of just the igniting fronts.
+
 A Gray-Scott (or Fitzhugh-Nagumo) simulation running live in the studio.
-Current blocker: the runtime is single-pass fragment-only. Reaction-diffusion
+Current blocker (RESOLVED, see above): the runtime is single-pass fragment-only. Reaction-diffusion
 needs **ping-pong framebuffers** — the previous frame's state is the input
 to the next frame's update step.
 

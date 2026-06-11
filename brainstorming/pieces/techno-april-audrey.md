@@ -2,6 +2,19 @@
 
 Track: https://soundcloud.com/alpha-tracks-official/april-audrey-danzas-percs
 
+> **Built — 2026-06-11, shipped as `pieces/danzas-percs/`.** The
+> "reaction-diffusion on beat" candidate won (the multi-pass blocker fell
+> with `passes:` + ferment). Answers to the open questions below, from the
+> actual analysis: 143.5 BPM, D# minor; yes it has a break (225-251s, two
+> quiet sections) and a drop (251.6s, a 99s second act) — the drop got the
+> densest Turing regime (coral labyrinth) and the golden-angle boundary
+> sweep as its structural moment. "Propagation, not pulse" held: each beat
+> launches a travelling annulus from a 2x2 crossing lattice (the danzas),
+> and the layered rings DO interfere as hoped. 4/4 in geometry: breaking
+> radial symmetry with the off-centre lattice + diagonal sweeps felt right;
+> square symmetry was never missed. Cold palette: see
+> `non-warm-experiment.md` for the verdict question.
+
 ## The question
 
 Techno is 4/4, repetitive, body-music. "In Seven" worked because 7/4 was the
