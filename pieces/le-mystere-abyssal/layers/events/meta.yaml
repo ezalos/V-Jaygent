@@ -1,0 +1,7 @@
+name: events
+identity: "story one-shot punctuation"
+default_blend: add
+uniforms: {}
+reads: []
+publishes: []
+consumes: []
