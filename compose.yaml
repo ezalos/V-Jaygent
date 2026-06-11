@@ -34,6 +34,9 @@ services:
       # Critic critiques back the catalog's grades view (/api/critic-summary,
       # /api/pieces/<slug>/critiques). Read-only: the server never writes them.
       - ./brainstorming/critiques:/app/brainstorming/critiques:ro
+      # Teaching workspace, served at /learning. Read-only; new lessons
+      # appear without a rebuild.
+      - ./learning:/app/learning:ro
 
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:7777/api/catalog"]

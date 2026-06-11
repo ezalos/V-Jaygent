@@ -423,6 +423,35 @@ test('evidence route rejects traversal and unknown files', async () => {
   }
 });
 
+test('GET /learning serves the lessons index', async () => {
+  // Uses the repo's real learning/ directory (the default learningDir).
+  const res = await fetch(baseUrl + '/learning');
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type') ?? '', /text\/html/);
+  const body = await res.text();
+  assert.match(body, /learning workspace/);
+  assert.match(body, /0002-inside-the-critic/);
+});
+
+test('GET /learning/lessons/:file serves a lesson', async () => {
+  const res = await fetch(baseUrl + '/learning/lessons/0001-the-pipeline-map.html');
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type') ?? '', /text\/html/);
+  assert.match(await res.text(), /artist & critic loop/i);
+});
+
+test('learning route rejects traversal and unknown extensions', async () => {
+  for (const bad of [
+    '/learning/lessons/..%2F..%2Fstudio%2Fserver.mjs',
+    '/learning/lessons/notes.md',          // md only at workspace root
+    '/learning/secret.html',               // html only under lessons/reference
+    '/learning/lessons/missing.html',
+  ]) {
+    const res = await fetch(baseUrl + bad);
+    assert.equal(res.status, 404, `expected 404 for ${bad}`);
+  }
+});
+
 test('GET /api/critiques/:file serves raw critique markdown', async () => {
   const res = await fetch(baseUrl + '/api/critiques/test-piece-v1.md');
   assert.equal(res.status, 200);

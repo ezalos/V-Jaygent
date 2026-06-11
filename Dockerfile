@@ -17,11 +17,12 @@ COPY studio ./studio
 COPY lib    ./lib
 COPY layers ./layers
 COPY brainstorming/critiques ./brainstorming/critiques
+COPY learning ./learning
 
-# pieces/, layers/, lib/, data/, and brainstorming/critiques/ are bind-mounted
-# at runtime (compose.yaml). COPY above gives the image a sane default in case
-# the bind mount is missing.
-RUN mkdir -p /app/pieces /app/layers /app/data /app/brainstorming/critiques && chown -R node:node /app
+# pieces/, layers/, lib/, data/, brainstorming/critiques/, and learning/ are
+# bind-mounted at runtime (compose.yaml). COPY above gives the image a sane
+# default in case the bind mount is missing.
+RUN mkdir -p /app/pieces /app/layers /app/data /app/brainstorming/critiques /app/learning && chown -R node:node /app
 USER node
 
 ENV NODE_ENV=production \

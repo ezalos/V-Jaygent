@@ -15,6 +15,7 @@ const STUDIO_DIR = fileURLToPath(new URL('.', import.meta.url));
 const LIB_DIR    = fileURLToPath(new URL('../lib/', import.meta.url));
 const LAYERS_DIR = fileURLToPath(new URL('../layers/', import.meta.url));
 const CRITIQUES_DIR = fileURLToPath(new URL('../brainstorming/critiques/', import.meta.url));
+const LEARNING_DIR = fileURLToPath(new URL('../learning/', import.meta.url));
 
 const STATIC_MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -39,16 +40,17 @@ const FILE_MIME = {
 
 const FILENAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
-export function createStudioServer({ piecesDir, studioDir = STUDIO_DIR, libDir = LIB_DIR, layersDir = LAYERS_DIR, critiquesDir = CRITIQUES_DIR, stats = null, statsToken = null } = {}) {
+export function createStudioServer({ piecesDir, studioDir = STUDIO_DIR, libDir = LIB_DIR, layersDir = LAYERS_DIR, critiquesDir = CRITIQUES_DIR, learningDir = LEARNING_DIR, stats = null, statsToken = null } = {}) {
   if (!piecesDir) throw new Error('piecesDir is required');
   const piecesRoot = resolvePath(piecesDir);
   const libRoot    = resolvePath(libDir);
   const layersRoot = resolvePath(layersDir);
   const critiquesRoot = resolvePath(critiquesDir);
+  const learningRoot = resolvePath(learningDir);
 
   return createServer(async (req, res) => {
     try {
-      await handle(req, res, { piecesRoot, libRoot, layersRoot, critiquesRoot, studioDir, stats, statsToken });
+      await handle(req, res, { piecesRoot, libRoot, layersRoot, critiquesRoot, learningRoot, studioDir, stats, statsToken });
     } catch (err) {
       console.error('[studio]', err);
       send(res, 500, 'text/plain', 'internal error');
@@ -56,7 +58,7 @@ export function createStudioServer({ piecesDir, studioDir = STUDIO_DIR, libDir =
   });
 }
 
-async function handle(req, res, { piecesRoot, libRoot, layersRoot, critiquesRoot, studioDir, stats, statsToken }) {
+async function handle(req, res, { piecesRoot, libRoot, layersRoot, critiquesRoot, learningRoot, studioDir, stats, statsToken }) {
   if (req.method !== 'GET') return send(res, 405, 'text/plain', 'method not allowed');
 
   const url = new URL(req.url, 'http://localhost');
@@ -91,6 +93,22 @@ async function handle(req, res, { piecesRoot, libRoot, layersRoot, critiquesRoot
   if (path === '/api/catalog')       return apiCatalog(res, piecesRoot);
   if (path === '/api/current')       return apiCurrent(res, piecesRoot);
   if (path === '/api/critic-summary') return apiCriticSummary(res, critiquesRoot);
+
+  // Teaching workspace (learning/) — lessons + reference + workspace md files,
+  // so the eval-system lessons are readable away from the machine.
+  if (path === '/learning' || path === '/learning/') return learningIndex(res, learningRoot);
+  const learningMatch = path.match(/^\/learning\/(?:(lessons|reference)\/)?([^/]+)$/);
+  if (learningMatch) {
+    const sub = learningMatch[1] ?? null;
+    const name = decodeURIComponent(learningMatch[2]);
+    const ok = FILENAME_RE.test(name) && (sub ? name.endsWith('.html') : name.endsWith('.md'));
+    if (!ok) return send(res, 404, 'text/plain', 'not found');
+    const filePath = sub ? join(learningRoot, sub, name) : join(learningRoot, name);
+    const body = await readFile(filePath).catch(() => null);
+    if (body === null) return send(res, 404, 'text/plain', 'not found');
+    const mime = name.endsWith('.html') ? 'text/html; charset=utf-8' : 'text/plain; charset=utf-8';
+    return send(res, 200, mime, body);
+  }
   if (path === '/api/critiques')      return apiAllCritiques(res, critiquesRoot);
 
   // Probe definitions for the grades-view tooltips — verbatim excerpts from
@@ -368,6 +386,42 @@ async function apiPieceCritiques(res, critiquesRoot, slug) {
     critiques.push(parseCritique(raw, file, version));
   }
   sendJson(res, 200, { slug, critiques });
+}
+
+// ---------- learning workspace ----------
+
+// Index page for /learning — lists lessons, reference docs, and workspace
+// markdown so the teaching material is browsable remotely. Matches the
+// lessons' serif aesthetic rather than the studio chrome.
+async function learningIndex(res, learningRoot) {
+  const list = async (dir, ext) =>
+    (await readdir(join(learningRoot, dir)).catch(() => []))
+      .filter((f) => FILENAME_RE.test(f) && f.endsWith(ext)).sort();
+  const lessons = await list('lessons', '.html');
+  const refs = await list('reference', '.html');
+  const mds = (await readdir(learningRoot).catch(() => []))
+    .filter((f) => FILENAME_RE.test(f) && f.endsWith('.md')).sort();
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const item = (href, name) => `<li><a href="${href}">${esc(name)}</a></li>`;
+  const title = (f) => f.replace(/\.(html|md)$/, '').replace(/^(\d+)-/, '$1 · ').replaceAll('-', ' ');
+  const body = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>V-Jaygent · learning</title>
+<style>
+  body { font-family: Georgia, 'Times New Roman', serif; max-width: 44em; margin: 3rem auto; padding: 0 1.5rem; color: #1a1a1a; line-height: 1.6; }
+  h1 { font-size: 1.6rem; font-weight: normal; border-bottom: 1px solid #ccc; padding-bottom: .4rem; }
+  h2 { font-size: 1.1rem; margin-top: 1.8rem; }
+  a { color: #1a1a1a; } li { margin: .3rem 0; }
+  .src { color: #777; font-size: .85rem; }
+</style></head><body>
+<h1>V-Jaygent — learning workspace</h1>
+<p class="src">The eval-system teaching material. Studio: <a href="/">vjaygent.develle.fr</a> (press <code>c</code> for the catalog, <code>v</code> on a piece for its grades).</p>
+<h2>Lessons</h2><ul>${lessons.map((f) => item(`/learning/lessons/${f}`, title(f))).join('')}</ul>
+<h2>Reference</h2><ul>${refs.map((f) => item(`/learning/reference/${f}`, title(f))).join('')}</ul>
+<h2>Workspace</h2><ul>${mds.map((f) => item(`/learning/${f}`, f)).join('')}</ul>
+</body></html>`;
+  send(res, 200, 'text/html; charset=utf-8', body);
 }
 
 // Every critique of every piece, grouped by slug — one call for the
