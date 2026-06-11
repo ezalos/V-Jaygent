@@ -1,0 +1,98 @@
+title: "Luminous Verse"
+slug: luminous-verse
+created: 2026-06-11T17:56:47.463Z
+# architecture: C — HDR scene + bloom pyramid (passes chain).
+architecture: C
+# testability: audio-only — the words are chosen by section and lit by the
+# vocal stem; idle self-plays on a phantom clock but the piece IS the song.
+testability: audio-only
+cursor: true
+keyboard_synth: true
+audio: audio.mp3
+audio_features: [beat, sections, stems, key]
+notes: |
+  ## Thesis
+  The poem is the light. Fragments of James Blake's "Retrograde" rendered
+  as stroke-SDF glyphs — light-writing, not type — that EMIT rather than
+  draw: plasma flows through the letter strokes, edges halo through an HDR
+  bloom pyramid, and the word resolves crisp on the downbeat then frays as
+  the beat decays. The vocal stem lights the type; before and after the
+  words exist, the voice is a bare undulating filament (the hum).
+  Seeded by brainstorming/pieces/luminous-verse.md (Poet Engineer's
+  "luminous") + techniques/luminous-bloom.md.
+
+  ## Brief gates
+  canonical_ref: COD/Jimenez bloom pyramid (tent down/up, soft-clamp vs
+    fireflies); stroke-SDF glyphs instead of MSDF atlas — the runtime has
+    no image-texture loading, and light-writing serves "text as emission
+    mask" without engine surgery.
+  eye_landing_candidates:
+    - the lit word (vocal-gated), brightest at the beat glint
+    - the hum filament in the bookend sections
+  palette: cream-white emissive cores + ONE accent drifting amber -> rose
+    across the song, over warm-black. The dark is what makes the light
+    read (warm_on_warm_collapse applies hard).
+  idle_behaviour: phantom beat/bar clock; words cycle slowly with the hum
+    interleaved; breathing glow floor; cursor erodes/grows letters; keys
+    flare their letter slot.
+  arch_rationale: C/passes — bloom is a post chain (scene rgba16f ->
+    half/quarter/eighth tent downsamples -> additive tent composite +
+    exposure tonemap). No persistent state; every pass is recomputed.
+
+  ## Word map (sections from audio.analysis.json, 242s, 8 sections)
+  s0 0-26s hum | s1 26-53 ALONE | s2 53-91 RETROGRADE | s3 91-103 SUDDENLY
+  | s4 103-179 I'M HIT (the synth wall, energy 0.62) | s5 179-221 ALONE NOW
+  | s6+ hum into silence.
+
+  ## Three timescales of liveness
+  - section: a different lyric fragment per section; hum bookends.
+  - beat:    resolve/fray cycle (crisp on downbeat, erodes between) +
+    a glint that runs letter-to-letter across each beat.
+  - sub-beat: plasma flow inside the strokes + high-stem shimmer, always on.
+duration: 242
+render_scale: 1.0
+uniforms: []
+published_at: null
+passes:
+  # HDR scene: glyph emission, cores pushed past 1.0 for the pyramid to bite.
+  - name: scene
+    shader: scene.frag
+    target:
+      format: rgba16f
+      ping_pong: false
+      scale: 1.0
+  # Bloom pyramid: three tent downsamples, each reading the level above.
+  - name: bloom1
+    shader: bloom-down.frag
+    target:
+      format: rgba16f
+      ping_pong: false
+      scale: 0.5
+    inputs:
+      u_src: scene
+  - name: bloom2
+    shader: bloom-down.frag
+    target:
+      format: rgba16f
+      ping_pong: false
+      scale: 0.25
+    inputs:
+      u_src: bloom1
+  - name: bloom3
+    shader: bloom-down.frag
+    target:
+      format: rgba16f
+      ping_pong: false
+      scale: 0.125
+    inputs:
+      u_src: bloom2
+  # Additive composite + exposure tonemap + gamma to screen.
+  - name: display
+    shader: shader.frag
+    target: screen
+    inputs:
+      u_scene: scene
+      u_bloom1: bloom1
+      u_bloom2: bloom2
+      u_bloom3: bloom3
+rendered_at: null
