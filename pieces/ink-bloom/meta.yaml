@@ -1,0 +1,77 @@
+title: "Ink Bloom"
+slug: ink-bloom
+created: 2026-06-11T08:33:44.000Z
+# architecture: C — ping-pong feedback (pigment state field + display pass).
+architecture: C
+# testability: audio-only — the autonomous brush self-plays on idle, but the
+# section arc (pigment families entering, drying outro) needs the track.
+testability: audio-only
+cursor: true
+keyboard_synth: true
+audio: audio.mp3
+audio_features: [beat, sections, key]
+notes: |
+  ## Thesis
+  A watercolour painting that paints itself over the length of the song —
+  Nils Frahm's "Says" as eight minutes of accumulating pigment. The bleed is
+  Lieberman's "displacement after displacement": a curl-noise flow advects a
+  persistent pigment field; the paint look (granulation, edge-darkening,
+  subtractive glazes) is applied per-frame in the display pass and NEVER fed
+  back. Pigment never fades — the song ends and the dried painting stands.
+  Seeded by brainstorming/pieces/ink-bloom.md + techniques/watercolor-ink.md.
+
+  ## Brief gates
+  canonical_ref: kinetic-energy passes pipeline (ping-pong rgba16f sim +
+    display) + Curtis et al. 1997 cues, Lieberman route per watercolor-ink.md.
+  eye_landing_candidates:
+    - the freshest bloom (each bar seeds one at a golden-angle snap position)
+    - the darkened rims where the last wash dried
+  palette: cream paper ground (the sanctioned light-ground piece: edge
+    darkening needs a light field), sienna/carmine/indigo glazes that only
+    ever multiply darker. No complementary jumps.
+  idle_behaviour: autonomous brush keeps painting slowly (live floor 0.45),
+    very slow pigment bleach so an idle canvas never saturates; cursor stirs
+    and paints, keys are brush dabs.
+  arch_rationale: C/passes — u_history is the FINAL composite, so a layer
+    feedback bleed would re-advect and bake the granulation + edge rims
+    (the baked-artefact trap). The pigment state needs its own float
+    ping-pong buffer that the paint-look post never contaminates.
+
+  ## Evaluation caveat (critics read this first)
+  The pigment field ACCUMULATES over the whole song; bin/inspect-music.mjs
+  seeks, so its stills/clips show near-blank paper plus whatever the warm-up
+  window painted — that is a harness artefact, not the piece. Grade from a
+  wall-clock run instead: bin/inspect.mjs ink-bloom 8 55 (audio from t=0).
+  Headless SwiftShader runs ~17fps vs 60 live, so accumulation lags ~3.5x;
+  the live piece is denser at the same timestamp.
+
+  ## Three timescales of liveness
+  - section: a new pigment family enters per boundary (indigo -> +sienna ->
+    +carmine), s3 adds a mirrored second brush, s4+ adds downbeat water-bomb
+    backruns, s6 dries the painting (mobility -> 0, granulation reads).
+  - beat:    stir vortex at the brush, chirality flips per beat; bar-snap
+    golden-angle brush jump + expanding downbeat ring = phase-lock geometry.
+  - sub-beat: brush-hand shimmer (u_audio_high) + curl-field drift, always on.
+duration: 499
+render_scale: 1.0
+uniforms: []
+published_at: null
+passes:
+  # Pigment field: rgb = sienna/carmine/indigo densities, a = wetness.
+  # Half-res is plenty — watercolour is soft; display taps it with linear
+  # filtering for the blur-difference rims.
+  - name: pigment
+    shader: sim.frag
+    target:
+      format: rgba16f
+      ping_pong: true
+      scale: 0.5
+    inputs:
+      u_state: pigment
+  # Paper + granulation + Beer-Lambert glazes + edge darkening to screen.
+  - name: display
+    shader: shader.frag
+    target: screen
+    inputs:
+      u_field: pigment
+rendered_at: null
