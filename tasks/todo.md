@@ -40,38 +40,49 @@ best of every prior piece. Full design:
       inspect-music. Full clip set recorded.
 - [x] pause bug fixed runtime-wide (u_time jumped to wall clock on pause and
       kept animating; now pins to audio clock when paused mid-track) — DEPLOYED
-- [ ] critic run v1 (in progress — independent agent, evidence-based)
-- [ ] verify grades view picks up the critique (studio /api + catalog chip)
+- [x] critic run v1: **structural-rethink** (prediction fail on final-act
+      monotony, sun white-not-gold, zero coupling edges, reversal illegible)
+      — brainstorming/critiques/le-mystere-abyssal-v1.md
+- [x] grades view picks up the critique (API serves structured YAML ✓)
 
-### Phase 5 — v2 redlines (Louis's watchthrough, 2026-06-11)
+### Phase 5 — v2 redlines (Louis's watchthrough + v1 critique) — DONE
 Part 1 (0–64s):
-- [ ] progressive accretion, one new element every ~5s: calm water+sky
-      bisection → waves/texture → reflections+glitter → THE HOLE appears at
-      ~12.8s (chord entry = analyzer section boundary) → echo rings → rim reef
-      → growth. Hole NOT present from t=0.
-- [ ] sky is dead — give it the watercolor treatment (drifting pigment/cloud
-      texture, lagoon color reflected into it)
-- [ ] integrate the hole into the water: wave field must displace the disc
-      contour (same phase as glitter), rim refraction — kill the "pasted
-      overlay" feel
-- [ ] sonar rings → warping PULSE: radial displacement wave that bends water
-      texture + glitter + rim light as it passes (shared sonarPulse() in
-      NARRATIVE block consumed by water-column/caustics), not a drawn overlay
-      ring. Keep the flowing white dots.
+- [x] progressive accretion: calm → waves 4.5s → glitter 6.5s → sky
+      reflections 8s → watercolor sky 10.5s → hole arrives 12.8s (chords)
+- [x] sky watercolor wash (drifting pigment, lagoon color bleeding up)
+- [x] hole integrated: contour displaced by the wave field, surface texture
+      drowning over the edge, rim shimmer on the wave phase
+- [x] sonar = warping pressure pulse in water-column + caustics (legend:
+      gentle 8s; expedition: bar-locked); drawn overlay ring removed
 Part 2 (64–143s):
-- [ ] dice resync: hexagons fire at 83.6 (line start) but "un double six est
-      sorti" lands ~87.5 — move the event to the words
-- [ ] diver: replace the capsule with an articulated human silhouette (torso,
-      head, arms, legs + fins; slow kick cycle; descent posture) — SDF figure
-- [ ] bubbles as glass: read u_below and refract it through each bubble
-      (lens distortion + scene reflections + window/sun glints), perfect
-      circles (drop the y-squish), keep per-trail varied motion
-- [ ] chorus 2 (124.7–142.9) pivot: drop "yellow blinking bubbles" as the main
-      event — this is l'ivresse des profondeurs (rapture of the deep): a
-      dreamy/abstract narcosis vocabulary (candidates: 5-wave interference
-      field à la glass-figure in deep blue+gold, soft kaleidoscopic fold of
-      the scene, slow gold orbs in Lissajous orbit around the sun glimmer).
-      Pick one and commit.
+- [x] dice on the words (~87.4s)
+- [x] scaphandrier SDF (helmet/torso/arms/boots, slow limb clocks, helmet
+      glint, line meets the helmet) — upright hard-hat suit per the lyric
+- [x] bubbles as glass: u_below lens refraction, fresnel rim, mirrored
+      glint, perfect circles, blend normal — first true coupling edge
+- [x] chorus-2 narcosis: 5-wave interference dream (deep blue + gold seams,
+      cursor-bent), slow lazy gold orbs
+From the v1 critique (final act):
+- [x] gold reads: sunPresence() carves darkness (water + window step back),
+      saturated gold body + tiny white-hot heart
+- [x] reversal legible: vertical streak-rain + dawn from above
+- [x] C3 geometry reconfigures: bubbles + snow wheel around the risen sun
+- [x] outro resurfaces: light-bloom crossfade → horizon bookend → the hole
+      a small coin with her ember inside (recapitulation)
+- [x] v2 evidence: 8 story-window clips (--clip-times added)
+- [x] critic run v2: **chef-doeuvre** — mesmerizing 5/5 (Prediction hard
+      gate passes), claim check pass (warm px 43 → 26k–49k, R/B 0.90 →
+      1.16–1.35), all dims ≥ 4. Grades view shows v1 → v2.
+
+### Phase 6 — remaining (post-watchthrough)
+- [ ] Louis watchthrough #2 (the real gate) — especially 124–143s dream,
+      195–228s bloom + resurfacing
+- [ ] brief-level leftovers the critic ranked (no tweak invented at
+      chef-doeuvre, recorded honestly): C2 remembrance ~26s one-vocabulary
+      (the friend-light from the brief was never implemented), coupling
+      still thin (1 real edge), bass never moves geometry, narcosis field
+      low-contrast at normal exposure
+- [ ] dedication on the studio page; publish
 
 ### Phase 6 — iterate & ship
 - [ ] /vjay-iterate loops until ship-it/chef-d'oeuvre
