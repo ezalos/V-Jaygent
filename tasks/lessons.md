@@ -85,3 +85,10 @@ file is the human-readable index.
   piece; headless stills/clips never press them (the pause wall-clock
   bug shipped on every audio piece). (`feedback_test_player_controls.md`)
 - **Compact-support emission kernels + lint-seams** — box early-outs chop audio-widened glows into straight seams (luminous-verse peak, user-caught); kernels fade to zero inside the box, swell lives in the bloom pass, `bin/lint-seams.mjs` in every verification. (`feedback_compact_support_emission_kernels.md`)
+- **Integration probes** — orphan events, pasted overlays, perspective,
+  boundary clips, accretion causality: live-watch patterns the stills
+  critic missed, now a taste.md probe group.
+  (`feedback_integration_probes.md`)
+- **Watchthrough lessons loop** — aesthetic redlines ARE corrections;
+  every batch ends with a lessons pass, now contractual in CLAUDE.md.
+  (`feedback_watchthrough_lessons_loop.md`)

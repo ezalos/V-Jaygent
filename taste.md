@@ -576,6 +576,47 @@ warm palettes, polyrhythmic clocks, and the 9 anti-patterns. See
 contract a piece needs to satisfy when claiming keyboard
 interactivity.
 
+### Integration probes (added 2026-06-11, from the le-mystere-abyssal watchthrough)
+
+Five failure patterns a human watching live catches instantly and
+stills-based grading historically missed. Each one shipped past the
+critic at least once; none should again.
+
+1. **Orphan event.** Every visible one-shot (ring, flash, glyph) must
+   have a cause the viewer can SEE or HEAR within ±0.5s — a lyric, a
+   beat, a visible collision. An overlay that appears for its own
+   reasons reads as a bug, not an event. (The chorus-entry ring at
+   1:05 and the detached window-rim donut at 1:19 both read as
+   unexplained debris.) Test: for each one-shot in the piece, name its
+   on-screen/on-track cause and check the timestamps actually align —
+   the event must land on the WORD or the HIT, not on the phrase or
+   the bar that contains it.
+2. **Pasted overlay.** An element belongs to the scene only if its
+   neighbours' motion visibly affects its boundary (the water's waves
+   must displace the hole's contour; the background must show through
+   or bend inside a bubble). Test: pick each major element and ask
+   which neighbouring field could displace, light, or occlude it — if
+   the answer is "none", it will read as a sticker.
+3. **Perspective consistency.** On any receding plane (sea, ground,
+   ceiling), 1cm of screen is not 1cm of world: expanding fronts,
+   textures, and displacement must shrink and slow toward the horizon.
+   Uniform screen-space motion on a perspective plane reads flat
+   immediately.
+4. **Boundary artifact sweep.** Check element edges, tiling-cell
+   boundaries, and frame edges for hard clips — especially when a
+   glyph is stretched beyond its grid cell (the reversal's snow dashes
+   clipped at cell boundaries at 2:38). Grids are invisible until a
+   shape crosses one.
+5. **Causality of accretion.** When elements are staged in over time,
+   their *side effects* must be staged with them: a mask, shadow, or
+   void belonging to element X must not exist before X does (the
+   hole's glitter-mask carved a void 13 seconds before the hole
+   appeared).
+
+These are graded like the other probe groups (pass / weak / fail per
+item, with evidence), and they are explicitly LIVE-MOTION probes: at
+least one clip per flagged element, not stills alone.
+
 ## Dimensions
 
 ### 1. Palette cohesion

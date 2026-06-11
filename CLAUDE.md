@@ -64,6 +64,17 @@ TheBeast:7777.
 All four skills auto-invoke `/wrap-up` at end of run (added 2026-05-05
 by Louis's request).
 
+## The lessons loop (contractual)
+
+Every Louis watchthrough redline batch ends with a **lessons pass**
+before the session closes: (1) generalize each redline into a pattern
+(feedback memory file + one-line hook in `tasks/lessons.md`), (2)
+decide whether it belongs in `taste.md` as a critic criterion and add
+it, (3) state in the reply which lessons were extracted so Louis can
+audit the loop. Aesthetic feedback IS correction — the global
+CLAUDE.md lessons rule applies to taste, not just bugs. (Added
+2026-06-11 after the loop was skipped on a redline batch.)
+
 ## Critic probes (taste.md)
 
 Pieces are graded against:
