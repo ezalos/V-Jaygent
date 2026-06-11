@@ -32,13 +32,52 @@ best of every prior piece. Full design:
 - [x] deep-life layer (marine snow + C1 reversal flip, cursor dino-sparkle, lure, dissolution particles, key jelly-pulses)
 - [x] full-song inspect-music run + clip-peak
 
-### Phase 4 — critique & polish
-- [ ] FIX FIRST: record-mode clip capture broken (see pbms.md 2026-06-11) —
-      blocks clip-based critic probes
-- [ ] /vjay-iterate le-mystere-abyssal (critic loops until ship-it/chef-d'oeuvre)
-- [ ] Louis watchthrough + redlines (live at http://127.0.0.1:7777/le-mystere-abyssal)
+### Phase 4 — critique & infra (2026-06-11 second session)
+- [x] record-mode clip capture fixed (3 stacked bugs: headless-shell has no
+      GPU → swiftshader at 3fps on FBO pieces → ~1 frame per clip; MediaRecorder
+      flush-at-stop empty blob → timeslice; capture via 2D mirror). New
+      bin/browser-launch.mjs (new headless + gl-egl → RTX 4090 @63fps); retry in
+      inspect-music. Full clip set recorded.
+- [x] pause bug fixed runtime-wide (u_time jumped to wall clock on pause and
+      kept animating; now pins to audio clock when paused mid-track) — DEPLOYED
+- [ ] critic run v1 (in progress — independent agent, evidence-based)
+- [ ] verify grades view picks up the critique (studio /api + catalog chip)
+
+### Phase 5 — v2 redlines (Louis's watchthrough, 2026-06-11)
+Part 1 (0–64s):
+- [ ] progressive accretion, one new element every ~5s: calm water+sky
+      bisection → waves/texture → reflections+glitter → THE HOLE appears at
+      ~12.8s (chord entry = analyzer section boundary) → echo rings → rim reef
+      → growth. Hole NOT present from t=0.
+- [ ] sky is dead — give it the watercolor treatment (drifting pigment/cloud
+      texture, lagoon color reflected into it)
+- [ ] integrate the hole into the water: wave field must displace the disc
+      contour (same phase as glitter), rim refraction — kill the "pasted
+      overlay" feel
+- [ ] sonar rings → warping PULSE: radial displacement wave that bends water
+      texture + glitter + rim light as it passes (shared sonarPulse() in
+      NARRATIVE block consumed by water-column/caustics), not a drawn overlay
+      ring. Keep the flowing white dots.
+Part 2 (64–143s):
+- [ ] dice resync: hexagons fire at 83.6 (line start) but "un double six est
+      sorti" lands ~87.5 — move the event to the words
+- [ ] diver: replace the capsule with an articulated human silhouette (torso,
+      head, arms, legs + fins; slow kick cycle; descent posture) — SDF figure
+- [ ] bubbles as glass: read u_below and refract it through each bubble
+      (lens distortion + scene reflections + window/sun glints), perfect
+      circles (drop the y-squish), keep per-trail varied motion
+- [ ] chorus 2 (124.7–142.9) pivot: drop "yellow blinking bubbles" as the main
+      event — this is l'ivresse des profondeurs (rapture of the deep): a
+      dreamy/abstract narcosis vocabulary (candidates: 5-wave interference
+      field à la glass-figure in deep blue+gold, soft kaleidoscopic fold of
+      the scene, slow gold orbs in Lissajous orbit around the sun glimmer).
+      Pick one and commit.
+
+### Phase 6 — iterate & ship
+- [ ] /vjay-iterate loops until ship-it/chef-d'oeuvre
+- [ ] Louis watchthrough #2
 - [ ] dedication line on studio page (meta notes already carry it)
-- [ ] deploy check on vjaygent.develle.fr; publish
+- [ ] publish
 
 ## Review
 

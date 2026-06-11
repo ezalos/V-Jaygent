@@ -81,3 +81,6 @@ context, the `Why:` line, and the `How to apply:` rule.
 
 Memory entries get auto-injected into future Claude sessions; this
 file is the human-readable index.
+- **Test player controls by hand** — pause/seek/resume are part of the
+  piece; headless stills/clips never press them (the pause wall-clock
+  bug shipped on every audio piece). (`feedback_test_player_controls.md`)
