@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<!-- ABOUTME: Lesson 0001 — the V-Jaygent piece-creation pipeline and the
+     artist/critic loop, the map into which the critic deep-dive fits. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lesson 0001 — The pipeline map</title>
+<style>
+  body { font-family: Georgia, 'Times New Roman', serif; max-width: 44em; margin: 3rem auto; padding: 0 1.5rem; color: #1a1a1a; line-height: 1.6; }
+  h1 { font-size: 1.6rem; font-weight: normal; border-bottom: 1px solid #ccc; padding-bottom: .4rem; }
+  h2 { font-size: 1.15rem; margin-top: 2rem; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: .85em; background: #f3f1ec; padding: .08em .35em; border-radius: 3px; }
+  pre { background: #faf8f4; border: 1px solid #e4e0d6; padding: 1rem; overflow-x: auto; font-size: .82rem; line-height: 1.5; }
+  .win { background: #f0f5ee; border-left: 4px solid #5e8d61; padding: .7rem 1rem; margin: 1.4rem 0; }
+  .src { color: #777; font-size: .82rem; }
+  blockquote { border-left: 3px solid #ddd; margin-left: 0; padding-left: 1rem; color: #444; }
+  .quiz { border: 1px solid #d8d2c4; padding: 1rem 1.2rem; margin: 1.6rem 0; background: #fbfaf7; }
+  .quiz button { font: inherit; font-size: .85rem; display: block; margin: .35rem 0; padding: .35rem .8rem; cursor: pointer; background: #fff; border: 1px solid #bbb; border-radius: 4px; text-align: left; width: 100%; }
+  .quiz button.ok { border-color: #2e7d32; background: #eef6ee; }
+  .quiz button.no { border-color: #c62828; background: #faeeee; }
+  .quiz .expl { display: none; margin-top: .6rem; font-size: .88rem; color: #333; }
+</style>
+</head>
+<body>
+<h1>Lesson 0001 — The pipeline map</h1>
+<p class="src">~5 minutes · sources: <code>skills/vjay-new-piece/SKILL.md</code>, <code>skills/vjay-iterate/SKILL.md</code> · glossary: <a href="../reference/grade-vocabulary.html">grade vocabulary</a></p>
+
+<div class="win"><strong>The win:</strong> after this lesson you can place any artifact in the repo (a critique file, an inspect frame, a lint, a verdict chip) at its exact step in the creation pipeline — so when we dissect the critic in <a href="0002-inside-the-critic.html">lesson 0002</a>, you'll know precisely whose hands it receives work from and whose hands receive its output.</p></div>
+
+<h2>The flow, end to end</h2>
+<p>A piece is born through <code>/vjay-new-piece</code> (or <code>/vjay-from-url</code> for the download+scaffold part). The steps that matter:</p>
+<pre>
+1  BRIEF GATES      thesis, canonical algorithm ref, eye-landing candidates,
+                    warm-palette plan, idle behaviour, architecture rationale
+                    → written into meta.yaml `notes:` — this becomes "the claim"
+2  AUDIO            download → bin/analyze-audio.mjs --stems
+                    → audio.analysis.json (bpm, beats, sections, stems)
+3  BUILD            shader.frag / sim.frag / layers + meta.yaml
+4  RENDER EVIDENCE  bin/inspect-music.mjs <slug>
+                    → 6 section-anchored stills + 4-5 multi-window clips
+5  MACHINE LINTS    lint-palette / lint-idle / lint-composition / audit-piece
+                    → hard blockers, fixed before any critic sees the piece
+6  SELF-CRITIQUE    the building session writes critiques/<slug>-v1.md
+                    (cold-open read; NOT the independent critic)
+7  ITERATE LOOP     /vjay-iterate — the artist & critic loop (below)
+8  COMMIT BUNDLE    piece + brainstorm + critiques + evidence, one commit
+</pre>
+<p>Two design choices worth noticing. First, <em>the claim is written before the code</em> (step 1) — the critic later grades the piece against its own stated thesis, not against a generic ideal. Second, <em>machine lints run before the critic</em> (step 5) — cheap deterministic checks (cool-pixel percentage, frozen idle, Y-split composition) so the expensive judgment-based critic never wastes a pass on mechanical failures.</p>
+
+<h2>The artist &amp; critic loop</h2>
+<p>Inside <code>/vjay-iterate</code> there are two roles with deliberately unequal powers:</p>
+<blockquote><p><strong>The artist</strong> is the main session — it can <code>Edit</code> shaders. <strong>The critic</strong> is a separate spawned agent with <em>read-only tools</em> (it can view images and read code but cannot edit). This asymmetry is the point: the murmuration stress test showed a builder grading its own work scores it 5–7 composite points too generously, and a critic that can edit drifts into applying its own fixes instead of judging.</p></blockquote>
+<pre>
+            ┌────────────────────────────────────────────┐
+            ▼                                            │
+   render evidence (stills + clips)                      │
+            │                                            │
+   CRITIC reads: taste.md, frames, clips, shaders,       │
+   meta.yaml claim, prior critiques                      │
+            │                                            │
+   writes critiques/<slug>-vN.md  (prose + YAML tail)    │
+            │                                            │
+      verdict?                                           │
+      ├── chef-doeuvre / ship-it  → DONE (commit)        │
+      ├── needs-tweak → ARTIST applies top_fix ──────────┘   (≤ 8 laps)
+      └── structural-rethink / premise-wrong → STOP, hand to Louis
+</pre>
+<p>The two STOP verdicts exist because of a measured failure mode: forcing iteration past a structural-rethink verdict gains at most ~4.5 composite points and plateaus by iteration 4–5. Parameter-tuning cannot rescue a piece whose architecture is wrong — that decision belongs to Louis at the brief level.</p>
+
+<h2>What each artifact is for</h2>
+<p><code>critiques/&lt;slug&gt;-vN.md</code> is simultaneously: (a) the loop's control signal (the YAML tail is parsed to route the next lap), (b) the permanent record the studio grades view renders (chips, panels, <code>v</code>/<code>Shift+V</code>), and (c) the input to the <em>next</em> critique (the critic reads its predecessors to avoid oscillating fixes). <code>evidence/&lt;slug&gt;-vN/</code> freezes the exact frames graded — inspect frames get overwritten by later runs, evidence doesn't.</p>
+
+<div class="quiz">
+<strong>Check yourself</strong> — why does the critic run as a separate read-only agent, rather than the building session grading its own work?
+<button onclick="mark(this,false)">Because read-only agents render frames faster in headless mode</button>
+<button onclick="mark(this,true)">Because self-grading measured ~5–7 points generous, and edit power tempts fix-applying</button>
+<button onclick="mark(this,false)">Because the main session context is too long for grading rubrics</button>
+<div class="expl">The separation is a bias guard, not a performance choice: independent eyes (anchored only in taste.md) plus no ability to touch the code. Source: <code>vjay-new-piece SKILL.md</code> §11 and <code>vjay-iterate SKILL.md</code> §critic-agent notes.</div>
+</div>
+
+<p><strong>Primary source to read next:</strong> <code>skills/vjay-iterate/SKILL.md</code> — skim the flow diagram at the top, then continue to <a href="0002-inside-the-critic.html">Lesson 0002 — inside the critic</a>.</p>
+<p class="src">Questions? Ask your teacher in the Claude session — anything unclear here is fair game.</p>
+
+<script>
+function mark(btn, ok) {
+  btn.classList.add(ok ? 'ok' : 'no');
+  if (ok) btn.parentElement.querySelector('.expl').style.display = 'block';
+}
+</script>
+</body>
+</html>

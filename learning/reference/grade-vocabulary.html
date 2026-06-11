@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<!-- ABOUTME: Reference glossary — every grade value, probe family, and verdict
+     the V-Jaygent critic can emit, with the rule that produces each. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Grade vocabulary — V-Jaygent critic reference</title>
+<style>
+  body { font-family: Georgia, 'Times New Roman', serif; max-width: 46em; margin: 3rem auto; padding: 0 1.5rem; color: #1a1a1a; line-height: 1.55; }
+  h1 { font-size: 1.6rem; font-weight: normal; border-bottom: 1px solid #ccc; padding-bottom: .4rem; }
+  h2 { font-size: 1.15rem; margin-top: 2.2rem; }
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; margin: 1rem 0; }
+  th, td { border: 1px solid #ddd; padding: .45rem .6rem; text-align: left; vertical-align: top; }
+  th { background: #f6f4ef; font-weight: 600; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: .85em; background: #f3f1ec; padding: .08em .35em; border-radius: 3px; }
+  .pill { display: inline-block; font-family: ui-monospace, monospace; font-size: .8rem; padding: .1em .55em; border-radius: 999px; border: 1px solid #999; }
+  .pass { color: #2e7d32; border-color: #2e7d32; } .fail { color: #c62828; border-color: #c62828; }
+  .weak { color: #b07020; border-color: #b07020; } .shader { color: #5e8d61; border-color: #8aab8c; }
+  .na { color: #888; } .gold { color: #9a7b1e; border-color: #c8a94e; }
+  .src { color: #777; font-size: .82rem; }
+  @media print { body { margin: 1rem auto; } }
+</style>
+</head>
+<body>
+<h1>Grade vocabulary — what every critic value means</h1>
+<p class="src">Sources: <code>taste.md</code> (rubric), <code>skills/vjay-iterate/SKILL.md</code> §"YAML tail" (~line 702) and §shader-verdicts (~line 376). This glossary is the compressed truth; those files are the law.</p>
+
+<h2>Probe grade values</h2>
+<p>Every probe is a concrete question with a pass/fail criterion defined in <code>taste.md</code>. The value records <em>both</em> the judgment and the <em>kind of evidence</em> behind it:</p>
+<table>
+  <tr><th>Value</th><th>Meaning</th><th>Evidence basis</th></tr>
+  <tr><td><span class="pill pass">pass</span></td><td>The probe's criterion is met.</td><td>Observed directly in the rendered frames/clips.</td></tr>
+  <tr><td><span class="pill fail">fail</span></td><td>The criterion is not met.</td><td>Observed directly in frames/clips.</td></tr>
+  <tr><td><span class="pill weak">weak</span> / <span class="pill weak">weak-pass</span></td><td>Technically present but under-delivering — counts toward neither a clean pass nor a fail in spirit; flagged as improvement surface.</td><td>Observed, but marginal.</td></tr>
+  <tr><td><span class="pill shader">shader-pass</span> / <span class="pill fail">shader-fail</span> / <span class="pill na">shader-unclear</span></td><td>The probe could not be tested from headless captures (e.g. cursor reversibility needs multi-position samples the harness doesn't take). The critic instead <em>reads the GLSL</em> and judges whether the code structure implies pass/fail — and must cite the deciding shader line. <code>shader-pass</code> counts as a pass in the <code>N/M</code> tallies.</td><td>Inferred from source code, not pixels.</td></tr>
+  <tr><td><span class="pill na">frame-unclear</span> / <span class="pill na">interaction-unclear</span></td><td>The captured evidence is insufficient to decide and the shader doesn't settle it either. Honest "can't tell".</td><td>Neither pixels nor code suffice.</td></tr>
+  <tr><td><span class="pill na">n/a</span> (family level)</td><td>The whole probe family doesn't apply — e.g. music probes on a silent piece, dual-input probes on a cursor-only piece. Families are gated by what <code>meta.yaml</code> declares.</td><td>Structural.</td></tr>
+</table>
+
+<h2>Probe families (when they apply)</h2>
+<table>
+  <tr><th>Family</th><th>Count</th><th>Applies when…</th><th>Routing rule</th></tr>
+  <tr><td>Mesmerizing</td><td>5</td><td>Always</td><td>3/5 or fewer ⇒ <code>structural-rethink</code>. Prediction is a HARD GATE: its failure alone forces <code>structural-rethink</code>.</td></tr>
+  <tr><td>Interaction</td><td>7</td><td>Piece is cursor-reactive</td><td>≤3/7 ⇒ <code>top_fix</code> must address interaction.</td></tr>
+  <tr><td>Music (per-frame)</td><td>4</td><td>Piece is audio-reactive</td><td>≤2/4 ⇒ audio reactivity is decorative; fix or drop the claim.</td></tr>
+  <tr><td>Song-level</td><td>6</td><td><code>audio.analysis.json</code> + song-level uniforms exist</td><td>≤2/6 ⇒ the piece ignores song structure.</td></tr>
+  <tr><td>Dual-input</td><td>7</td><td>Piece couples ≥2 input channels</td><td>Conflict/authority probes guard channel collisions.</td></tr>
+  <tr><td>Layered</td><td>8–11</td><td><code>meta.yaml</code> declares <code>layers:</code></td><td>≤4/8 ⇒ the stack is decoration, not composition.</td></tr>
+</table>
+
+<h2>Dimensions (the 1–5 numbers)</h2>
+<p><strong>Dimensions are NOT computed from probes.</strong> They are a second, independent judgment axis: six qualities each scored 1–5 <em>directly against written anchors</em> in <code>taste.md</code> §Dimensions. Only the 1, 3, and 5 anchors are defined; 2 and 4 are "between"; <em>ambiguity rounds down</em>. Example, Motion: 1 = "one-scale pulse locked to audio, flat between beats" … 5 = "always mixing at multiple scales".</p>
+<p>The six: <code>palette_cohesion</code>, <code>composition</code>, <code>motion</code>, <code>intensity</code> (dynamic range), <code>depth</code>, <code>form_ending</code> (n/a for unbounded pieces). The "<strong>avg dims</strong>" number in the studio UI is a display-only mean of the numeric dimensions (defined in <code>studio/server.mjs compositeOf()</code>, not in the rubric).</p>
+
+<h2>The claim check (binary gate)</h2>
+<p>Before any scoring: pull the thesis from <code>meta.yaml</code>, restate it, and ask "do the frames deliver it?" Pass/fail, no scale. A failed claim is automatically the top fix — <em>"Fix the lie first. Polish second."</em></p>
+
+<h2>Verdicts</h2>
+<table>
+  <tr><th>Verdict</th><th>Bar (from vjay-iterate §Verdict)</th><th>Loop action</th></tr>
+  <tr><td><span class="pill gold">chef-doeuvre</span></td><td>Mesmerizing 5/5 + claim delivered + all testable dimensions ≥ 4.</td><td>Stop polishing. Done.</td></tr>
+  <tr><td><span class="pill pass">ship-it</span></td><td>≥4/5 + claim delivered + no dimension below 3. "Remaining gap is nuance, not failure modes."</td><td>Done.</td></tr>
+  <tr><td><span class="pill weak">needs-tweak</span></td><td>4/5, claim delivered or close, and <em>one concrete shader Edit</em> raises the missing probe/dimension.</td><td>Loop auto-applies <code>top_fix</code>, re-renders, re-critiques (≤8 iterations).</td></tr>
+  <tr><td><span class="pill fail">structural-rethink</span></td><td>≤3/5, or Prediction failed, or the gap exceeds a single Edit.</td><td>STOP. Hand back to Louis — don't tune a non-mesmerizing piece.</td></tr>
+  <tr><td><span class="pill fail">premise-wrong</span></td><td>The claim itself is broken or unachievable with this structure.</td><td>STOP. Hand back. Don't tweak.</td></tr>
+</table>
+<p><code>top_fix</code> is REQUIRED iff verdict is <code>needs-tweak</code>: <code>{dimension, what (one concrete Edit), why (tied to frame numbers), caution (what must NOT break)}</code>.</p>
+
+<p class="src">Companion lessons: <a href="../lessons/0001-the-pipeline-map.html">0001 — the pipeline map</a> · <a href="../lessons/0002-inside-the-critic.html">0002 — inside the critic</a></p>
+</body>
+</html>

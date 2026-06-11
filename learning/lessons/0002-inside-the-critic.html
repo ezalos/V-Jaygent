@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<!-- ABOUTME: Lesson 0002 — the critic's exact inputs, outputs, and decision
+     process, traced through the real kinetic-energy v1→v2 critiques. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lesson 0002 — Inside the critic</title>
+<style>
+  body { font-family: Georgia, 'Times New Roman', serif; max-width: 44em; margin: 3rem auto; padding: 0 1.5rem; color: #1a1a1a; line-height: 1.6; }
+  h1 { font-size: 1.6rem; font-weight: normal; border-bottom: 1px solid #ccc; padding-bottom: .4rem; }
+  h2 { font-size: 1.15rem; margin-top: 2.1rem; }
+  h3 { font-size: 1rem; margin-top: 1.5rem; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: .85em; background: #f3f1ec; padding: .08em .35em; border-radius: 3px; }
+  pre { background: #faf8f4; border: 1px solid #e4e0d6; padding: 1rem; overflow-x: auto; font-size: .8rem; line-height: 1.5; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; margin: 1rem 0; }
+  th, td { border: 1px solid #ddd; padding: .4rem .6rem; text-align: left; vertical-align: top; }
+  th { background: #f6f4ef; font-weight: 600; }
+  .win { background: #f0f5ee; border-left: 4px solid #5e8d61; padding: .7rem 1rem; margin: 1.4rem 0; }
+  .src { color: #777; font-size: .82rem; }
+  .quiz { border: 1px solid #d8d2c4; padding: 1rem 1.2rem; margin: 1.6rem 0; background: #fbfaf7; }
+  .quiz p { margin: .2rem 0 .5rem; }
+  .quiz button { font: inherit; font-size: .85rem; display: block; margin: .35rem 0; padding: .35rem .8rem; cursor: pointer; background: #fff; border: 1px solid #bbb; border-radius: 4px; text-align: left; width: 100%; }
+  .quiz button.ok { border-color: #2e7d32; background: #eef6ee; }
+  .quiz button.no { border-color: #c62828; background: #faeeee; }
+  .quiz .expl { display: none; margin-top: .6rem; font-size: .88rem; color: #333; }
+</style>
+</head>
+<body>
+<h1>Lesson 0002 — Inside the critic</h1>
+<p class="src">~12 minutes · sources: <code>taste.md</code>, <code>skills/vjay-iterate/SKILL.md</code>, <code>brainstorming/critiques/kinetic-energy-v{1,2}.md</code> · glossary: <a href="../reference/grade-vocabulary.html">grade vocabulary</a> · prerequisite: <a href="0001-the-pipeline-map.html">lesson 0001</a></p>
+
+<div class="win"><strong>The win:</strong> you can take <code>kinetic-energy-v1.md</code>, point at each YAML key, and explain which rubric rule produced it and which downstream consumer reads it. That is the exact competence needed to modify the critic without breaking its consumers.</div>
+
+<h2>1 · Inputs — everything the critic is allowed to see</h2>
+<table>
+  <tr><th>Input</th><th>Why it's there</th></tr>
+  <tr><td><code>taste.md</code></td><td>The rubric. The critic's authority comes from here, not from its own taste.</td></tr>
+  <tr><td>6 section-anchored stills<br><code>inspect-music/music-NN-t*.png</code></td><td>Picked from <code>audio.analysis.json</code> sections (intro/verse/pre-peak/peak/quiet/outro) — validates that song sections have distinct visual vocabulary.</td></tr>
+  <tr><td>4–5 multi-window clips<br><code>inspect-music/clip-w*.mp4</code></td><td>REQUIRED for the Prediction hard gate: continuity is judged <em>within</em> a window, divergence <em>across</em> windows. Stills cannot test either.</td></tr>
+  <tr><td>All shader sources + <code>meta.yaml</code></td><td>The claim lives in meta; shader code backs the <code>shader-pass/-fail</code> verdicts for probes untestable from headless captures.</td></tr>
+  <tr><td><code>VISION.md</code> + technique docs</td><td>Aesthetic constitution (palette law, unpredictability doctrine) + per-family probe grounding.</td></tr>
+  <tr><td>Prior critiques <code>critiques/&lt;slug&gt;-v*.md</code></td><td>Anti-oscillation: the critic must not propose a fix that undoes a previous lap's fix.</td></tr>
+</table>
+<p>Since 2026-06-11 the exact frames graded are also <em>snapshotted</em> to <code>critiques/evidence/&lt;slug&gt;-vN/</code> and listed in the YAML tail — that's the "What the critic saw" strip in the studio.</p>
+
+<h2>2 · The decision process, in order</h2>
+<p>The order matters — each stage can short-circuit the rest:</p>
+<pre>
+A  CLAIM CHECK (binary gate, pre-scoring)
+   restate meta.yaml's thesis → do the frames deliver it?
+   FAIL ⇒ that IS the top fix, whatever the scores say. "Fix the lie first."
+
+B  MESMERIZING PROBES (5× pass/fail/weak)
+   eye-landing · prediction · squint · hue-drift · mystery
+   prediction = HARD GATE: fail ⇒ verdict structural-rethink, full stop.
+   ≤3/5 ⇒ structural-rethink (no dimension-polish can save it).
+
+C  CONDITIONAL PROBE FAMILIES (only those meta.yaml makes applicable)
+   interaction 7 · music 4 · song-level 6 · dual-input 7 · layered 8–11
+   each probe: pass/fail/weak — or shader-pass/-fail/-unclear when only
+   the GLSL can answer (critic must cite the deciding line).
+   Family tallies route the top_fix (e.g. interaction ≤3/7 ⇒ the fix
+   must address interaction).
+
+D  DIMENSIONS (6× scored 1–5 — INDEPENDENT of probes)
+   judged directly against written 1/3/5 anchors in taste.md §Dimensions;
+   2 and 4 are "between"; ambiguity rounds DOWN.
+
+E  VERDICT (one of five, bars in the glossary)
+   reconciled against the critic's own data — calibration rules forbid
+   rounding up ("if your notes say 'predictable', prediction is fail").
+</pre>
+<p><strong>To your question "are the dimension numbers drawn from the other grades?" — no.</strong> Probes and dimensions are two independent axes over the same evidence. Probes are binary-ish questions ("can you predict the next 10 seconds?"); dimensions are quality scales ("how good is the motion, 1–5, against these anchors?"). They meet only at the verdict, which has bars on <em>both</em> (e.g. chef-d'oeuvre = 5/5 probes <em>and</em> all testable dims ≥ 4). The "avg dims 4.5/5" line in the studio is a display-only mean computed by <code>studio/server.mjs compositeOf()</code> — it exists in the UI, not in the rubric.</p>
+
+<h2>3 · Outputs — the contract</h2>
+<p>One markdown document, <code>critiques/&lt;slug&gt;-vN.md</code>, with required prose sections (claim · frame-by-frame table · per-family probe arguments · dimensions table · what's working · what's imperfect · verdict + justification) ending in a fenced YAML tail:</p>
+<pre>
+piece, iteration, verdict, claim_check
+mesmerizing_passes + mesmerizing_probes{...}
+&lt;family&gt;_passes + &lt;family&gt;_probes{...}     # omitted when n/a
+scores{palette_cohesion … form_ending}
+top_fix{dimension, what, why, caution}       # REQUIRED iff needs-tweak
+evidence[ evidence/&lt;slug&gt;-vN/&lt;frame&gt;.png … ]
+</pre>
+<p>Three consumers parse this: the <strong>iterate loop</strong> (routes on <code>verdict</code>, applies <code>top_fix.what</code>, protects <code>top_fix.caution</code>), the <strong>studio grades view</strong> (chips, panels, tooltips, evidence strip), and the <strong>next critique</strong> (reads it to stay consistent). Change the schema → change all three.</p>
+
+<h2>4 · Worked example — kinetic-energy v1 → v2 (real files)</h2>
+<p>Read along: <a href="https://vjaygent.develle.fr/api/critiques/kinetic-energy-v1.md">v1 critique</a> · <a href="https://vjaygent.develle.fr/api/critiques/kinetic-energy-v2.md">v2 critique</a> · or press <code>v</code> on the piece at <a href="https://vjaygent.develle.fr/kinetic-energy">vjaygent.develle.fr/kinetic-energy</a> and open each version's <em>details</em>.</p>
+<table>
+  <tr><th></th><th>v1 (2026-06-11)</th><th>v2 (same day, after fix)</th></tr>
+  <tr><td>Claim check</td><td>pass</td><td>pass</td></tr>
+  <tr><td>Mesmerizing</td><td>4/5 — squint <em>weak</em>: peak still measured mean&nbsp;L&nbsp;0.0065, only 0.02% of pixels above half-brightness. The macro structure existed but the display pass hid it.</td><td>5/5 — squint pass: mean&nbsp;L&nbsp;0.0106, and the drop window swings mean&nbsp;L 0.0036↔0.150 (40×) in playback.</td></tr>
+  <tr><td>Dimensions</td><td>26/30 (intensity 4)</td><td>27/30 (intensity 5)</td></tr>
+  <tr><td>Verdict</td><td><code>needs-tweak</code> — exactly the "one concrete Edit fixes it" case</td><td><code>chef-doeuvre</code></td></tr>
+</table>
+<p>The v1 <code>top_fix</code> is a model of the contract — concrete enough to apply blind:</p>
+<pre>
+what:    shader.frag line 118 — raise tonemap exposure
+         aces(col * (0.9 + 0.5*u_energy_smooth))
+       → aces(col * (1.7 + 0.9*u_energy_smooth))
+why:     squint fails on NUMBERS, not taste (mean L 0.0065, 0.02% &gt; 0.5);
+         the hot-zone envelope and implosion knot are invisible at this exposure
+caution: must not break quiet-reads-quiet (keep it multiplicative, no
+         additive floor) nor palette_cohesion=5 (no clinical-white bleach)
+</pre>
+<p>The v2 critic then <em>verified both cautions by measurement</em> (quiet frame: 98.4% of pixels below 0.25; bright pixels stayed warm-ordered) before granting the upgrade. That's the loop working exactly as designed: measured failure → bounded fix → measured verification.</p>
+<p>Contrast cases worth opening later: <code>danzas-percs-v1.md</code> (a <em>weak-by-design</em> — hue-drift weak because the sanctioned cold palette locks hue) and <code>ink-bloom-v1.md</code> (chef-d'oeuvre deliberately <em>withheld</em> because harness artefacts contaminated the motion evidence — honesty about evidence quality is itself part of the methodology).</p>
+
+<h2>5 · Check yourself</h2>
+<div class="quiz">
+<p><strong>Q1.</strong> A piece scores 4/5 mesmerizing, but the failing probe is Prediction. What verdict must the critic return?</p>
+<button onclick="mark(this,false)">needs-tweak, because exactly one probe is failing here</button>
+<button onclick="mark(this,true)">structural-rethink, because prediction is the hard gate</button>
+<button onclick="mark(this,false)">ship-it, because four of five probes still pass fine</button>
+<div class="expl">Prediction failing forces <code>structural-rethink</code> regardless of the other passes — unpredictability is a precondition, not a tradeoff dimension (taste.md §Decision).</div>
+</div>
+
+<div class="quiz">
+<p><strong>Q2.</strong> What does <code>shader-pass</code> mean on a probe?</p>
+<button onclick="mark(this,false)">The probe passed and the shader compiled with zero warnings</button>
+<button onclick="mark(this,true)">Untestable from captures; the GLSL structure implies a pass</button>
+<button onclick="mark(this,false)">The probe passed on stills but failed on the motion clips</button>
+<div class="expl">Some probes (reversibility, latency…) need interactions headless capture can't perform. The critic reads the code instead and must cite the deciding line. It counts as a pass in the N/M tallies. (vjay-iterate §~376)</div>
+</div>
+
+<div class="quiz">
+<p><strong>Q3.</strong> Where do the 1–5 dimension scores come from?</p>
+<button onclick="mark(this,false)">They are averaged mechanically from that family's probe results</button>
+<button onclick="mark(this,false)">They are computed by the server from the YAML probe tallies</button>
+<button onclick="mark(this,true)">They are judged directly against written anchors in taste.md</button>
+<div class="expl">Independent axis: each dimension has 1/3/5 anchor descriptions; ambiguity rounds down. The only computed number is the UI's "avg dims" mean (<code>compositeOf()</code> in server.mjs), which is display-only.</div>
+</div>
+
+<div class="quiz">
+<p><strong>Q4.</strong> Claim check fails, but every dimension scores 4–5. What is the top fix?</p>
+<button onclick="mark(this,true)">Make the piece deliver its stated thesis, before any polish</button>
+<button onclick="mark(this,false)">Raise the weakest dimension since all are already near five</button>
+<button onclick="mark(this,false)">Rewrite the meta.yaml thesis to match what renders on screen</button>
+<div class="expl">"A failed claim check is the top fix, regardless of how the 1–5 scores come out. Fix the lie first. Polish second." (taste.md §claim check). Note option C is a real temptation — and it's the <code>premise-wrong</code> escape hatch, which only Louis can approve.</div>
+</div>
+
+<p><strong>Primary source to read next:</strong> <code>taste.md</code> §"Mesmerizing — the first question" (the five probes, especially the two-timescale Prediction test) — it is the best-written part of the rubric and the part you'll touch first when improving the critic.</p>
+<p class="src">Questions? Ask your teacher in the Claude session — including "show me where in the code". That's what it's for.</p>
+
+<script>
+function mark(btn, ok) {
+  btn.classList.add(ok ? 'ok' : 'no');
+  if (ok) btn.parentElement.querySelector('.expl').style.display = 'block';
+}
+</script>
+</body>
+</html>
