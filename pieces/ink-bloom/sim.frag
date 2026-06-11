@@ -17,8 +17,8 @@ uniform float u_key_event[15];    // attack spike per key
 uniform float u_audio_playing;
 uniform float u_audio_kick;
 uniform float u_audio_high;
-uniform float u_beat_phase;       // [0,1) sawtooth per beat — the stir wind-up
-uniform int   u_beat_index;
+uniform float u_beat_phase;       // [0,1) sawtooth per beat — the gust swell
+uniform float u_bar_phase;        // [0,1) sawtooth per bar — the current's sway
 uniform float u_downbeat;         // decaying impulse at each bar start
 uniform int   u_bar_index;
 uniform int   u_section_id;
@@ -57,13 +57,28 @@ void main() {
     vec2 asp = vec2(u_resolution.x / u_resolution.y, 1.0);
     vec2 p   = uv * asp;                       // aspect-true coords for distances
 
-    if (u_frame == 0) { fragColor = vec4(0.0); return; }
+    if (u_frame == 0) {
+        // Aged paper: faint foxing stains, so the canvas has something alive
+        // to stir before the first brush lands. Dilute (~0.1 density) — the
+        // song's painting swallows them within a section.
+        vec3 stains = vec3(0.0);
+        for (int i = 0; i < 6; i++) {
+            vec2 sp = vec2(0.5 * asp.x, 0.5)
+                    + (hash22(vec2(float(i) * 13.7 + 3.1, float(i) * 7.9 + 8.2))
+                       - 0.5) * vec2(0.95 * asp.x, 0.85);
+            float s = splat(p, sp, 0.10 + 0.08 * hash21(vec2(float(i), 4.2)));
+            int fam = (i % 3 == 0) ? 2 : (i % 3 == 1) ? 0 : 1;   // indigo-led
+            stains[fam] += 0.10 * s;
+        }
+        fragColor = vec4(stains, 0.30);
+        return;
+    }
 
     vec4  self  = texture(u_state, uv);
     float wet   = self.a;
     float play  = u_audio_playing;
     float live  = mix(0.55, 1.0, play);        // idle keeps a slower living baseline
-    float energy = mix(0.30, u_energy_smooth, play);
+    float energy = mix(0.38, u_energy_smooth, play);
 
     // --- Section arc (defensive: all-zero uniforms behave like a mid section).
     // s0 intro: lone indigo tendril. s1 long build: indigo/sienna alternate per
@@ -76,21 +91,44 @@ void main() {
     bool backruns = playing ? (sec >= 4) : false;
     bool drying   = playing && (sec >= 6);
 
-    // --- Flow field: curl noise, frequency breathes slowly + per-section nudge,
-    // amplitude rides the song's energy. Wetness gates motion: dry paint is
-    // pinned to the paper (that IS the drying mechanic, not a freeze bug).
-    float freq = 2.3 + 0.35 * sin(u_time * 0.013 + float(sec) * 1.7);
-    float amp  = live * (0.020 + 0.135 * energy) * (drying ? 0.25 : 1.0);
-    vec2  vel  = curlFlow(p, u_time, freq) * amp;
-
-    // --- Beat stir: a vortex at the lead brush, chirality flips per beat, decays
-    // across the beat (exp ramp-down from each beat onset). Geometry, not flash.
-    // Idle metronome: with no audio, a phantom beat (~91 bpm) and bar clock keep
-    // the stir + bar-snap vocabulary alive — self-playing first (lint-idle).
+    // --- Idle metronome: with no audio, phantom beat/bar clocks (~91 bpm) keep
+    // the current + bar-snap vocabulary alive — self-playing first (lint-idle).
     float beatPh  = mix(fract(u_time / 0.66), u_beat_phase, play);
+    float barPh   = mix(fract(u_time / 2.64), u_bar_phase,  play);
     int   barIdx  = playing ? u_bar_index  : int(u_time / 2.64);
-    int   beatIdx = playing ? u_beat_index : int(u_time / 0.66);
     float beatHit = exp(-beatPh * 5.0) * mix(0.55, 1.0, play);
+
+    // --- The musical current — the movement system. A continuous prevailing
+    // flow, not an impulse: its HEADING snaps to a new golden-angle direction
+    // each section (a section boundary reads as the wind changing), sways
+    // gently across each bar, and its strength SWELLS smoothly with the beat
+    // (cosine gust — "Says" is all swells, nothing staccato). Fresh pigment
+    // drops into a river that is visibly going somewhere.
+    float heading = GOLDEN * float(sec + 3)
+                  + 0.34 * sin(TAU * barPh + 1.1)
+                  + 0.20 * sin(u_time * 0.083);
+    float gust    = 0.5 - 0.5 * cos(TAU * beatPh);
+    vec2  vel     = vec2(cos(heading), sin(heading))
+                  * live * (0.012 + 0.085 * energy) * (0.55 + 0.45 * gust)
+                  * (drying ? 0.2 : 1.0);
+
+    // --- Macro gyre: one slow whole-canvas circulation, sign flipped per
+    // section — the gentle-chaotic backbone the small curl rides on.
+    {
+        vec2 gc = vec2(0.5 * asp.x, 0.5)
+                + 0.10 * vec2(sin(u_time * 0.019), cos(u_time * 0.027));
+        vec2 gd = p - gc;
+        float gr   = length(gd) + 1e-4;
+        float gsgn = ((sec & 1) == 0) ? 1.0 : -1.0;
+        vel += gsgn * vec2(-gd.y, gd.x) / gr * exp(-gr * gr / 0.45)
+             * live * (0.010 + 0.045 * energy) * (drying ? 0.2 : 1.0);
+    }
+
+    // --- Curl noise demoted to texture: small-scale gentle chaos on top of
+    // the current, not the movement system itself.
+    float freq = 2.3 + 0.35 * sin(u_time * 0.013 + float(sec) * 1.7);
+    vel += curlFlow(p, u_time, freq)
+         * live * (0.010 + 0.055 * energy) * (drying ? 0.25 : 1.0);
 
     // Lead brush: slow lissajous wander + a bar-snapped golden-angle offset, so
     // each bar visibly seeds a NEW bloom in a place the last bar didn't.
@@ -101,15 +139,6 @@ void main() {
     // sub-beat shimmer: the hand is never perfectly still
     brush += 0.006 * (0.4 + u_audio_high)
            * vec2(sin(u_time * 9.7), sin(u_time * 12.3 + 2.0));
-
-    {   // stir vortex around the lead brush
-        vec2  d = p - brush;
-        float r = length(d) + 1e-4;
-        float chir = ((beatIdx & 1) == 0) ? 1.0 : -1.0;
-        float fall = exp(-r * r / 0.018);
-        vel += chir * vec2(-d.y, d.x) / r * fall * beatHit
-             * (0.22 + 0.30 * u_audio_kick);
-    }
 
     // --- Downbeat ring (s4+): an expanding radial push from the bar's backrun
     // splat — the visible "the bar started HERE" event.
@@ -157,7 +186,16 @@ void main() {
              + texture(u_state, src - vec2(px.x, 0.0))
              + texture(u_state, src + vec2(0.0, px.y))
              + texture(u_state, src - vec2(0.0, px.y));
-    float diff = (0.012 + 0.12 * smoothstep(0.05, 0.5, wet));
+    // --- Paper light (same wandering pool as shader.frag's hz1 — keep the
+    // two in sync): the song's energy warms a patch of paper; warm paper
+    // bleeds further and dries sooner. Kept subtle so the piece stays
+    // readable — the coupling is a ±30% modulation, not a second flow.
+    vec2  hd     = p - (vec2(0.5 * asp.x, 0.5)
+                 + 0.33 * vec2(sin(u_time * 0.047 + 2.0), cos(u_time * 0.035)));
+    float plight = (0.35 + 0.65 * energy) * exp(-dot(hd, hd) / 0.17);
+
+    float diff = (0.012 + 0.12 * smoothstep(0.05, 0.5, wet))
+               * (0.85 + 0.45 * plight);
     vec4 state = mix(adv, nb * 0.25, diff);
 
     vec3  dens = state.rgb;
@@ -166,8 +204,10 @@ void main() {
     // --- Drying: wetness evaporates; pigment does NOT fade — the painting
     // accumulates across the whole song (that is the thesis). Idle bleaches
     // very slowly so an unattended canvas doesn't end up black by lunchtime.
-    wet *= drying ? 0.988 : 0.9965;
-    wet += 0.0008 * energy;                    // ambient humidity, idle included
+    wet *= (drying ? 0.988 : 0.9974) - 0.0018 * plight;
+    // ambient humidity; with no audio the studio air is damp enough that the
+    // painting keeps dreaming — standing washes never fully pin down.
+    wet += 0.0008 * energy + 0.0008 * (1.0 - play);
     if (!playing) dens *= 0.99995;
 
     // --- Injection. Wet-on-wet uptake guard: saturated paper refuses pigment.

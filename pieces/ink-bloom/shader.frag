@@ -89,8 +89,9 @@ void main() {
     vec2 hz2 = vec2(0.5 * asp.x, 0.5)
              + 0.36 * vec2(sin(u_time * 0.026 + 4.5), cos(u_time * 0.041 + 1.1));
     vec2 d1 = p - hz1, d2 = p - hz2;
-    col *= 0.955 + 0.105 * exp(-dot(d1, d1) / 0.17)
-                 - 0.065 * exp(-dot(d2, d2) / 0.23);
+    float men = mix(0.52, u_energy_smooth, u_audio_playing);
+    col *= 0.955 + (0.055 + 0.115 * men) * exp(-dot(d1, d1) / 0.17)
+                 - (0.035 + 0.070 * men) * exp(-dot(d2, d2) / 0.23);
     col *= mix(vec3(1.0), vec3(1.025, 0.995, 0.955),
                0.5 * mix(0.3, u_energy_smooth, u_audio_playing));
 

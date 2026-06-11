@@ -44,6 +44,12 @@ notes: |
   wall-clock run instead: bin/inspect.mjs ink-bloom 8 55 (audio from t=0).
   Headless SwiftShader runs ~17fps vs 60 live, so accumulation lags ~3.5x;
   the live piece is denser at the same timestamp.
+  lint-idle FAILs (~0.022 vs 0.025 floor) for the same reason: it diffs the
+  seek-anchor frames, which for this piece measures a few seconds of
+  deposition, not motion. Do not tune the piece to that number (three
+  attempts 2026-06-11 confirmed it barely moves); verify idle by eye on a
+  wall-clock run — autonomous brush + drifting foxing stains + breathing
+  light is the intended idle vocabulary.
 
   ## Three timescales of liveness
   - section: a new pigment family enters per boundary (indigo -> +sienna ->
