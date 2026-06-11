@@ -35,8 +35,10 @@ layers:
     blend: add
   - layer: sun-bloom
     blend: add
-  - layer: bubbles
+  - layer: narcosis
     blend: screen
+  - layer: bubbles
+    blend: normal
   - layer: deep-life
     blend: screen
   - layer: events

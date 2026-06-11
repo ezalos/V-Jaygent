@@ -1,0 +1,7 @@
+name: narcosis
+identity: "the deep dreaming"
+default_blend: screen
+uniforms: {}
+reads: []
+publishes: []
+consumes: []

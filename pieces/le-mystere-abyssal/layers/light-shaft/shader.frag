@@ -154,18 +154,39 @@ void main() {
     // sunlight is filtered by the water column it crossed
     col *= extinction(dep * 0.8);
 
-    // ---- The diver: silhouette against the light ------------------------
+    // ---- The diver: a scaphandrier against the light --------------------
+    // Hard-hat suit lowered upright on the line — helmet, boxy torso,
+    // arms, legs with weighted boots; limbs sway on slow incommensurate
+    // clocks. (v1's plain capsule read as a pill — too cheap for her.)
     float dFade = diverFade(u_time);
     if (dFade > 0.001) {
         vec2 dp = diverPos(u_time);
-        // slightly teardrop body: x compressed harder above the midpoint
-        vec2 lp = (p - dp) * vec2(1.45, 1.0);
-        float sd = sdSegment(lp, vec2(0.0, -0.035), vec2(0.0, 0.040)) - 0.022;
-        float occl = mix(1.0, smoothstep(0.002, 0.020, sd), dFade);
+        vec2 lp = p - dp;
+        float swayA = sin(u_time * 0.61);
+        float swayL = sin(u_time * 0.47);
+
+        float sd = length(lp - vec2(0.0, 0.054)) - 0.020;                  // helmet
+        sd = min(sd, sdSegment(lp * vec2(0.80, 1.0),
+                               vec2(0.0, 0.030), vec2(0.0, -0.022)) - 0.0245); // torso
+        vec2 handR = vec2( 0.036 + 0.004 * swayA, -0.016 + 0.003 * swayA);
+        vec2 handL = vec2(-0.036 - 0.004 * swayA, -0.020 - 0.003 * swayA);
+        sd = min(sd, sdSegment(lp, vec2( 0.020, 0.024), handR) - 0.0085);  // arms
+        sd = min(sd, sdSegment(lp, vec2(-0.020, 0.024), handL) - 0.0085);
+        vec2 bootR = vec2( 0.015 + 0.005 * swayL, -0.074);
+        vec2 bootL = vec2(-0.013 - 0.005 * swayL, -0.072);
+        sd = min(sd, sdSegment(lp, vec2( 0.011, -0.026), bootR) - 0.0095); // legs
+        sd = min(sd, sdSegment(lp, vec2(-0.011, -0.026), bootL) - 0.0095);
+        sd = min(sd, length(lp - bootR - vec2( 0.004, -0.004)) - 0.009);   // boots
+        sd = min(sd, length(lp - bootL - vec2(-0.004, -0.004)) - 0.009);
+
+        float occl = mix(1.0, smoothstep(0.001, 0.010, sd), dFade);
         col *= occl;
         // scattered-blue edge fringe so she reads against the dark too
-        float rim = smoothstep(0.030, 0.010, abs(sd - 0.013));
+        float rim = smoothstep(0.020, 0.006, abs(sd - 0.010));
         col += vec3(0.22, 0.50, 0.85) * rim * 0.30 * dFade * (1.0 - dep * 0.6);
+        // one glint on the helmet glass
+        vec2 vis = lp - vec2(0.006, 0.056);
+        col += vec3(0.75, 0.90, 1.00) * exp(-dot(vis, vis) * 12000.0) * 0.5 * dFade;
     }
 
     // ---- Radio thread: her voice as a line of light ---------------------
@@ -174,7 +195,7 @@ void main() {
     float t = u_time;
     if (t > 93.6 && t < 98.4 && dFade > 0.001) {
         vec2 top = SNELL_C;
-        vec2 bot = diverPos(t) + vec2(0.0, 0.05);
+        vec2 bot = diverPos(t) + vec2(0.0, 0.076);   // the line meets the helmet
         float fray = smoothstep(95.5, 97.0, t);
         float sev  = smoothstep(97.0, 98.2, t);
 

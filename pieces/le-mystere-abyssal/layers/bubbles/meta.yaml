@@ -1,7 +1,8 @@
 name: bubbles
 identity: "her voice rising"
-default_blend: screen
+default_blend: normal
 uniforms: {}
-reads: []
+reads:
+  - u_below
 publishes: []
 consumes: []

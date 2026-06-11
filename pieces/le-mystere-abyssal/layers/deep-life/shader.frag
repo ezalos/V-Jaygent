@@ -96,6 +96,13 @@ void main() {
 
     if (aerialAmount(stage, sp) > 0.6) { fragColor = vec4(0.0); return; }
 
+    // Chorus 3: the snow wheels slowly around the risen sun, with the
+    // bubbles — the whole deep reorganises around the myth.
+    if (stage == 9) {
+        vec2 C = vec2(0.0, -0.15);
+        p = C + rot2d((t - 195.2) * 0.045) * (p - C);
+    }
+
     vec3 col = vec3(0.0);
 
     // ---- Marine snow ----------------------------------------------------
@@ -115,7 +122,10 @@ void main() {
             float h = hash21(cell + float(o) * 17.3);
             if (h > density) continue;
             vec2 jitter = hash22(cell * 1.7) * 0.6 + 0.2;
-            float d = length(fp - jitter);
+            // at the reversal the motes streak vertically — we are RISING
+            // past them, and the eye must feel the rush
+            vec2 dd = (fp - jitter) * vec2(1.0, mix(1.0, 0.38, rev));
+            float d = length(dd);
             float mote = exp(-d * d * mix(42.0, 28.0, rev));
             float tw = 0.75 + 0.25 * sin(t * 1.4 + h * 40.0);
             col += vec3(0.70, 0.82, 0.90) * mote * tw * snowGain

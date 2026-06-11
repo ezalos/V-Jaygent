@@ -14,6 +14,7 @@ uniform vec2  u_mouse;
 uniform float u_keys[15];
 uniform float u_audio_vocals_stem;
 uniform float u_audio_playing;
+uniform sampler2D u_below;
 out vec4 fragColor;
 
 // ======================= NARRATIVE (keep in sync across layers) ========
@@ -118,8 +119,17 @@ void main() {
     }
     vec2 ps = p - defl;
 
+    // Chorus 3: everything wheels slowly around the risen sun.
+    if (stage == 9) {
+        vec2 C = vec2(0.0, -0.15);
+        ps = C + rot2d((t - 195.2) * 0.045) * (ps - C);
+    }
+    // Chorus 2 (the narcosis dream): bubbles become slow, large gold orbs.
+    float dream = (stage == 5) ? 1.0 : 0.0;
+
     const float STRIP = 0.075;   // column spacing in p-space x
     vec3 col = vec3(0.0);
+    float cover = 0.0;
 
     // her breath: a focused stream above the diver while she's visible
     float diverPlume = (t > 90.0 && t < 143.0) ? 1.0 : 0.0;
@@ -157,8 +167,9 @@ void main() {
         alive = max(alive, breath);
         if (alive < 0.5) continue;
 
-        float speed   = (0.085 + 0.10 * hash21(vec2(strip, 3.1))) * (1.0 + vent * 0.9);
-        float spacing = 0.15 + 0.12 * hash21(vec2(strip, 5.9));
+        float speed   = (0.085 + 0.10 * hash21(vec2(strip, 3.1))) * (1.0 + vent * 0.9)
+                      * mix(1.0, 0.32, dream);
+        float spacing = (0.15 + 0.12 * hash21(vec2(strip, 5.9))) * mix(1.0, 1.7, dream);
         float yFlow = ps.y + 0.55 - t * speed;
         float cell = floor(yFlow / spacing);
         float hb = hash21(vec2(strip * 7.7, cell));
@@ -170,33 +181,46 @@ void main() {
         // breath bubbles only exist above the diver
         if (breath > 0.5 && vent < 0.05 && yC < dvr.y) continue;
 
-        float wob = sin(yC * (9.0 + 6.0 * hb) + hb * 6.2831 + t * 2.3) * 0.012;
+        // the dream slows the wobble into a wide lazy sway
+        float wobF = mix(9.0 + 6.0 * hb, 3.0 + 2.0 * hb, dream);
+        float wobT = mix(2.3, 0.7, dream);
+        float wob = sin(yC * wobF + hb * 6.2831 + t * wobT) * mix(0.012, 0.030, dream);
         vec2 bPos = vec2(xCol + wob, fract((yC + 0.55) / 1.1) * 1.1 - 0.55);
 
         // size grows as it rises (pressure falls)
-        float r = (0.006 + 0.012 * hb) * (1.0 + 0.6 * (bPos.y + 0.5));
+        float r = (0.006 + 0.012 * hb) * (1.0 + 0.6 * (bPos.y + 0.5))
+                * mix(1.0, 1.6, dream);
 
-        vec2 d = (ps - bPos) * vec2(1.0, 0.88);     // slight rise-stretch
+        // ---- the bubble is GLASS: it refracts the scene beneath it ------
+        vec2 d = ps - bPos;                       // perfect circle, no squish
         float dist = length(d);
-        float ring = smoothstep(r * 0.50, r * 0.85, dist)
-                   * smoothstep(r * 1.18, r * 0.95, dist);
-        vec2 gOff = bPos + r * 0.40 * vec2(0.30, 0.75);
-        float gd = length(ps - gOff);
-        float glint = exp(-gd * gd / (r * r * 0.10)) * 0.9;
+        float dN = dist / r;
+        if (dN > 1.10) continue;
 
-        float bright = (ring * 0.45 + glint)
-                     * (mix(0.55, 0.80, goldAmt) + 0.45 * voc)
-                     * (1.0 + 0.9 * goldAmt);
-        // during the myth choruses the whole bubble catches gold — the one
-        // warmth allowed to bypass extinction
-        vec3 rim = mix(vec3(0.62, 0.88, 1.00) * extinction(dep * 0.85),
-                       vec3(1.00, 0.72, 0.28), goldAmt);
-        if (ventBlack && vent > 0.05) rim = mix(rim, vec3(0.55, 0.40, 1.00), 0.6);
+        float inside = smoothstep(1.02, 0.90, dN);
+        // lens: magnified at the centre, bending hard toward the rim — the
+        // window, the rays, the sun pass through the glass
+        float bend = mix(0.55, -0.35, smoothstep(0.0, 1.0, dN * dN));
+        vec2 lensUV = uv - (d / vec2(aspect, 1.0)) * bend;
+        vec3 through = texture(u_below, lensUV).rgb;
+        if (dot(through, vec3(1.0)) < 0.01) through = vec3(0.015, 0.045, 0.10);
+        through *= 1.0 + 0.25 * (1.0 - dN);       // focal brightening
 
-        col += rim * bright;
+        // fresnel rim: scene + chorus gold caught on the glass edge
+        float fres = smoothstep(0.55, 1.0, dN);
+        vec3 rimCol = mix(vec3(0.62, 0.88, 1.00) * extinction(dep * 0.85),
+                          vec3(1.00, 0.72, 0.28), goldAmt);
+        if (ventBlack && vent > 0.05) rimCol = mix(rimCol, vec3(0.55, 0.40, 1.00), 0.6);
+        vec3 bub = mix(through, rimCol, fres * (0.30 + 0.30 * voc + 0.25 * goldAmt));
+
+        // one glint of the light above, mirrored in the glass
+        vec2 gOff = bPos + r * 0.42 * vec2(0.30, 0.75);
+        float gd2 = dot(ps - gOff, ps - gOff);
+        bub += vec3(1.00, 0.97, 0.90) * exp(-gd2 / (r * r * 0.05)) * 0.65;
+
+        col = mix(col, bub, inside);
+        cover = max(cover, inside);
     }
 
-    col = col / (1.0 + col * 0.4);
-    float a = clamp(max(col.r, max(col.g, col.b)), 0.0, 1.0);
-    fragColor = vec4(col, a);
+    fragColor = vec4(col, cover);
 }
