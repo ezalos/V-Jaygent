@@ -412,6 +412,28 @@ body.hud-off .fps { display: none; }
 .grades-link { font-size: 10px; color: var(--ink-faint); text-decoration: none; }
 .grades-link:hover { color: var(--ink); }
 
+/* Evidence strip — the frames the critic graded from. */
+.grades-evidence { margin-bottom: 18px; }
+.grades-evidence-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 2px;
+}
+.grades-thumb {
+  display: block;
+  border: 1px solid rgba(232, 230, 223, 0.14);
+  transition: border-color 120ms ease-out;
+}
+.grades-thumb:hover { border-color: rgba(232, 230, 223, 0.5); }
+.grades-thumb img { display: block; height: 74px; width: auto; }
+.grades-thumb-file {
+  font-size: 10px;
+  color: var(--ink-dim);
+  padding: 6px 9px;
+  text-decoration: none;
+}
+
 /* Stacked list mode — one panel per piece, scrolling. */
 .grades-panel + .grades-panel { margin-top: 16px; }
 .grades-list-head { padding: 14px 26px; }

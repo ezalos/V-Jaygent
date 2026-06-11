@@ -110,6 +110,22 @@ async function handle(req, res, { piecesRoot, libRoot, layersRoot, critiquesRoot
     return apiPieceCritiques(res, critiquesRoot, slug);
   }
 
+  // Evidence snapshots — the exact frames a critique was graded from, copied
+  // to brainstorming/critiques/evidence/<slug-vN>/ at critique time (inspect
+  // frames get overwritten by later runs; these don't).
+  const evidenceMatch = path.match(/^\/api\/critiques\/evidence\/([^/]+)\/([^/]+)$/);
+  if (evidenceMatch) {
+    const dir = decodeURIComponent(evidenceMatch[1]);
+    const name = decodeURIComponent(evidenceMatch[2]);
+    if (!SLUG_RE.test(dir) || !FILENAME_RE.test(name)) {
+      return send(res, 404, 'text/plain', 'not found');
+    }
+    const body = await readFile(join(critiquesRoot, 'evidence', dir, name)).catch(() => null);
+    if (body === null) return send(res, 404, 'text/plain', 'not found');
+    const mime = FILE_MIME[extname(name)] ?? 'application/octet-stream';
+    return send(res, 200, mime, body);
+  }
+
   // Raw critique markdown, for "read the full critique" links.
   const critiqueFileMatch = path.match(/^\/api\/critiques\/([^/]+)$/);
   if (critiqueFileMatch) {
@@ -279,6 +295,7 @@ function parseCritique(raw, file, version) {
     scores: null,
     composite: null,
     top_fix: null,
+    evidence: [],
   };
 
   const fences = [...raw.matchAll(/```yaml\s*\n([\s\S]*?)\n```/g)];
@@ -293,6 +310,12 @@ function parseCritique(raw, file, version) {
         entry.scores = data.scores ?? null;
         entry.composite = compositeOf(data.scores);
         entry.top_fix = data.top_fix ?? null;
+        // Evidence paths are relative to the critiques dir and must point
+        // inside evidence/<dir>/ — anything else is dropped, not served.
+        if (Array.isArray(data.evidence)) {
+          entry.evidence = data.evidence.filter((p) =>
+            typeof p === 'string' && /^evidence\/[a-z0-9][a-z0-9-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/.test(p));
+        }
         for (const g of PROBE_GROUPS) {
           if (data[`${g}_probes`] && typeof data[`${g}_probes`] === 'object') {
             entry.probes[g] = data[`${g}_probes`];

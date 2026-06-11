@@ -38,4 +38,8 @@ scores:
   depth: 5
   form_ending: n/a
 top_fix: null
+evidence:
+  - evidence/test-piece-v2-i1/frame-00.png
+  - ../../../etc/passwd
+  - evidence/test-piece-v2-i1/../sneaky.png
 ```

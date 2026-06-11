@@ -178,6 +178,126 @@ Use `AskUserQuestion` if anything's missing. Gather:
 Don't ask more than 3 questions. If the brief is "track URL X", that's
 enough — you can derive everything else.
 
+### 1b. Brief gates — REJECT before building
+
+Before any research / scaffolding work, the brief must pass these four
+gates. If any fail, push back on the user via `AskUserQuestion` and
+revise the brief. Don't paper over a gate failure by hoping to fix it
+in critique — that's where ~40% of the bottom-tier catalogue came from.
+
+Read `brainstorming/techniques/canonical-pieces.md` first — that's the
+reference catalog the gates check against.
+
+1. **Canonical algorithm named.** The brief must reference a textbook
+   primitive — apollonian SDF, Gray-Scott RD, Julia set, Chladni,
+   gravitational lensing, coprime polyrhythm, percussion-driven
+   geometry, boids, Voronoi, fluid (Stam), strange attractor, etc.
+   Either explicit in the user's words OR mapped by you from a
+   sibling in `canonical-pieces.md` ("This is a Gray-Scott piece
+   for X"). If you can't pick a sibling, brainstorm more before
+   moving on.
+
+2. **≥ 2 eye-landing candidates.** Name them. "A central pulsing
+   sphere" is one — fail. "Four orbiting cores with a central fold
+   cross + collision shockwaves" is four — pass. Eye-landing fail
+   at the brief stage is the single largest failure mode in the
+   catalogue (ferrohands, breath, first-bloom, in-seven, father-
+   ocean all failed here).
+
+3. **Warm cycle stops pre-declared.** Name the 3-5 warm hues the
+   piece will use (e.g., `["near-black", "ember", "wine", "amber",
+   "cream"]`). No cool intrusions. If the user wants "underwater
+   teal" or "neon plasma", point them at VISION.md and the cool-
+   palette failures (ocean-john-butler, plasma, break-on-through,
+   first-bloom). Negotiate to a warm reading of the same theme
+   (e.g., sunset reflections off water instead of teal caustics).
+
+4. **Idle behaviour described.** What happens at `u_mouse == (0,0)`
+   and `u_audio_* == 0`? If "empty frame" or "nothing visible",
+   reject. Every chef-d'oeuvre survives idle. Pieces requiring keys
+   or sustained cursor to feel alive (atoll, ferrohands as-shipped)
+   tank the headless grade and bore solo viewers.
+
+Record the four answers at the top of `brainstorming/pieces/<slug>.md`
+under `## Brief gates` so the critic can verify them later:
+
+```
+## Brief gates (vjay-new-piece §1b)
+canonical_ref: ferment   # or "novel: <one-paragraph canonical writeup>"
+eye_landing_candidates:
+  - pattern blobs (multi)
+  - blob splits (events)
+  - filigree zones (sub-resolution)
+warm_cycle: [near-black, ember, wine, cream]
+idle_behaviour: "pattern evolves slowly without cursor; ~10s visible refresh"
+```
+
+The four fields are mandatory. Empty / handwaved values count as a
+gate failure.
+
+### 1c. Architecture gate — REJECT before scaffolding
+
+Naming the canonical algorithm isn't enough. The brief must also pick
+the **rendering architecture** that matches what the algorithm
+actually does. Picking wrong means 10 iterations of force-fixing can
+only buy +4.5 composite — never escape `structural-rethink`. This gate
+exists because the 2026-05-11 murmuration test failed exactly here:
+brief said "boids", scaffold used architecture A, piece never healed.
+
+Read `brainstorming/techniques/canonical-pieces.md` §"Architecture
+decision matrix" first. Then walk the decision tree:
+
+1. Does the claim involve **thousands of sub-pixel particles**?
+   (smoke, murmuration, galaxy, nebula, plume, fog) → **D — density
+   volume / raymarched aggregate.**
+2. Does the canonical algorithm need **per-agent neighbour reads
+   or sequential collision logic, N ≤ 200 discrete entities**?
+   (boids, billiards, dipole orbits, lensing weights) → **B — CPU-sim
+   + sprite render.** Hook into `studio/` like `billiards.mjs`.
+3. Does the canonical algorithm need **state persistence between
+   frames**? (Gray-Scott, ferrofluid PDE, Stam fluid, Faraday wave) →
+   **C — ping-pong feedback** via `passes:` in meta.yaml.
+4. Does the piece have **audio + cursor + keys all driving different
+   visual contributions**, OR a section state machine over an audio
+   timeline? → **E — layer stack** via `layers:` in meta.yaml.
+5. Otherwise, math is closed-form per pixel: → **A — per-pixel
+   functional shader.**
+
+Hard-reject the brief if the architecture choice contradicts the
+claim. Examples that MUST be rejected:
+
+- claim: "starling murmuration" + architecture: A → the murmuration
+  failure mode. Sub-pixel particles can't be rendered as N=80 visible
+  sprites. Pick D or rewrite the claim to "10 birds drifting in
+  formation".
+- claim: "boids flocking" + architecture: A → boids without per-agent
+  state isn't boids. Pick B (CPU-sim) and wire into studio/, or
+  rewrite the claim.
+- claim: "Gray-Scott reaction-diffusion" + architecture: A → RD needs
+  persistence; without ping-pong it's just a noise field. Pick C.
+- claim: "audio + keyboard synth + cursor reactivity" + architecture: A
+  → multi-input means layer-stack. Pick E.
+
+Append the architecture choice to the brief-gates block:
+
+```
+## Brief gates (vjay-new-piece §1b + §1c)
+canonical_ref: ferment
+eye_landing_candidates: [pattern blobs, blob splits, filigree zones]
+warm_cycle: [near-black, ember, wine, cream]
+idle_behaviour: "pattern evolves slowly without cursor; ~10s refresh"
+architecture: C  # ping-pong feedback — RD requires persistence
+arch_rationale: "Gray-Scott is state-bearing; sample chemistry must
+  persist between frames. Architecture C with `passes:` simulate +
+  display. Wrong choices: A would lose state every frame; B is for
+  ≤200 discrete agents not a continuous chemistry field."
+```
+
+Set `meta.architecture` to the chosen letter so the audit can verify
+the implementation matches. `bin/audit-piece.mjs` will FAIL the audit
+if you declare D but ship a single-pass shader, declare C but ship no
+`passes:`, etc.
+
 ### 2. Research pass
 
 Spawn **one background Explore agent** via Agent tool. Prompt template:
@@ -515,6 +635,11 @@ Fill `pieces/<slug>/meta.yaml`. Required fields:
   - Arc: how it ends
 - `audio: audio.mp3` if audio-reactive
 - `time_source: audio` if audio-reactive (so u_time == audio.currentTime)
+- `cursor: true` if the shader/layers read `u_mouse`/`u_touches` (else keep
+  the scaffold's `cursor: false`). Drives the catalog 🖱️ badge + filter
+  alongside `audio:` (🔊) and `keyboard_synth:` (🎹). `bin/backfill-cursor.mjs`
+  can re-derive it from the shaders if you're unsure.
+- `keyboard_synth: true` if the piece uses the keyboard synth (🎹 badge)
 - `published_at: null`
 
 ### 9. Sanity render
@@ -571,24 +696,83 @@ existing critiques:
 This critique is YOUR first-person view, not the critic agent's. Saves
 the cold-open read of the piece before any iteration.
 
-### 11. Iterate once before shipping
+**The critique file is load-bearing — never skip it.** The studio
+catalog's critic-grades view (verdict chips, `v` panel, `Shift+V`
+all-pieces list at vjaygent.develle.fr) renders EXCLUSIVELY from
+`brainstorming/critiques/<slug>-vN.md` files: no file means the piece
+ships ungraded in the catalog (happened to the June 10–11 pieces;
+Louis flagged it). End the critique with the standard fenced YAML
+tail (see vjay-iterate §"YAML tail" for the key vocabulary) — the
+studio parses it directly into the UI. Also snapshot what was graded:
+copy the inspect frames you read into
+`brainstorming/critiques/evidence/<slug>-v1/` and list them under the
+YAML tail's `evidence:` key (paths like `evidence/<slug>-v1/<frame>.png`)
+— inspect frames get overwritten by later runs; the evidence dir is
+what powers the "What the critic saw" strip in the grades panel.
 
-If any dimension scores below 3 in your v1 critique:
-- Apply **one** top fix via Edit.
-- Re-render (`bin/publish.mjs <slug> --duration 2`).
-- If it helped: proceed to commit.
-- If it didn't help or made it worse: revert and ship v1 honestly.
-  Running more iterations in this skill hits diminishing returns;
-  that's what `/vjay-iterate` is for.
+### 11. Iterate before shipping — DELEGATE to /vjay-iterate
+
+DO NOT self-grade. The murmuration stress test (2026-05-11) showed
+the building agent inevitably grades its own work 5-7 composite
+points too generously. The fix: hand grading to the independent
+critic agent in /vjay-iterate, which has its own bias guards and
+reference-frame anchors.
+
+Run the four machine-checkable lints FIRST. Any FAIL is a hard
+blocker — fix before invoking the critic:
+
+```
+node bin/inspect-music.mjs <slug>             # section-anchored frames + clip
+node bin/lint-palette.mjs <slug>              # FAIL if > 5% pixels cool
+node bin/lint-idle.mjs <slug>                 # FAIL if blank or frozen idle
+node bin/lint-composition.mjs <slug>          # FAIL if Y-split / single corner
+node bin/audit-piece.mjs <slug>               # static anti-pattern audit
+```
+
+If any FAIL: address it via Edit, re-render, re-lint. Don't proceed
+to the critic until all four are clean (or at most one borderline
+warn).
+
+Then invoke /vjay-iterate via the Skill tool:
+
+```
+Skill({skill: "vjay-iterate", args: "<slug>"})
+```
+
+That skill spawns the independent critic agent (Explore subagent, no
+Edit tool — read-only), which compares your frames against the
+chef-d'oeuvre reference frames and applies the rubric harshly. It
+loops up to 8 iterations on needs-tweak; stops on ship-it / chef-
+doeuvre / structural-rethink / premise-wrong.
+
+Ship rules:
+- **lint fails**: fix before invoking critic.
+- **critic returns ship-it** (or chef-doeuvre): proceed to commit.
+- **critic returns needs-tweak**: /vjay-iterate will loop. You don't
+  re-invoke — it self-loops.
+- **critic returns structural-rethink / premise-wrong**: do NOT commit.
+  Write `brainstorming/critiques/<slug>-blocked.md` and hand back to
+  the user. The brief / canonical-ref choice is wrong.
+
+The auto-loop is mandatory because round-2 regrade showed pieces
+shipping at needs-tweak when one more iteration could have raised
+them to ship-it. Don't ship a piece below ship-it just because the
+session is long.
 
 ### 12. Commit
 
 One bundled commit:
 
+Pre-commit gate: `ls brainstorming/critiques/<slug>-*` MUST show at
+least the v1 critique (plus any iterate-loop critiques), and
+`brainstorming/critiques/evidence/<slug>-v*/` the graded frames. A
+commit without them ships an ungraded piece in the studio catalog.
+
 ```
 git add pieces/<slug> \
         brainstorming/pieces/<slug>.md \
-        brainstorming/critiques/<slug>-v1.md \
+        brainstorming/critiques/<slug>-v*.md \
+        brainstorming/critiques/evidence/<slug>-v*/ \
         brainstorming/inspirations/<slug>-refs.md
 git commit -m "add <slug>: <one-line description>
 

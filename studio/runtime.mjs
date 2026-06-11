@@ -721,16 +721,21 @@ function render() {
 
   // If the piece is audio-driven and audio is ACTUALLY PLAYING, advance
   // u_time from the audio clock so visuals reproduce against the track.
-  // When audio is paused (idle, between tracks, before first user gesture),
-  // fall back to the wall clock so the piece self-plays — pinning u_time
-  // to a paused audioEl.currentTime would freeze the visual entirely.
+  // A user pause MID-TRACK pins u_time to the paused audioEl.currentTime:
+  // the visual freezes on the current frame and resumes in sync (switching
+  // to the wall clock here made the image jump to an unrelated timestamp
+  // and keep animating — the bug Louis reported 2026-06-11). Only true
+  // idle — track never started or already ended — falls back to the wall
+  // clock so the piece still self-plays in the gallery.
   // Song-level uniforms (u_audio_time, u_section_progress, u_downbeat, ...)
   // still sample from audioEl.currentTime via audio-analysis.mjs, so audio-
   // event sync is preserved when playback resumes.
+  const pausedMidTrack = audioEl && !audioPlaying && !audioEl.ended
+                      && audioEl.currentTime > 0.001;
   const useAudioTime = currentMeta?.audio
                     && (currentMeta?.time_source ?? 'audio') === 'audio'
                     && audioEl
-                    && audioPlaying;
+                    && (audioPlaying || pausedMidTrack);
   const now = useAudioTime
     ? audioEl.currentTime
     : (performance.now() - startTime) / 1000;
@@ -2372,6 +2377,37 @@ function buildGradesPanel(piece, critiques, { list }) {
       'no structured grades in the latest critique — see the full-critique links below'));
   }
 
+  // What the critic saw — snapshot frames copied at critique time, served
+  // from brainstorming/critiques/evidence/. Click opens the full image.
+  if (Array.isArray(latest.evidence) && latest.evidence.length > 0) {
+    const ev = el('div', 'grades-group grades-evidence');
+    ev.appendChild(el('div', 'grades-group-h', `What the critic saw — ${latest.version}`));
+    const strip = el('div', 'grades-evidence-strip');
+    for (const p of latest.evidence) {
+      const m = String(p).match(/^evidence\/([a-z0-9-]+)\/([A-Za-z0-9._-]+)$/);
+      if (!m) continue;
+      const url = `/api/critiques/evidence/${encodeURIComponent(m[1])}/${encodeURIComponent(m[2])}`;
+      const a = el('a', 'grades-thumb');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.title = m[2];
+      if (/\.(png|jpe?g|webp)$/i.test(m[2])) {
+        const img = document.createElement('img');
+        img.loading = 'lazy';   // the all-grades list can hold hundreds of frames
+        img.src = url;
+        img.alt = m[2];
+        a.appendChild(img);
+      } else {
+        a.classList.add('grades-thumb-file');
+        a.textContent = m[2];
+      }
+      strip.appendChild(a);
+    }
+    ev.appendChild(strip);
+    panel.appendChild(ev);
+  }
+
   const hist = el('div', 'grades-group grades-history');
   hist.appendChild(el('div', 'grades-group-h', 'History'));
   for (const c of critiques) {
@@ -2938,18 +2974,38 @@ function exposeRecordingHooks() {
     const waited = await waitForProgram(5000);
     if (!waited) throw new Error('no program compiled in time');
     startTime = performance.now();
-    const stream = canvas.captureStream(60);
+    // Record via a 2D mirror canvas, not the WebGL canvas directly: FBO
+    // pipelines (layers:/passes:) present via blitFramebuffer, which does
+    // not mark the canvas dirty under SwiftShader, so captureStream on the
+    // GL canvas yields an empty webm (110-byte EBML header — 2026-06-11
+    // regression hunt; requestFrame() pumping didn't help either). Copying
+    // each frame into a 2D canvas restores reliable dirty tracking and a
+    // software-encode-friendly source.
+    const mirror = document.createElement('canvas');
+    mirror.width = canvas.width;
+    mirror.height = canvas.height;
+    const mctx = mirror.getContext('2d');
+    const stream = mirror.captureStream(60);
     const chunks = [];
     const rec = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 12_000_000 });
     rec.ondataavailable = (e) => e.data && e.data.size > 0 && chunks.push(e.data);
     return new Promise((resolve, reject) => {
+      let rafId = 0;
+      const pump = () => {
+        mctx.drawImage(canvas, 0, 0);
+        rafId = requestAnimationFrame(pump);
+      };
       rec.onstop = async () => {
+        cancelAnimationFrame(rafId);
         const blob = new Blob(chunks, { type: 'video/webm' });
         const buf = await blob.arrayBuffer();
         resolve(Array.from(new Uint8Array(buf)));
       };
-      rec.onerror = reject;
-      rec.start();
+      rec.onerror = (e) => { cancelAnimationFrame(rafId); reject(e); };
+      // 250ms timeslice: without it this Chromium's single flush-at-stop
+      // delivers an empty blob (the other half of the 110-byte-webm bug).
+      rec.start(250);
+      rafId = requestAnimationFrame(pump);
       setTimeout(() => rec.stop(), durationMs);
     });
   };

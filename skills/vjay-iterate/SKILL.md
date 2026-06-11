@@ -157,17 +157,36 @@ mesmerizing is a failed piece. A piece that scores 3s everywhere but
 locks the eye for three minutes is a success. Your allegiance is to
 the eye, not the checklist.
 
-**BIAS GUARD (added 2026-05-11 after murmuration stress-test):** Critics
-historically over-grade. When you see frames that "look fine" at a
-glance, default to the LOWER score, not the higher. If you're tempted
-to give a dimension a 4, check whether the piece would survive being
-shown next to apollonian-foam / braid / cirrus in a side-by-side. If it
-loses the side-by-side, the dimension is at most 3. Round DOWN, not up.
+**CALIBRATION VIA REFERENCE COMPARISON (revised 2026-05-11 after aurora
+stress-test).** Earlier guidance was "round DOWN, not up" — that over-
+corrected and tanked decent pieces (aurora was honestly ship-it but
+the bias guard pushed it to structural-rethink). Replace with this:
 
-**Reference frames (added 2026-05-11).** Before grading, look at these
-chef-d'oeuvre frames as your calibration anchors. Pieces that don't
-reach this bar in their respective dimensions get scored honestly low,
-not generously average:
+> **Side-by-side, dimension by dimension.** Before scoring each
+> dimension N, open the chef-d'oeuvre reference frame for that
+> dimension (paths below) and compare the candidate frame next to it.
+> Three outcomes:
+>
+> 1. Candidate is **comparable to** the reference in that dimension
+>    (different look, same level of craft) → score the candidate where
+>    you initially read it. No downward adjustment.
+> 2. Candidate is **clearly worse** in that dimension (visibly less
+>    detail, less drift, less variation) → score one point below where
+>    you initially read it.
+> 3. Candidate is **clearly better** than the reference in that
+>    dimension → keep your high score. References are 5-anchors, not
+>    ceilings.
+>
+> Apply the comparison ONLY to dimensions where the candidate visibly
+> loses the side-by-side. Don't blanket-downgrade other dimensions.
+> The bias is a scope-limited correction, not a global pessimism.
+
+This replaces the older "round DOWN, not up" rule which fired too
+aggressively. The murmuration over-grade and the aurora over-correct
+were equal-magnitude (~7 composite points) in opposite directions.
+Anchored comparison stays calibrated on both.
+
+**Reference frames** for the side-by-side. Read 1-2 frames from each:
 - /home/ezalos/42/V-Jaygent/pieces/apollonian-foam/inspect-music/*.png
   (Depth 5 reference, Palette 5 reference)
 - /home/ezalos/42/V-Jaygent/pieces/braid/inspect-music/*.png
@@ -176,8 +195,10 @@ not generously average:
   (Motion 5 reference — polyrhythm visible across section anchors)
 - /home/ezalos/42/V-Jaygent/pieces/eclipse/inspect-music/*.png
   (Depth 5 + Intensity reference, fractal-interior void)
-
-Read 1-2 frames from each. Now grade the candidate against THAT bar.
+- /home/ezalos/42/V-Jaygent/pieces/ferment/inspect-music/*.png
+  (Depth 5 reference for ping-pong feedback pieces specifically — its
+  Gray-Scott marbling is the C-architecture chef-d'oeuvre anchor for
+  fractal interior detail)
 
 # Read, in this order
 
@@ -266,21 +287,32 @@ Read 1-2 frames from each. Now grade the candidate against THAT bar.
     Dual-input probes (see taste.md §"VJ lenses / Interaction
     agency / Dual-input probes"). Skip for single-channel pieces.
 
-12. Each of the section-anchored frames at
+12. /home/ezalos/42/V-Jaygent/brainstorming/techniques/basins-of-attraction.md
+    READ THIS if the piece declares a basin-of-attraction / chaotic
+    field — a layer that colors pixels by the outcome of an iterated
+    map or ODE integration (gravity basins, Newton / escape-time
+    fractals, Lyapunov chaos maps), or meta.yaml describes such a
+    field. It holds the single-pass GLSL recipes and the honest
+    signature — smooth interior lakes shredding into fractal filigree
+    at the boundaries. Grounds the basin clause of the Structure-
+    honesty lens (taste.md §"VJ lenses / Structure honesty"). Skip
+    for pieces with no basin / chaos field.
+
+13. Each of the section-anchored frames at
     /home/ezalos/42/V-Jaygent/pieces/<slug>/inspect-music/music-*.png
     Actually look. The filename includes the section label
     (intro/verse/peak/quiet/outro) when audio analysis exists — use it
     to verify the piece reads differently across the song's structure.
     Your observations must cite specific frame numbers.
 
-13. Lint reports from the most recent run (palette / idle / composition
+14. Lint reports from the most recent run (palette / idle / composition
     / audit). If any FAIL is present, the top_fix MUST address it
     before any rubric dimension. Lint reds beat rubric polish.
 
-14. The reference frames listed in the bias guard above. Read 1-2 from
+15. The reference frames listed in the bias guard above. Read 1-2 from
     each chef-d'oeuvre piece. Compare the candidate to that bar.
 
-15. Any previous critique at
+16. Any previous critique at
     /home/ezalos/42/V-Jaygent/brainstorming/critiques/<slug>-v*.md
     So you know what has already been tried and don't re-propose it.
 
@@ -745,6 +777,9 @@ top_fix:  # REQUIRED only when verdict == needs-tweak. Otherwise: null
   caution: |
     Which 5-rated dimension or passing probe this change must NOT
     break. "none" if the fix is safe.
+evidence:  # REQUIRED — the exact frames this critique was graded from
+  - evidence/<slug>-v<N>/<frame>.png   # paths relative to brainstorming/critiques/
+  - ...                                # one entry per graded frame
 ```
 
 If verdict is anything other than `needs-tweak`, set `top_fix: null`.
@@ -776,6 +811,28 @@ as `brainstorming/critiques/<slug>-v<N+1>.md` — the Markdown sections
 (claim, frame-by-frame, mesmerizing probes, claim check, scores,
 what's working, what's imperfect, verdict) are the cultivated record
 and must survive.
+
+**This file is load-bearing beyond the loop.** The studio catalog's
+critic-grades view (verdict chips on cards, the per-piece panel on
+`v`, the all-pieces list on `Shift+V`) renders EXCLUSIVELY from
+`brainstorming/critiques/<slug>-vN.md` files, keyed by filename and
+parsed from the YAML tail (`/api/critic-summary`, `/api/critiques`).
+A run that skips this file ships a piece that shows as ungraded at
+vjaygent.develle.fr — this happened to the June 10–11 pieces and
+Louis flagged it. Two corollaries: (1) if a piece is ever renamed,
+`git mv` its critique files (and evidence dirs) to the new slug;
+(2) the YAML keys must match the vocabulary above — the parser maps
+them straight into the UI.
+
+**Evidence snapshot — copy what the critic saw.** After saving the
+critique, copy every frame the critic graded from (inspect stills +
+any frames extracted from clips) into
+`brainstorming/critiques/evidence/<slug>-v<N+1>/`, keeping original
+filenames, and make sure the critique's `evidence:` list matches
+those paths. Inspect frames get overwritten by later runs; the
+evidence dir is the permanent record Louis can dig into from the
+grades panel ("What the critic saw" strip). Tell the critic agent
+the evidence paths up front so it can list them in the YAML tail.
 
 To drive the loop, extract the YAML tail. Find the last ```yaml ...
 ``` fenced block in the file and parse it. Expected keys:
@@ -969,6 +1026,11 @@ noise.
   end so the git history shows the run as one unit.
 - Don't skip writing `brainstorming/critiques/<slug>-vN.md`. The
   history is the cultivation loop; losing it loses the learning.
+  It is also the ONLY data source for the studio's critic-grades
+  view — no file means the piece shows as ungraded in the catalog.
+  Before the bundled commit: `ls brainstorming/critiques/<slug>-*`
+  must show this run's critique(s) and
+  `brainstorming/critiques/evidence/<slug>-vN/` the graded frames.
 
 ## Wrap up — automatic, mandatory
 

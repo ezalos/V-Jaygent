@@ -19,6 +19,9 @@ studio/.studio.log
 .claude/
 brainstorming/
 !brainstorming/critiques/
+# Evidence snapshots are heavy media — served via the compose bind mount,
+# never baked into the image.
+brainstorming/critiques/evidence/
 tests/
 VISION.md
 README.md

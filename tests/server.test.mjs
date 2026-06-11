@@ -394,6 +394,35 @@ test('GET /api/probe-info serves the probe definitions', async () => {
   assert.ok(body.verdicts['ship-it'], 'ship-it verdict definition missing');
 });
 
+test('critique evidence list is exposed and sanitized', async () => {
+  const res = await fetch(baseUrl + '/api/pieces/test-piece/critiques');
+  const body = await res.json();
+  const v2 = body.critiques[1];
+  // The fixture lists one valid path and two traversal attempts — only the
+  // valid one may survive parsing.
+  assert.deepEqual(v2.evidence, ['evidence/test-piece-v2-i1/frame-00.png']);
+});
+
+test('GET /api/critiques/evidence/:dir/:file serves evidence frames', async () => {
+  const res = await fetch(baseUrl + '/api/critiques/evidence/test-piece-v2-i1/frame-00.png');
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type') ?? '', /image\/png/);
+  const buf = new Uint8Array(await res.arrayBuffer());
+  assert.equal(buf[1], 0x50); // 'P' of the PNG magic
+});
+
+test('evidence route rejects traversal and unknown files', async () => {
+  for (const bad of [
+    'evidence/..%2F..%2Ftest-piece-v1.md',
+    'evidence/test-piece-v2-i1/..%2Fsneaky.png',
+    'evidence/UPPER/frame.png',
+    'evidence/test-piece-v2-i1/missing.png',
+  ]) {
+    const res = await fetch(baseUrl + '/api/critiques/' + bad);
+    assert.equal(res.status, 404, `expected 404 for ${bad}`);
+  }
+});
+
 test('GET /api/critiques/:file serves raw critique markdown', async () => {
   const res = await fetch(baseUrl + '/api/critiques/test-piece-v1.md');
   assert.equal(res.status, 200);
