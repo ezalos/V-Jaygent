@@ -22,7 +22,7 @@
   </div>
 
   <div id="hint" class="overlay hint">
-    ← →  next/prev     c  catalog     space  play/pause     drag bottom bar  scrub     r  reset time     h  hud     <b>Shift+H</b>  controls
+    ← →  next/prev     c  catalog     v  grades     space  play/pause     drag bottom bar  scrub     r  reset time     h  hud     <b>Shift+H</b>  controls
   </div>
 
   <div id="help-panel" class="overlay help-panel hidden">
@@ -31,6 +31,8 @@
       <div class="help-h">studio</div>
       <div class="help-row"><kbd>←</kbd> <kbd>→</kbd><span>previous / next piece</span></div>
       <div class="help-row"><kbd>c</kbd><span>catalog</span></div>
+      <div class="help-row"><kbd>v</kbd><span>critic grades (this piece)</span></div>
+      <div class="help-row"><kbd>Shift+V</kbd><span>critic grades (all pieces)</span></div>
       <div class="help-row"><kbd>space</kbd><span>play / pause audio</span></div>
       <div class="help-row"><kbd>r</kbd><span>reset time</span></div>
       <div class="help-row"><kbd>h</kbd><span>toggle HUD (fps + audio bar)</span></div>
@@ -74,6 +76,7 @@
       <button type="button" class="chip" data-cap="sound" aria-pressed="false"><span class="chip-emoji">🔊</span> sound</button>
       <button type="button" class="chip" data-cap="cursor" aria-pressed="false"><span class="chip-emoji">🖱️</span> cursor</button>
       <button type="button" class="chip" data-cap="keyboard" aria-pressed="false"><span class="chip-emoji">🎹</span> keyboard</button>
+      <button type="button" class="chip" id="catalog-all-grades"><span class="chip-emoji">🏅</span> grades</button>
       <button type="button" class="chip chip-clear hidden" id="catalog-filter-clear">× clear</button>
       <span class="catalog-count" id="catalog-count"></span>
     </div>

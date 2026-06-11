@@ -1,0 +1,81 @@
+{
+  "groups": {
+    "mesmerizing": "The first question — does this piece hold the eye without exhausting it? Five probes run on the captured frames; only pass counts toward 5/5, and Prediction is a hard gate.",
+    "interaction": "Cursor probes — does the cursor compose the image or just decorate it? A piece must pass 5/7 to claim \"cursor as instrument\"; 3/7 or fewer and the interaction is decorative.",
+    "music": "Per-frame music probes — run on pieces that declare audio reactivity. A piece must pass 3/4 to claim that music composes it; 2/4 or fewer and the audio is decoration.",
+    "song_level": "Song-level composition probes — the per-frame probes ask if the piece reacts well; these ask if it composes well. A piece must pass 4/6 to claim \"song-aware composition\".",
+    "dual_input": "Dual-input probes — whether the cursor and audio instruments are properly coordinated. A piece must pass 5/7 to claim \"two hands on the instrument\".",
+    "layered": "Layered-composition probes — layers must interact, not just stack. A piece must pass 6/8 to claim \"layered composition\"; probes 9-11 (added 2026-05-05) are advisory for flagship pieces."
+  },
+  "probes": {
+    "mesmerizing": {
+      "eye_landing": "Where does the eye land in frame 0? Is it the same place in frame 3? 2–4 candidate regions that shift between frames so the gaze can wander and return. Pass.",
+      "prediction": "HARD GATE — two-timescale. This probe has TWO sub-tests at TWO different timescales, both must pass for the probe to pass. If Prediction fails, the verdict is automatically structural-rethink, no matter how many other probes pass.",
+      "prediction_continuity": "(a) The continuity test. Open each multi-window clip and watch any slice the length of the chosen continuity scale. Can the eye track motion smoothly from frame to frame? Smooth flow — pixels move continuously, the eye can follow any region for several seconds, motion-blur trails are coherent. Pass.",
+      "prediction_divergence": "(b) The divergence test. Compare the multi-window clips to each other, gated by the chosen divergence scale. Do they have visibly different flow configurations and event vocabularies, not just different brightness or different cell positions of the same rule?",
+      "squint": "Mentally low-pass (blur) each frame. Does a macro light/dark composition emerge? Macro structure emerges on the squint AND fine texture rewards stepping close (Ikeda-style dual-resolution). Pass.",
+      "hue_drift": "How does the dominant hue behave across the four frames? Slow drift within a warm family (amber → wine → mauve across 30s) → colour breathes. Pass.",
+      "mystery": "What does the piece refuse to tell you? An edge that won't resolve, a figure that might also be ground, a depth that flips between interpretations, a structure that promises more if you kept looking → Kaplan's \"mystery\" — the single strongest predictor of sustained preference. Pass."
+    },
+    "interaction": {
+      "composition": "Sample the piece with the cursor at three distinct positions. Does the macro composition differ between frames, or only the local region near the cursor? Fail if only local.",
+      "idle": "With u_mouse == (0,0) for 30 s, does the piece still pass Mesmerizing probes 1 (eye-landing) and 2 (prediction)? Fail if the piece visibly dies without a cursor.",
+      "readability": "Could a cold viewer grasp the mapping within 3 seconds and two cursor moves, with no UI? Fail if the mapping requires instructions.",
+      "reversibility": "Cursor at a, then b, then back to a. Does the frame return? Stateful patterns (trails, dwell) can legitimately fail — but the critique must call out which ones.",
+      "dominance": "Is the cursor's contribution to rendered energy ≤ ~30% of the piece's total structural energy? Fail if the cursor drowns the field (the \"swirl eating the quasicrystal\" failure mode).",
+      "convention": "Does the mapping fight standard priors? Mouse-Y → zoom, drag-to-rotate-Z, radial-drag to trigger, any inversion of scroll/pan/drag conventions. Fail if the viewer's first instinct produces the wrong behaviour.",
+      "latency": "Render a feature directly under the cursor. Move fast. Does the feature lag by more than ~3 frames (≈60 ms at 60 fps)? Fail if yes — input smoothing is eating responsiveness."
+    },
+    "music": {
+      "motion_over_luminance": "Read the shader. Do u_audio_* uniforms feed into geometric parameters (things that decide WHERE pixels are — coordinates, angles, radii, velocities, scales, warp amounts, positions), or only into brightness parameters (things that decide HOW BRIGHT a pixel is)? Fail if every u_audio_* usage is a brightness-family expression.",
+      "bass_movement": "Does u_audio_bass appear in at least one PASS-shape expression from probe 1's taxonomy? PASS shapes: bass appears in an expression that determines a coordinate, angle, radius, velocity, scale, warp, or camera transform — something whose removal would visibly reposition pixels, not dim them.",
+      "rhythm_in_stills": "Do the captured frames show the piece mid-phase — a ring in flight, a chamber geometrically compressed on a hit, flow with clear direction — as opposed to \"the same scene at different brightness levels\"? The music should leave geometric evidence in frozen time.",
+      "quiet_reads_quiet": "At low u_audio_level, does the piece de-energize structurally — slower flow, tighter scale, calmer geometry, less warp — or just drop in luminance? Silence must be silence in form, not dimness."
+    },
+    "song_level": {
+      "section_readability": "Render 5+ frames at u_song_progress ∈ {0.05, 0.25, 0.45, 0.65, 0.85} — one per section centre. Without seeing the timeline, can a viewer guess which section each frame is from? Pass if 3/5 are unambiguously distinct. Fail if all five look interchangeable.",
+      "downbeat_anchored": "List the structural events in the shader (palette flip, layer reveal, mode toggle). Are they keyed to u_downbeat / u_bar_index / u_section_id (composition) or to u_audio_bass / u_audio_kick (reaction)? Pass if ≥2 structural events use composition uniforms. Fail if every \"big change\" is amplitude-triggered.",
+      "pre_tension": "Shader: does the piece reference u_to_section_change or u_section_progress? Frame: render at 30s and 8s before a known drop — visibly different (squeeze, desaturation, withholding)? Pass if both. Fail if u_to_section_change is unused.",
+      "per_stem_discrimination": "Read the audio bindings. Are at least two distinct u_audio_*_stem uniforms used, and bound to visually different roles (not both modulating brightness)? Pass if yes. Fail if all four bound, or if all bound to the same parameter family.",
+      "long_arc": "Render 12 frames at evenly spaced u_song_progress. Is there a visible peak/trough structure? Pass if the density/contrast curve has a clear maximum and a clear quiet moment. Fail if flat.",
+      "recapitulation": "Compare frame at u_song_progress = 0.05 (intro) with u_song_progress = 0.95 (outro). Recognisably related, with one visible delta? Pass if related-with-delta. Fail if completely unrelated, or identical."
+    },
+    "dual_input": {
+      "dual_channel_readability": "Within 5s of moving the cursor while music plays, can a viewer perceive that BOTH channels are driving the piece? Pass if yes. Fail if one channel dominates and the other reads as decoration.",
+      "channel_non_overlap": "List parameters driven by u_audio_* and parameters driven by u_mouse. Are they DISJOINT (Pattern B), or floor-and-ceiling multiplicative (Pattern A), or additive (arms race)? Pass if disjoint or floor-ceiling. Fail if additive on the same parameter.",
+      "music_without_cursor": "Hold u_mouse == (0,0) for 30s with track playing. Does the piece still pass all music-side probes (per-frame + song-level)? Pass if yes. Fail if cursor was load-bearing for music reactivity.",
+      "cursor_without_music": "With audio silent, does the piece still pass the cursor-side probes? Pass if yes. Fail if music was load-bearing for cursor reactivity.",
+      "conflict_resolution": "For each parameter touched by both channels, is the relationship floor-and-ceiling, disjoint with a mediator, or additive? Additive fails.",
+      "authority_during_build": "During a build (u_section_progress > 0.7 heading into u_to_section_change), cursor motion must still produce visible response within ~100ms. Reduced amplitude is fine, zero is not. Pass if responsive. Fail if cursor input is masked during loud sections.",
+      "idle_cell": "Run the piece in each of the four idle-matrix cells (both, music-only, cursor-only, neither). None should freeze, go black, or look broken; the neither-cell must self-play with synthesised drivers. Pass if all four cells survive. Fail if any cell dies."
+    },
+    "layered": {
+      "spatial_coupling": "Does at least one layer declare u_below or a consume: channel, AND use the consumed value in a coordinate / UV / position (geometric use), not just a colour multiplier (decorative)? Fail if no, pass if yes.",
+      "polyrhythm_of_clocks": "Count distinct clock sources across the stack from {u_time, u_beat_phase, u_bar_phase, u_section_progress, u_audio_bass, u_audio_mid, u_audio_high, u_audio_*_stem, u_downbeat, u_mouse}. Fail if all layers share one clock; weak if 2; pass if ≥ 3 distinct clocks across ≤ 4 layers.",
+      "eye_distribution": "From the captured frames, estimate the dominance map per pixel. Fail if 1 region (one layer dominates) or 8+ small regions (chaotic); pass if 2-4 regions per frame, ideally migrating across captured frames.",
+      "quiet_survives": "Mentally zero out the loudest single layer for ~10s. Do remaining layers still pass eye-landing and prediction? Fail if removing the lead leaves a flat substrate (monolithic-with-a-flash); pass if the rest still composes.",
+      "order_meaningfulness": "Mentally swap declaration order of two non-adjacent layers. Would the composite change meaningfully? Fail if near-identical (z-order chaos); pass if visibly broken.",
+      "blend_saturation": "From a peak-energy frame, sample mean luminance and per-channel range. Fail if mean L > 0.7 AND max-min channel range < 0.1 (cream soup); pass if luminance contrast ≥ 0.3 within frame.",
+      "coupling_cost": "Count edges in the coupling DAG (each u_below read = 1; each consume = 1; each u_history self-loop = 0.5). Pass if 1.0 ≤ edges/N ≤ 1.5 (sparsely meaningful); fail if 0 (independent stack) or ≥ 2N (over-coupled).",
+      "brightness_strobe": "Grep layer shaders for audio-on-brightness expressions (FAIL shapes from Music probe 1). Fail if ≥ 2 of N layers have brightness-shaped audio bindings (per-layer blink); pass if ≤ 1 layer does.",
+      "layer_distinctness": "Mentally solo each layer in turn — imagine the piece without it. In a piece with N layers, can you name ≥ N-1 distinct visual contributions? Fail if removing any layer leaves a near-identical frame; pass if each layer's removal changes the composition meaningfully.",
+      "multi_input_coupling": "Read each layer's shader. Across the whole stack, are at least TWO of {cursor u_mouse, keyboard u_keys[], audio u_audio_* / u_section_* / u_downbeat} driving visible change? Fail if only one input channel reaches the shaders; pass if ≥ 2 are coupled.",
+      "visible_phase_lock": "When audio plays and analysis JSON is loaded, does the visual visibly snap to the music's phase, or does it drift? Fail if the only audio coupling is amplitude multipliers; pass if at least 3 song-level uniforms drive geometry on at least one layer."
+    }
+  },
+  "scores": {
+    "palette_cohesion": "1 — Disco. Complementary hue jumps (pink next to green, cyan next to gold). Rainbow. 5 — Single warm family throughout. Contrast by luminance only. Near-black shadows, warm-cream highlights, nothing cold mid-range. Looks like light through a single piece of glass.",
+    "composition": "1 — Static. Same macro shape every frame. Eye lands in the same spot. 5 — Composition wanders at a human-readable pace (periods ~15-60s). Empty zones are intrinsic, not from masks. The eye has somewhere to land in each frame, and it moves between frames.",
+    "motion": "1 — One-scale pulse locked to audio. No small-scale internal churn. Flat between beats. 5 — Always mixing at multiple scales (minimum: macro flow + fine churn, desynchronised). Never all frozen simultaneously. Direction is felt (rising, flowing, orbiting) even when the music is quiet.",
+    "intensity": "1 — Always loud or always quiet. No breath. 5 — Goes genuinely quiet in quiet sections (low luminance, low activity, real dark) and peaks compress asymptotically rather than clipping. Dynamic range extends both ways. Silence is part of the piece, not the absence of it.",
+    "depth": "1 — Flat. No structural detail on zoom. One resolution of noise. 5 — Structure at every scale the rendered pixel size supports. Fractal. Reads different up close than from afar.",
+    "form_ending": "1 — Loop. No arc. No awareness of its own length. 5 — Has an arc AND knows when to stop. Ending is earned — a collapse, a flash, a considered fade. The piece is composed for its duration, not running indefinitely."
+  },
+  "verdicts": {
+    "chef-doeuvre": "mesmerizing (5/5 probes), claim delivered, all testable dimensions ≥ 4. The piece holds. Stop polishing.",
+    "ship-it": "mesmerizing (≥ 4/5 probes), claim delivered, no dimension below 3. Shippable. Remaining gap is nuance, not failure modes. Further iteration would be noise.",
+    "needs-tweak": "4/5 probes pass, claim delivered or close, one concrete shader change will raise the missing dimension or probe. Loop can auto-apply top_fix.",
+    "structural-rethink": "3/5 or fewer probes, or scoring low in a way that needs a bigger change than a single Edit. Hand to user. This is the right verdict when mesmerizing quality is absent — don't try to tweak a non-mesmerizing piece into mesmerization.",
+    "premise-wrong": "the claim itself is broken or unachievable with this structure. Hand to user. Don't tweak."
+  }
+}

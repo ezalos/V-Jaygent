@@ -411,6 +411,55 @@ body.hud-off .fps { display: none; }
 .grades-history .grades-value { flex: 1; border: none; }
 .grades-link { font-size: 10px; color: var(--ink-faint); text-decoration: none; }
 .grades-link:hover { color: var(--ink); }
+
+/* Stacked list mode — one panel per piece, scrolling. */
+.grades-panel + .grades-panel { margin-top: 16px; }
+.grades-list-head { padding: 14px 26px; }
+.grades-title-link { cursor: pointer; }
+.grades-title-link:hover { text-decoration: underline; }
+
+/* ⓘ tooltip — the probe's exact rubric text from taste.md, on hover. */
+.info-tip {
+  position: relative;
+  margin-left: 5px;
+  color: var(--ink-faint);
+  font-size: 10px;
+  cursor: help;
+}
+.info-tip:hover { color: var(--ink); }
+.info-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 7px);
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 300px;
+  background: rgba(8, 8, 10, 0.97);
+  border: 1px solid rgba(232, 230, 223, 0.25);
+  color: var(--ink);
+  font-size: 10.5px;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  padding: 8px 11px;
+  white-space: normal;
+  text-align: left;
+  z-index: 12;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 120ms ease-out;
+}
+.info-tip:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+/* Probe rows sit in narrow grid columns near the panel edge — anchor those
+   tooltips to the label's left so they stay inside the viewport. */
+.grades-probe .info-tip::after {
+  left: 0;
+  transform: none;
+}
 .card .n { font-size: 11px; color: var(--ink-dim); margin-top: 8px; line-height: 1.4; }
 
 /* ---------- audio ui — just a line ---------- */

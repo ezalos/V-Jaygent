@@ -579,6 +579,8 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'r' || e.key === 'R') startTime = performance.now();
   else if (e.key === 'h') toggleHud();
   else if (e.key === 'c' || e.key === 'C') toggleCatalog();
+  else if (e.key === 'v') toggleGrades();        // critic grades, current piece
+  else if (e.key === 'V') toggleAllGrades();     // critic grades, every piece
   else if (e.key === 'Escape') {
     if (gradesOpen()) closeGrades();
     else { closeCatalog(); closeHelpPanel(); }
@@ -2110,6 +2112,7 @@ function wireCatalogFilter() {
     syncClearButton();
     renderCatalog();
   });
+  document.getElementById('catalog-all-grades')?.addEventListener('click', () => openAllGrades());
 }
 
 function syncClearButton() {
@@ -2156,16 +2159,87 @@ function probeLabel(key) {
   return key.replaceAll('_', ' ');
 }
 
+// Probe definitions for tooltips — verbatim taste.md excerpts served once
+// from /api/probe-info. {groups, probes: {group: {probe: text}}, scores, verdicts}.
+let probeInfo = null;
+async function ensureProbeInfo() {
+  if (probeInfo !== null) return;
+  try {
+    probeInfo = await (await fetch('/api/probe-info')).json();
+  } catch { probeInfo = {}; }
+}
+
+// A small ⓘ that reveals the probe's exact rubric text on hover (CSS tooltip
+// reads data-tip). Returns null when there is no text, so callers can skip it.
+function infoTip(text) {
+  if (!text) return null;
+  const tip = el('span', 'info-tip', 'ⓘ');
+  tip.dataset.tip = text;
+  return tip;
+}
+
 async function openGrades(piece) {
   if (!gradesEl) return;
   wireGrades();
+  await ensureProbeInfo();
   let critiques = [];
   try {
     const body = await (await fetch(`/api/pieces/${piece.slug}/critiques`)).json();
     critiques = Array.isArray(body?.critiques) ? body.critiques : [];
   } catch {}
-  renderGrades(piece, critiques);
+  gradesEl.replaceChildren(buildGradesPanel(piece, critiques, { list: false }));
   gradesEl.classList.remove('hidden');
+}
+
+// The ongoing list — every graded piece, catalog order, one panel after
+// another. Opened from the catalog's "grades" chip or Shift+V.
+async function openAllGrades() {
+  if (!gradesEl) return;
+  wireGrades();
+  await Promise.all([
+    catalog.length ? Promise.resolve() : refreshCatalog(),
+    ensureProbeInfo(),
+  ]);
+  let all = {};
+  try {
+    all = await (await fetch('/api/critiques')).json();
+  } catch {}
+  gradesEl.replaceChildren();
+
+  const graded = catalog.filter((p) => Array.isArray(all[p.slug]) && all[p.slug].length > 0);
+  const head = el('div', 'grades-panel grades-list-head');
+  const bar = el('div', 'grades-head');
+  bar.append(
+    el('div', 'grades-title', 'critic grades'),
+    el('div', 'grades-sub', `${graded.length} graded pieces · newest first`),
+  );
+  const closeBtn = el('button', 'grades-close', '×');
+  closeBtn.type = 'button';
+  closeBtn.setAttribute('aria-label', 'close grades');
+  closeBtn.addEventListener('click', closeGrades);
+  bar.appendChild(closeBtn);
+  head.appendChild(bar);
+  gradesEl.appendChild(head);
+
+  for (const p of graded) {
+    gradesEl.appendChild(buildGradesPanel(p, all[p.slug], { list: true }));
+  }
+  gradesEl.classList.remove('hidden');
+}
+
+// v — toggle grades for the piece on screen. Shift+V — toggle the full list.
+// Falls back to the URL-pinned slug so grades stay reachable even when the
+// piece itself failed to compile.
+function toggleGrades() {
+  if (gradesOpen()) { closeGrades(); return; }
+  const slug = currentSlug ?? FORCED_SLUG;
+  if (!slug) return;
+  openGrades({ slug, title: currentMeta?.title ?? slug });
+}
+
+function toggleAllGrades() {
+  if (gradesOpen()) { closeGrades(); return; }
+  openAllGrades();
 }
 
 // Click on the dimmed backdrop (not the panel) closes, like Esc.
@@ -2193,103 +2267,130 @@ function el(tag, className, text) {
   return node;
 }
 
-function renderGrades(piece, critiques) {
-  gradesEl.replaceChildren();
+// One piece's grades panel. Single mode gets a close button; list mode gets
+// a clickable title that jumps to the piece.
+function buildGradesPanel(piece, critiques, { list }) {
   const panel = el('div', 'grades-panel');
 
   const head = el('div', 'grades-head');
-  head.append(
-    el('div', 'grades-title', piece.title ?? piece.slug),
-    el('div', 'grades-sub', piece.slug),
-  );
-  const closeBtn = el('button', 'grades-close', '×');
-  closeBtn.type = 'button';
-  closeBtn.setAttribute('aria-label', 'close grades');
-  closeBtn.addEventListener('click', closeGrades);
-  head.appendChild(closeBtn);
+  const title = el('div', 'grades-title', piece.title ?? piece.slug);
+  if (list) {
+    title.classList.add('grades-title-link');
+    title.title = 'open this piece';
+    title.addEventListener('click', () => {
+      closeGrades();
+      closeCatalog();
+      userOverride = true;
+      loadPiece(piece.slug);
+    });
+  }
+  head.append(title, el('div', 'grades-sub', piece.slug));
+  if (!list) {
+    const closeBtn = el('button', 'grades-close', '×');
+    closeBtn.type = 'button';
+    closeBtn.setAttribute('aria-label', 'close grades');
+    closeBtn.addEventListener('click', closeGrades);
+    head.appendChild(closeBtn);
+  }
   panel.appendChild(head);
 
   if (critiques.length === 0) {
     panel.appendChild(el('div', 'grades-empty', 'no critiques recorded for this piece'));
-  } else {
-    // Latest structured critique carries the probe data; prose-only ones
-    // (pre-YAML-tail era) at most contribute a verdict to the history.
-    const latest = [...critiques].reverse().find((c) => c.structured) ?? critiques[critiques.length - 1];
-
-    // Grouped note: the one-line aggregate read of the latest critique.
-    const note = el('div', 'grades-note');
-    if (latest.verdict) note.appendChild(el('span', `verdict-pill verdict-${verdictClass(latest.verdict)}`, latest.verdict));
-    const parts = [];
-    if (latest.composite != null) parts.push(`avg dims ${latest.composite}/5`);
-    // mesmerizing_passes is usually a number, but some critiques wrote "1/5".
-    const mes = latest.passes?.mesmerizing;
-    if (mes != null && mes !== 'n/a') parts.push(`mesmerizing ${String(mes).includes('/') ? mes : `${mes}/5`}`);
-    if (latest.claim_check != null) parts.push(`claim ${latest.claim_check}`);
-    parts.push(latest.version, `${critiques.length} critique${critiques.length > 1 ? 's' : ''}`);
-    note.appendChild(el('span', 'grades-note-text', parts.join(' · ')));
-    panel.appendChild(note);
-
-    if (latest.structured) {
-      const groups = el('div', 'grades-groups');
-      for (const [key, probes] of Object.entries(latest.probes ?? {})) {
-        const group = el('div', 'grades-group');
-        const passCount = latest.passes?.[key];
-        group.appendChild(el('div', 'grades-group-h',
-          (PROBE_GROUP_TITLES[key] ?? probeLabel(key)) + (passCount != null && passCount !== 'n/a' ? ` — ${passCount}` : '')));
-        for (const [probe, value] of Object.entries(probes)) {
-          const row = el('div', 'grades-row');
-          row.append(
-            el('span', 'grades-probe', probeLabel(probe)),
-            el('span', `grades-value pv-${probeClass(value)}`, String(value)),
-          );
-          group.appendChild(row);
-        }
-        groups.appendChild(group);
-      }
-      if (latest.scores) {
-        const group = el('div', 'grades-group');
-        group.appendChild(el('div', 'grades-group-h', 'Dimensions'));
-        for (const [dim, score] of Object.entries(latest.scores)) {
-          const row = el('div', 'grades-row');
-          row.appendChild(el('span', 'grades-probe', probeLabel(dim)));
-          if (typeof score === 'number') {
-            const bar = el('span', 'grades-bar');
-            const fill = el('span', 'grades-bar-fill');
-            fill.style.width = `${(score / 5) * 100}%`;
-            bar.appendChild(fill);
-            row.append(bar, el('span', 'grades-score', `${score}/5`));
-          } else {
-            row.appendChild(el('span', 'grades-value pv-na', String(score)));
-          }
-          group.appendChild(row);
-        }
-        groups.appendChild(group);
-      }
-      panel.appendChild(groups);
-    } else {
-      panel.appendChild(el('div', 'grades-empty', 'latest critique predates structured grading — verdict only'));
-    }
-
-    const hist = el('div', 'grades-group grades-history');
-    hist.appendChild(el('div', 'grades-group-h', 'History'));
-    for (const c of critiques) {
-      const row = el('div', 'grades-row');
-      row.append(
-        el('span', 'grades-probe', c.version),
-        el('span', `grades-value verdict-${verdictClass(c.verdict)}`, c.verdict ?? '—'),
-        el('span', 'grades-score', c.composite != null ? `${c.composite}/5` : ''),
-      );
-      const link = el('a', 'grades-link', 'full critique ↗');
-      link.href = `/api/critiques/${encodeURIComponent(c.file)}`;
-      link.target = '_blank';
-      link.rel = 'noopener';
-      row.appendChild(link);
-      hist.appendChild(row);
-    }
-    panel.appendChild(hist);
+    return panel;
   }
 
-  gradesEl.appendChild(panel);
+  // Latest structured critique carries the probe data; prose-only ones
+  // (pre-YAML-tail era) at most contribute a verdict to the history.
+  const latest = [...critiques].reverse().find((c) => c.structured) ?? critiques[critiques.length - 1];
+
+  // Grouped note: the one-line aggregate read of the latest critique.
+  const note = el('div', 'grades-note');
+  if (latest.verdict) {
+    const pill = el('span', `verdict-pill verdict-${verdictClass(latest.verdict)}`, latest.verdict);
+    note.appendChild(pill);
+    const tip = infoTip(probeInfo?.verdicts?.[verdictClass(latest.verdict)]);
+    if (tip) note.appendChild(tip);
+  }
+  const parts = [];
+  if (latest.composite != null) parts.push(`avg dims ${latest.composite}/5`);
+  // mesmerizing_passes is usually a number, but some critiques wrote "1/5".
+  const mes = latest.passes?.mesmerizing;
+  if (mes != null && mes !== 'n/a') parts.push(`mesmerizing ${String(mes).includes('/') ? mes : `${mes}/5`}`);
+  if (latest.claim_check != null) parts.push(`claim ${latest.claim_check}`);
+  parts.push(latest.version, `${critiques.length} critique${critiques.length > 1 ? 's' : ''}`);
+  note.appendChild(el('span', 'grades-note-text', parts.join(' · ')));
+  panel.appendChild(note);
+
+  if (latest.structured) {
+    const groups = el('div', 'grades-groups');
+    for (const [key, probes] of Object.entries(latest.probes ?? {})) {
+      const group = el('div', 'grades-group');
+      const passCount = latest.passes?.[key];
+      const groupHead = el('div', 'grades-group-h');
+      groupHead.appendChild(el('span', '',
+        (PROBE_GROUP_TITLES[key] ?? probeLabel(key)) + (passCount != null && passCount !== 'n/a' ? ` — ${passCount}` : '')));
+      const groupTip = infoTip(probeInfo?.groups?.[key]);
+      if (groupTip) groupHead.appendChild(groupTip);
+      group.appendChild(groupHead);
+      for (const [probe, value] of Object.entries(probes)) {
+        const row = el('div', 'grades-row');
+        const label = el('span', 'grades-probe');
+        label.appendChild(el('span', '', probeLabel(probe)));
+        const tip = infoTip(probeInfo?.probes?.[key]?.[probe]);
+        if (tip) label.appendChild(tip);
+        row.append(label, el('span', `grades-value pv-${probeClass(value)}`, String(value)));
+        group.appendChild(row);
+      }
+      groups.appendChild(group);
+    }
+    if (latest.scores) {
+      const group = el('div', 'grades-group');
+      group.appendChild(el('div', 'grades-group-h', 'Dimensions'));
+      for (const [dim, score] of Object.entries(latest.scores)) {
+        const row = el('div', 'grades-row');
+        const label = el('span', 'grades-probe');
+        label.appendChild(el('span', '', probeLabel(dim)));
+        const tip = infoTip(probeInfo?.scores?.[dim]);
+        if (tip) label.appendChild(tip);
+        row.appendChild(label);
+        if (typeof score === 'number') {
+          const bar = el('span', 'grades-bar');
+          const fill = el('span', 'grades-bar-fill');
+          fill.style.width = `${(score / 5) * 100}%`;
+          bar.appendChild(fill);
+          row.append(bar, el('span', 'grades-score', `${score}/5`));
+        } else {
+          row.appendChild(el('span', 'grades-value pv-na', String(score)));
+        }
+        group.appendChild(row);
+      }
+      groups.appendChild(group);
+    }
+    panel.appendChild(groups);
+  } else {
+    panel.appendChild(el('div', 'grades-empty',
+      'no structured grades in the latest critique — see the full-critique links below'));
+  }
+
+  const hist = el('div', 'grades-group grades-history');
+  hist.appendChild(el('div', 'grades-group-h', 'History'));
+  for (const c of critiques) {
+    const row = el('div', 'grades-row');
+    row.append(
+      el('span', 'grades-probe', c.version),
+      el('span', `grades-value verdict-${verdictClass(c.verdict)}`, c.verdict ?? '—'),
+      el('span', 'grades-score', c.composite != null ? `${c.composite}/5` : ''),
+    );
+    const link = el('a', 'grades-link', 'full critique ↗');
+    link.href = `/api/critiques/${encodeURIComponent(c.file)}`;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    row.appendChild(link);
+    hist.appendChild(row);
+  }
+  panel.appendChild(hist);
+
+  return panel;
 }
 
 // ---------- audio ----------

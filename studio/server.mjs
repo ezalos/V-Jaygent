@@ -91,6 +91,15 @@ async function handle(req, res, { piecesRoot, libRoot, layersRoot, critiquesRoot
   if (path === '/api/catalog')       return apiCatalog(res, piecesRoot);
   if (path === '/api/current')       return apiCurrent(res, piecesRoot);
   if (path === '/api/critic-summary') return apiCriticSummary(res, critiquesRoot);
+  if (path === '/api/critiques')      return apiAllCritiques(res, critiquesRoot);
+
+  // Probe definitions for the grades-view tooltips — verbatim excerpts from
+  // taste.md, curated in studio/probe-info.json.
+  if (path === '/api/probe-info') {
+    const body = await readFile(join(studioDir, 'probe-info.json')).catch(() => null);
+    if (body === null) return send(res, 404, 'text/plain', 'not found');
+    return send(res, 200, 'application/json; charset=utf-8', body);
+  }
 
   // Per-piece critic history — every critique for the slug, structured data
   // parsed from the YAML tail each critique ends with (see vjay-iterate skill).
@@ -336,6 +345,23 @@ async function apiPieceCritiques(res, critiquesRoot, slug) {
     critiques.push(parseCritique(raw, file, version));
   }
   sendJson(res, 200, { slug, critiques });
+}
+
+// Every critique of every piece, grouped by slug — one call for the
+// all-pieces grades list.
+async function apiAllCritiques(res, critiquesRoot) {
+  const bySlug = await critiqueFilesBySlug(critiquesRoot);
+  const out = {};
+  for (const [slug, files] of bySlug) {
+    const critiques = [];
+    for (const { file, version } of files) {
+      const raw = await readFile(join(critiquesRoot, file), 'utf8').catch(() => null);
+      if (raw === null) continue;
+      critiques.push(parseCritique(raw, file, version));
+    }
+    if (critiques.length > 0) out[slug] = critiques;
+  }
+  sendJson(res, 200, out);
 }
 
 // Latest verdict per slug — one cheap call for catalog chips. Only the

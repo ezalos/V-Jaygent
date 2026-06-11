@@ -375,6 +375,25 @@ test('piece without critiques returns an empty list', async () => {
   assert.deepEqual(body.critiques, []);
 });
 
+test('GET /api/critiques returns every critique grouped by slug', async () => {
+  const res = await fetch(baseUrl + '/api/critiques');
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body['test-piece'].length, 2);
+  assert.equal(body['test-piece'][0].version, 'v1');
+  assert.equal(body['test-piece'][1].verdict, 'ship-it');
+  assert.equal(body['prose-piece'].length, 1);
+});
+
+test('GET /api/probe-info serves the probe definitions', async () => {
+  const res = await fetch(baseUrl + '/api/probe-info');
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.ok(body.probes.mesmerizing.prediction, 'mesmerizing.prediction definition missing');
+  assert.ok(body.scores.motion, 'scores.motion definition missing');
+  assert.ok(body.verdicts['ship-it'], 'ship-it verdict definition missing');
+});
+
 test('GET /api/critiques/:file serves raw critique markdown', async () => {
   const res = await fetch(baseUrl + '/api/critiques/test-piece-v1.md');
   assert.equal(res.status, 200);
