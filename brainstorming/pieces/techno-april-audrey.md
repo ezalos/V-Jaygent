@@ -9,8 +9,10 @@ Track: https://soundcloud.com/alpha-tracks-official/april-audrey-danzas-percs
 > quiet sections) and a drop (251.6s, a 99s second act) — the drop got the
 > densest Turing regime (coral labyrinth) and the golden-angle boundary
 > sweep as its structural moment. "Propagation, not pulse" held: each beat
-> launches a travelling annulus from a 2x2 crossing lattice (the danzas),
-> and the layered rings DO interfere as hoped. 4/4 in geometry: breaking
+> launches a travelling annulus (v1: fixed 2x2 lattice; v2 per Louis:
+> hashed centre + max-radius per beat, bar-start beats fire 3 rings, and
+> crossing fronts detonate at the intersection lenses), and the layered
+> rings DO interfere as hoped. 4/4 in geometry: breaking
 > radial symmetry with the off-centre lattice + diagonal sweeps felt right;
 > square symmetry was never missed. Cold palette: see
 > `non-warm-experiment.md` for the verdict question.

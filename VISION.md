@@ -42,6 +42,16 @@ signatures that drift across the full spectrum.** Each sub-element owns
 its own slowly-cycling hue offset, and the set of simultaneously-visible
 hues covers the wheel without any single element being confetti.
 
+**The cold exception (added after `danzas-percs`, 2026-06-11).** The
+non-warm experiment ran and the door is open: a cold palette (steel /
+cobalt / midnight per `brainstorming/palettes/cold-question.md`) is
+allowed **when it makes sense** — the form is mechanical / precise /
+nocturnal AND any warm accent has a *physical meaning* in the piece's
+math (in danzas-percs: reaction = ember, diffusion = steel). Warm stays
+the default; cold is a deliberate choice the piece must earn, never a
+drift. The cohesion rule is unchanged — luminance contrast inside one
+family, no complementary-hue mids.
+
 What still stays disallowed:
 - No rainbow shifts within a single element.
 - No high-saturation primaries at peak brightness — peaks roll off via

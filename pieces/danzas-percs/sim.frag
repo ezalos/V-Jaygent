@@ -1,5 +1,5 @@
-// ABOUTME: Gray-Scott reaction-diffusion for "danzas-percs" — kicks launch travelling
-// ABOUTME: wavefronts from a 2x2 dance-step lattice; sections morph the Turing regime.
+// ABOUTME: Gray-Scott reaction-diffusion for "danzas-percs" — every beat hashes a
+// ABOUTME: travelling ring-front (3 on bar-starts, crossings detonate); sections morph the regime.
 #version 300 es
 precision highp float;
 
@@ -14,7 +14,8 @@ uniform int  u_touch_count;
 
 // Song-level audio (zeroed when no analysis / silent).
 uniform float u_beat_phase;        // [0,1) sawtooth — the front's travel clock
-uniform int   u_beat_index;        // which beat — picks the lattice site (the dance step)
+uniform int   u_beat_index;        // which beat — seeds the ring hash (the dance step)
+uniform float u_bar_phase;         // [0,1) per bar — bar-start beats fire 3 rings
 uniform float u_downbeat;          // bar-start impulse — accents the front
 uniform int   u_section_id;        // Turing regime selector
 uniform float u_section_progress;  // regime cross-fade + boundary sweep clock
@@ -48,11 +49,9 @@ const vec2 REGIMES[8] = vec2[8](
     vec2(0.030,  0.062)    // 7 outro      — solitons under the F-starve ending
 );
 
-// 2x2 lattice walked in a crossing order (LL -> RR -> LR -> RL): the kicks
-// "dance" across the frame instead of pulsing one centre. Aspect-centred space.
-const vec2 SITES[4] = vec2[4](
-    vec2(-0.32, -0.20), vec2(0.32, 0.20), vec2(-0.32, 0.20), vec2(0.32, -0.20)
-);
+// Every beat hashes its own ring: centre anywhere in the frame, its own max
+// diameter, its own width — the kicks "dance" unpredictably across the frame
+// (v1 used a fixed 2x2 lattice; same vocabulary every bar read as a grid).
 
 void main() {
     vec2 uv     = gl_FragCoord.xy / u_resolution.xy;
@@ -113,20 +112,37 @@ void main() {
     reactF = mix(reactF, uvv * 12.0, 0.08);
     reactS = mix(reactS, uvv * 12.0, 0.012);
 
-    // ---- Travelling kick-front: the active lattice site fires an annulus whose
-    // radius is driven by beat_phase — the injection locus TRAVELS (propagation,
-    // not pulse). Gated by the drums stem so the intro/breaks stay quiet.
+    // ---- Travelling kick-fronts: annuli whose radii are driven by beat_phase —
+    // the injection locus TRAVELS (propagation, not pulse). Each beat hashes a
+    // fresh centre, max radius and width. Ordinary beats fire ONE ring; the
+    // first beat of every bar (bar_phase < 0.25 in 4/4) fires THREE — and where
+    // two simultaneous fronts CROSS, the chemistry detonates: the pairwise
+    // overlap injects hard, the freshness band-pass flares it ember, and the
+    // RD blooms a burst of new pattern at the intersection points.
     if (u_section_id >= 0 && u_audio_playing > 0.5) {
-        int   si   = u_beat_index % 4;
-        vec2  site = SITES[si] + 0.05 * vec2(sin(u_time * 0.07 + float(si) * 2.1),
-                                             cos(u_time * 0.05 + float(si) * 1.3));
-        float r    = u_beat_phase * 0.45;
-        float dist = length(p - site);
-        float ring = exp(-pow((dist - r) / 0.010, 2.0));
+        float seed = float(u_beat_index) * 0.731 + float(u_section_id) * 17.13;
         float gate = smoothstep(0.12, 0.45, u_audio_drums_stem);
-        float amp  = 0.045 * gate * (1.0 + 1.5 * u_downbeat) * (1.0 - 0.45 * u_beat_phase);
-        v += ring * amp;
-        u  = max(u - ring * amp * 0.3, 0.0);
+        bool  barStart = u_bar_phase < 0.25;     // beat 1 of the bar
+
+        vec3 w = vec3(0.0);                       // per-slot ring weights here
+        for (int k = 0; k < 3; k++) {
+            if (k > 0 && !barStart) break;        // siblings only on bar-start
+            float fk   = float(k);
+            vec2  h    = hash22(vec2(seed + fk * 5.91, seed * 1.37 + fk * 2.17));
+            vec2  site = (h - 0.5) * vec2(1.10, 0.72);
+            float rMax = mix(0.22, 0.62, hash21(vec2(seed * 0.911 + fk * 3.7, seed + fk)));
+            float wid  = mix(0.008, 0.014, hash21(vec2(seed + fk * 7.3, seed * 0.53)));
+            float r    = u_beat_phase * rMax;
+            w[k] = exp(-pow((length(p - site) - r) / wid, 2.0));
+        }
+
+        float amp = 0.045 * gate * (1.0 + 1.5 * u_downbeat) * (1.0 - 0.45 * u_beat_phase);
+        float inj = (w.x + 0.8 * (w.y + w.z)) * amp;
+        // Intersection detonation — only where two fronts overlap RIGHT NOW
+        // (pairwise products are ~1 only in the crossing lenses).
+        float inter = (w.x * w.y + w.x * w.z + w.y * w.z) * gate * 0.11;
+        v += inj + inter;
+        u  = max(u - (inj * 0.3 + inter * 0.5), 0.0);
 
         // ---- Section-boundary sweep (the structural moment): a diagonal planar
         // front crosses the whole frame in the first ~1.6 SECONDS of each

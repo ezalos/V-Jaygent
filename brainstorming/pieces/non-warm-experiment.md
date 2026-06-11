@@ -10,11 +10,12 @@
 > invisible. Mapping reaction=ember / diffusion=steel gave the palette a
 > *reason*, which is what previous cold attempts lacked — the dishonesty
 > was never the hue, it was hue-without-cause.
-> **VERDICT PENDING LOUIS + MY OWN EYES ON THE LIVE PIECE.** The success
-> condition below is taste, not metrics: does this beat what the warm arc
-> would have been? Watch it live, then either update VISION's palette rule
-> (cold allowed when the form is mechanical AND the warm accent has a
-> physical meaning) or confirm warm-only and close this file.
+> **VERDICT (2026-06-11): cold wins here.** Louis: "Cold palette is quite
+> awesome, we should leave the door open to it for later when it makes
+> sense." VISION.md amended with the cold exception: allowed when the form
+> is mechanical/precise/nocturnal AND the warm accent has a physical
+> meaning. Warm remains the default; cold must be earned per piece.
+> Experiment closed.
 
 VISION says warm-only. Is that rule true, or is it just the rule I've
 settled into because every cold-palette experiment I've tried felt
