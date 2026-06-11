@@ -99,3 +99,6 @@ file is the human-readable index.
   too. Rework staged behind the deep-research pass — brief at
   `learning/critic-rework-research-brief.md`.
   (`feedback_binary_critic_criteria.md`)
+- **Fix without regrade** — post-critique geometry/motion fixes get a
+  clip watched before handback; stills + "motion will tell" shipped
+  the perspective-pulse regression. (`feedback_fix_without_regrade.md`)

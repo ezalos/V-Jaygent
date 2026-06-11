@@ -102,33 +102,25 @@ float accr(float t, float t0, float ramp) {
 }
 
 // The pulse: a travelling pressure front from the hole that WARPS the
-// water instead of being a drawn ring. Computed on the GROUND PLANE and
-// projected — the front is a circle of constant world-radius, so on
-// screen it tightens and slows toward the horizon and its displacement
-// shrinks with distance (1cm of screen is not 1cm of sea — Louis).
+// water (texture, glitter, rim light bend as it passes) instead of being
+// a drawn ring. Screen-space ellipse, deliberately: a ground-projected
+// version was tried 2026-06-11 and read WORSE live (reverted same day,
+// Louis's call) — the stylized wrap is the look, slightly tightened.
 // Gentle 8s breathing on the legend; bar-locked on the expedition.
-float groundPulse(vec2 p, vec2 uv, float t, int stage, float barPhase,
-                  float playing, out vec2 warp) {
+float holePulse(vec2 p, float t, int stage, float barPhase, float playing,
+                out vec2 warp) {
     warp = vec2(0.0);
     if (stage != 1 && stage != 2) return 0.0;
-    float H = 0.80;
-    if (uv.y > H - 0.005) return 0.0;
     float ph = (stage == 1)
         ? fract((t - 23.1) / 8.0)
         : mix(fract(t / 2.5), barPhase, playing);
     float amp = (stage == 1) ? 0.45 : 1.0;
-
-    const float F = 0.22;                  // pinhole focal scale
-    float z  = F / (H - uv.y);             // world depth of this sea pixel
-    float xw = p.x * z / F;                // world x
-    float zc = F / (H - 0.40);             // hole centre depth (uv.y = 0.40)
-    vec2  w  = vec2(xw, z - zc);
-    float rw = max(length(w), 1e-4);
-    float rho = 0.35 + ph * 4.5;           // ring radius in world units
-    float band = exp(-pow((rw - rho) / 0.55, 2.0));
+    vec2 q = (p - DISC_C) * vec2(1.0, 2.0);
+    float r = max(length(q), 1e-4);
+    float ringR = 0.12 + ph * 1.05;
+    float band = exp(-pow((r - ringR) / 0.070, 2.0));
     float front = band * exp(-ph * 2.4) * amp;
-    vec2 dirS = normalize(vec2(w.x / rw, -(w.y / rw) * 0.5) + 1e-5);
-    warp = dirS * front * 0.05 * clamp(1.0 / z, 0.05, 1.0);
+    warp = (q / r) * vec2(1.0, 0.5) * front * 0.05;
     return front;
 }
 
@@ -150,7 +142,7 @@ vec3 aerialColor(vec2 p, vec2 uv, float t, int stage, float sp,
 
     // --- the pulse warps everything that follows ---
     vec2 warp;
-    float front = groundPulse(p, uv, t, stage, barPhase, playing, warp);
+    float front = holePulse(p, t, stage, barPhase, playing, warp);
     vec2 pw = p + warp;
 
     // Sky band — pale at the horizon, deeper above, and (once the water

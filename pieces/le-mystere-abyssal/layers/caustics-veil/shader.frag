@@ -126,26 +126,22 @@ void main() {
         // accretion: the glitter wakes with the waves (~6.5s in)
         float gGlit = smoothstep(6.5, 10.0, u_time);
         // the hole's pressure pulse warps the sparkle as it passes —
-        // ground-projected, identical math to water-column's groundPulse
+        // screen-space, identical math to water-column's holePulse
+        // (ground-projected version reverted 2026-06-11, read worse live)
         vec2 warp = vec2(0.0);
         float front = 0.0;
         float H = 0.80;
-        if ((stage == 1 || stage == 2) && uv.y < H - 0.005) {
+        if (stage == 1 || stage == 2) {
             float ph = (stage == 1)
                 ? fract((u_time - 23.1) / 8.0)
                 : mix(fract(u_time / 2.5), u_bar_phase, u_audio_playing);
             float amp = (stage == 1) ? 0.45 : 1.0;
-            const float F = 0.22;
-            float z  = F / (H - uv.y);
-            float xw = p.x * z / F;
-            float zc = F / (H - 0.40);
-            vec2  w  = vec2(xw, z - zc);
-            float rw = max(length(w), 1e-4);
-            float rho = 0.35 + ph * 4.5;
-            float band = exp(-pow((rw - rho) / 0.55, 2.0));
+            vec2 q = (p - DISC_C) * vec2(1.0, 2.0);
+            float r0 = max(length(q), 1e-4);
+            float ringR = 0.12 + ph * 1.05;
+            float band = exp(-pow((r0 - ringR) / 0.070, 2.0));
             front = band * exp(-ph * 2.4) * amp;
-            vec2 dirS = normalize(vec2(w.x / rw, -(w.y / rw) * 0.5) + 1e-5);
-            warp = dirS * front * 0.05 * clamp(1.0 / z, 0.05, 1.0);
+            warp = (q / r0) * vec2(1.0, 0.5) * front * 0.05;
         }
         // finer toward the horizon so the sparkle sits on the sea plane;
         // drift vector matches the water-column wave drift exactly so the
