@@ -7,7 +7,7 @@
 // Prereqs: studio server running on STUDIO_PORT (default 7777).
 // Output: pieces/<slug>/inspect/frame-NN-t{seconds}.png
 
-import { chromium } from 'playwright';
+import { launchRenderBrowser } from './browser-launch.mjs';
 import { mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
@@ -37,17 +37,7 @@ await mkdir(outDir, { recursive: true });
 
 console.log(`[inspect] piece=${slug} frames=${frames} interval=${intervalSec}s port=${port}`);
 
-const browser = await chromium.launch({
-  headless: true,
-  args: [
-    '--autoplay-policy=no-user-gesture-required',
-    '--use-gl=angle',
-    '--use-angle=swiftshader',
-    '--enable-unsafe-swiftshader',
-    '--ignore-gpu-blocklist',
-    '--no-sandbox',
-  ],
-});
+const browser = await launchRenderBrowser();
 
 try {
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });

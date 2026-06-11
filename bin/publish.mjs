@@ -15,7 +15,7 @@ import { spawn } from 'node:child_process';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import yaml from 'js-yaml';
-import { chromium } from 'playwright';
+import { launchRenderBrowser } from './browser-launch.mjs';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 const here = dirname(fileURLToPath(import.meta.url));
@@ -46,17 +46,7 @@ await assertServerUp(port);
 
 console.log(`[publish] rendering ${args.slug} for ${duration}s at ${width}x${height}`);
 
-const browser = await chromium.launch({
-  headless: true,
-  args: [
-    '--autoplay-policy=no-user-gesture-required',
-    '--use-gl=angle',
-    '--use-angle=swiftshader',
-    '--enable-unsafe-swiftshader',
-    '--ignore-gpu-blocklist',
-    '--no-sandbox',
-  ],
-});
+const browser = await launchRenderBrowser();
 let webmBytes;
 try {
   const context = await browser.newContext({ viewport: { width, height } });

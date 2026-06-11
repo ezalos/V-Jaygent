@@ -31,7 +31,17 @@ known-good clip recording: 2026-05-25 (anemone clip-peak.mp4, 5.7MB).
 Suspects: Playwright/Chromium update since 05-25; headless GPU context
 flakiness (memory: "GPU init race" caveat). Blocks /vjay-iterate's
 clip-based probes — fix before the le-mystere-abyssal critic pass.
-**Status:** open
+**Status:** fixed (2026-06-11). Root cause was THREE stacked problems:
+(1) old headless shell has no GPU path, so the 2026-06-03 swiftshader
+args software-rendered FBO pieces at 3-7fps — MediaRecorder real-time
+capture got ~1 frame → 110-byte webm; (2) MediaRecorder's flush-at-stop
+(no timeslice) delivers an empty blob in this Chromium — record() now
+uses rec.start(250); (3) capture now goes through a 2D mirror canvas.
+Fix: bin/browser-launch.mjs (channel:'chromium' new headless +
+--use-gl=angle --use-angle=gl-egl → RTX 4090, 63fps) used by
+inspect-music/inspect/publish, + retry-on-empty in inspect-music, +
+runtime record() mirror+timeslice. Bare '--enable-gpu' without the
+explicit angle backend still hits the init race — keep the backend pinned.
 
 ## 2026-04-19 — smoke-shaders.mjs over-strict on console errors
 **Context:** Running `node bin/smoke-shaders.mjs touch-probe` during mobile-support Task 7 verification.

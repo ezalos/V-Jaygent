@@ -15,7 +15,7 @@
 // Prereq: studio server running on STUDIO_PORT (default 7777) WITH the
 //         exposeRecordingHooks patch (seekAudio/waitForAudio).
 
-import { chromium } from 'playwright';
+import { launchRenderBrowser } from './browser-launch.mjs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
@@ -152,17 +152,7 @@ for (const s of stops) {
 const port = Number(process.env.STUDIO_PORT ?? 7777);
 const url = `http://127.0.0.1:${port}/?piece=${encodeURIComponent(args.slug)}&record=1`;
 
-const browser = await chromium.launch({
-  headless: true,
-  args: [
-    '--autoplay-policy=no-user-gesture-required',
-    '--use-gl=angle',
-    '--use-angle=swiftshader',
-    '--enable-unsafe-swiftshader',
-    '--ignore-gpu-blocklist',
-    '--no-sandbox',
-  ],
-});
+const browser = await launchRenderBrowser();
 
 try {
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
@@ -299,11 +289,29 @@ try {
       const win = windows[wi];
       const tag = `t${win.start.toFixed(1)}`;
       console.log(`  [w${wi}] ${win.label.padEnd(6)} audioT=${win.start.toFixed(1)}s`);
-      await page.evaluate(async (t) => { await window.__vj.seekAudio(t); }, win.start);
-      await page.waitForTimeout(450);
-      const webmBytes = await page.evaluate(async (ms) => {
-        return await window.__vj.record(ms);
-      }, Math.round(clipDur * 1000));
+      // Record with one retry: a flaky GPU init or a stalled stream shows up
+      // as a throw or a near-empty webm (<5KB); a page reload clears it.
+      let webmBytes = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          await page.evaluate(async (t) => { await window.__vj.seekAudio(t); }, win.start);
+          await page.waitForTimeout(450);
+          webmBytes = await page.evaluate(async (ms) => {
+            return await window.__vj.record(ms);
+          }, Math.round(clipDur * 1000));
+          if (webmBytes.length > 5000) break;
+          console.warn(`  [w${wi}] webm only ${webmBytes.length} bytes — retrying after reload`);
+        } catch (e) {
+          console.warn(`  [w${wi}] record failed (${e.message?.slice(0, 60)}) — retrying after reload`);
+        }
+        await page.reload({ waitUntil: 'load' });
+        await page.click('#stage').catch(() => {});
+        await page.waitForTimeout(1500);
+      }
+      if (!webmBytes || webmBytes.length <= 5000) {
+        console.warn(`  [w${wi}] giving up on this window after retry`);
+        continue;
+      }
       const baseName = `clip-w${wi}-${tag}-${win.label}`;
       const webmPath = join(outDir, `${baseName}.webm`);
       const mp4Path  = join(outDir, `${baseName}.mp4`);
