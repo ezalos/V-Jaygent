@@ -1,0 +1,18 @@
+title: "le-mystere-abyssal"
+slug: le-mystere-abyssal
+created: 2026-06-11T09:38:04.761Z
+notes: |
+  Scaffolded by bin/vjay-from-url.mjs from an audio URL. The layer stack
+  below is a placeholder — replace it with the actual artistic decisions
+  via /vjay-new-piece (or hand-edit) before iterating.
+duration: 228
+audio: audio.mp3
+audio_features: [beat, sections, key]
+# Placeholder layer stack — REPLACE before iterating. Two global layers
+# wired so the piece renders something visible immediately.
+layers:
+  - layer: solid-warm
+    blend: normal
+  - layer: wave-distort
+    blend: replace
+    drivers: { strength: u_audio_bass_stem }

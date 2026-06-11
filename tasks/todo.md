@@ -1,63 +1,43 @@
-# studio: critic-grades view + catalog sort fix
+# le-mystere-abyssal — birthday piece for Alexandre
 
-**Brief (Louis, 2026-06-11).** (1) A way to see, per piece, the grade
-the critic gave on each individual probe, plus a grouped note —
-"maybe some new view accessible from the catalog". (2) Make sure the
-piece menu is sorted most-recent → oldest.
-
-Previous todo (rosette, shipped chef-doeuvre) in git history.
-
-## Findings
-
-- The catalog *is* sorted server-side, but the sort is broken:
-  js-yaml parses `created:` into a JS `Date`, and
-  `String(date).localeCompare(...)` orders by **day-of-week name**
-  ("Wed May 20…"). Live order confirmed garbage (all Wednesdays
-  first). Fix: compare epoch ms.
-- Critic data lives in `brainstorming/critiques/<slug>-vN[-iM].md`.
-  30/44 files end in a structured ```yaml tail (verdict, claim_check,
-  per-probe pass/fail/weak across up to 6 groups, 6 dimension scores,
-  top_fix). Older ones are prose-only — fall back to scraping the
-  verdict.
-- The container has no view of `brainstorming/` — needs a read-only
-  bind mount + Dockerfile COPY default.
+**Brief (Louis, 2026-06-11).** A chef-d'oeuvre on MPL's "Le mystère
+abyssal" for his friend Alexandre's birthday. Lyrics drive the
+narrative arc; blue palette sanctioned; multi-day, no rush; reuse the
+best of every prior piece. Full design:
+`brainstorming/pieces/le-mystere-abyssal.md` (approved by Louis
+2026-06-11). Previous todo (studio grades view, shipped) in git history.
 
 ## Plan
 
-- [x] server.mjs: fix apiCatalog sort (epoch compare, robust to Date
-      or string `created`)
-- [x] server.mjs: `critiquesDir` option +
-      `GET /api/pieces/:slug/critiques` (parsed YAML tails, sorted by
-      version; fallback verdict-scrape for old files) +
-      `GET /api/critic-summary` (latest verdict per slug, for catalog
-      chips) + `GET /api/critiques/:file` (raw markdown)
-- [x] runtime.mjs: verdict chip on catalog cards (click → grades
-      panel, stopPropagation) + grades overlay: grouped note (latest
-      verdict + avg dimension score + mesmerizing X/5 + claim),
-      per-probe grades by group, dimension scores, version history
-      with links to full critiques
-- [x] index.html + styles.css: #grades overlay, verdict-pill colors
-- [x] compose.yaml: `./brainstorming/critiques` ro mount; Dockerfile
-      COPY fallback
-- [x] tests: fixtures + sort regression test + critiques endpoints
-- [x] run test suite (73/73 pass)
-- [x] commit, docker compose build && up -d, verify live
+### Phase 1 — spine
+- [x] Identify song, download audio, analyze with stems
+- [x] Synced lyrics (lyrics.lrc) + narrative timeline vs analysis
+- [x] Research: piece survey, brainstorm digest, film/physics/shader refs
+- [x] Brief written + approved
+- [ ] NARRATIVE block (stage machine + depth curve + extinction)
+- [ ] water-column layer (aerial lagoon + hole disc + depth gradient + milky stratum)
+- [ ] caustics-veil layer (voronoi filaments, bar-phase axis, cursor agitation)
+- [ ] light-shaft layer (Snell disc + god rays + silhouette + radio thread)
+- [ ] meta.yaml real stack; smoke-layers pass
+- [ ] inspect renders at t = 5/30/55/70/100/130/148/165/185/205/222 — review by eye
+- [ ] commit phase 1
+
+### Phase 2 — voice & events
+- [ ] bubbles layer (vocal-stem emission, wobble, u_history trails, key bursts, cursor deflect)
+- [ ] events layer (sonar downbeat rings A3, dice snap @83.61, thread-sever @97, chorus rings, radio static ~96–98s)
+- [ ] motion probes (frame deltas) at B2; commit
+
+### Phase 3 — deep & sun
+- [ ] sun-bloom layer (B1 glimmer → B3 closer → C3 flood; key-fed gain)
+- [ ] deep-life layer (marine snow + C1 reversal, cursor dino-sparkle, lure, dissolution)
+- [ ] full-song inspect-music run + clip-peak; commit
+
+### Phase 4 — critique & polish
+- [ ] /vjay-iterate le-mystere-abyssal (critic loops until ship-it/chef-d'oeuvre)
+- [ ] Louis watchthrough + redlines
+- [ ] dedication line in meta + studio page
+- [ ] deploy check on vjaygent.develle.fr; publish
 
 ## Review
 
-- Sort root cause was data-type, not ordering logic: js-yaml turns
-  `created:` into a Date, and `String(date)` starts with the
-  day-of-week name, so localeCompare grouped pieces by weekday.
-  Fixed with an epoch-ms compare; regression test pins it.
-- Grades view: verdict chip on each catalog card (latest verdict +
-  composite, color-coded) → full-screen overlay with the grouped
-  note (verdict pill · avg dims · mesmerizing · claim · version ·
-  critique count), every probe group from the latest structured
-  critique, dimension score bars, and the full v1→vN history with
-  links to the raw critique markdown.
-- 21 slugs covered; prose-only critiques (pre-YAML-tail era) fall
-  back to a scraped verdict or a plain "critique" chip.
-- `rosette-v1.md` renamed to `anemone-v1.md` (piece was renamed in
-  3f4b72c; critiques key off filename).
-- Playwright smoke: chips render, panel opens, Esc closes grades
-  then catalog, no new console errors.
+(to fill as phases land)
