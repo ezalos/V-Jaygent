@@ -113,23 +113,30 @@ void main() {
         // at the reversal the snow IS the scene — denser, larger, brighter
         float rev = (stage == 7) ? 1.0 : 0.0;
         float density = mix(0.12, 0.26, rev);
+        // when streaking (reversal), a dash spans more than its own grid
+        // cell — sample the y-neighbours too, or the dash clips hard at
+        // the cell boundary (Louis saw the cut at ~2:38)
+        int ny = (rev > 0.0) ? 1 : 0;
         for (int o = 0; o < 2; o++) {                  // two parallax sheets
             float scale = (o == 0) ? 22.0 : 38.0;
             float spd = flow * ((o == 0) ? 1.0 : 0.55);
             vec2 sPos = p + vec2(0.006 * sin(t * 0.5 + float(o)), -t * spd);
-            vec2 cell = floor(sPos * scale);
-            vec2 fp = fract(sPos * scale);
-            float h = hash21(cell + float(o) * 17.3);
-            if (h > density) continue;
-            vec2 jitter = hash22(cell * 1.7) * 0.6 + 0.2;
-            // at the reversal the motes streak vertically — we are RISING
-            // past them, and the eye must feel the rush
-            vec2 dd = (fp - jitter) * vec2(1.0, mix(1.0, 0.38, rev));
-            float d = length(dd);
-            float mote = exp(-d * d * mix(42.0, 28.0, rev));
-            float tw = 0.75 + 0.25 * sin(t * 1.4 + h * 40.0);
-            col += vec3(0.70, 0.82, 0.90) * mote * tw * snowGain
-                 * ((o == 0) ? 0.42 : 0.26) * (1.0 + 0.6 * rev);
+            for (int dy = -1; dy <= 1; dy++) {
+                if (dy < -ny || dy > ny) continue;
+                vec2 cell = floor(sPos * scale) + vec2(0.0, float(dy));
+                vec2 fp = sPos * scale - cell;
+                float h = hash21(cell + float(o) * 17.3);
+                if (h > density) continue;
+                vec2 jitter = hash22(cell * 1.7) * 0.6 + 0.2;
+                // at the reversal the motes streak vertically — we are
+                // RISING past them, and the eye must feel the rush
+                vec2 dd = (fp - jitter) * vec2(1.0, mix(1.0, 0.38, rev));
+                float d = length(dd);
+                float mote = exp(-d * d * mix(42.0, 28.0, rev));
+                float tw = 0.75 + 0.25 * sin(t * 1.4 + h * 40.0);
+                col += vec3(0.70, 0.82, 0.90) * mote * tw * snowGain
+                     * ((o == 0) ? 0.42 : 0.26) * (1.0 + 0.6 * rev);
+            }
         }
     }
 

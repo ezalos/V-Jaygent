@@ -111,9 +111,11 @@ void main() {
     // chorus warmth: bubble rims catch gold when the myth is sung
     float goldAmt = (stage == 5 || stage == 9) ? 0.85 : 0.0;
 
-    // Cursor deflection: bubbles bow away from the hand.
+    // Cursor deflection deactivated (Louis 2026-06-11: mouse warps add
+    // nothing meaningful for now). Flip to re-enable.
+    const bool MOUSE_WARP = false;
     vec2 defl = vec2(0.0);
-    if (!mouseIdle) {
+    if (MOUSE_WARP && !mouseIdle) {
         vec2 away = p - mp;
         defl = normalize(away + 1e-4) * exp(-dot(away, away) * 9.0) * 0.07;
     }

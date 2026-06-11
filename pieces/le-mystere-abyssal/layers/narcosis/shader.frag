@@ -58,9 +58,11 @@ void main() {
     float bandDrive = mix(0.45 + 0.30 * sin(t * 0.43), u_audio_other_stem, u_audio_playing);
     float bassDrive = mix(0.40 + 0.25 * sin(t * 0.61), u_audio_bass, u_audio_playing);
 
-    // the dream bends around a touch — pressure warps the wavefield
+    // (dream-bending around the cursor deactivated 2026-06-11 with the
+    // other mouse warps — flip to re-enable)
+    const bool MOUSE_WARP = false;
     vec2 pw = p;
-    if (!mouseIdle) {
+    if (MOUSE_WARP && !mouseIdle) {
         vec2 away = p - mp;
         pw += normalize(away + 1e-4) * exp(-dot(away, away) * 5.0) * 0.06;
     }

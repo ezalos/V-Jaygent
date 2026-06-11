@@ -126,17 +126,22 @@ void main() {
 
     vec3 col = vec3(0.96, 0.99, 1.00) * win * interior * bWin;
 
-    // refraction-fringed rim — slightly blue-shifted edge ring
+    // refraction-fringed rim — kept quiet and welded to the window's own
+    // brightness (at 0.45 it read as a detached donut during the bloom,
+    // Louis flagged it at ~79s)
     float ring = smoothstep(rs * 1.10, rs, rr) * smoothstep(rs * 0.86, rs * 0.98, rr);
-    col += vec3(0.30, 0.60, 1.00) * ring * bWin * 0.45;
+    col += vec3(0.30, 0.60, 1.00) * ring * bWin * 0.16 * smoothstep(0.10, 0.45, bWin * interior);
 
     // ---- God rays fanning down from the window --------------------------
     float len = length(q);
     float ang = atan(q.x, -q.y);          // 0 = straight down from the window
 
-    // cursor pulls the fan: the light leans toward the hand
+    // cursor warping deactivated for now (Louis 2026-06-11: the mouse
+    // warps add nothing meaningful) — flip to re-enable when the cursor
+    // language gets rethought
+    const bool MOUSE_WARP = false;
     float bend = 0.0;
-    if (!mouseIdle) bend = clamp((mp.x - SNELL_C.x) * 0.8, -0.6, 0.6);
+    if (MOUSE_WARP && !mouseIdle) bend = clamp((mp.x - SNELL_C.x) * 0.8, -0.6, 0.6);
     float angB = ang + 0.30 * bend * smoothstep(0.1, 0.9, len);
 
     float f1 = pow(0.5 + 0.5 * sin(angB * 9.0  + u_time * 0.07), 4.0);

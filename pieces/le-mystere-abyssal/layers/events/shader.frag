@@ -87,19 +87,10 @@ void main() {
         col += vec3(0.85, 0.95, 1.00) * line * exp(-k * 2.6) * 1.7;
     }
 
-    // ---- Chorus entries: one soft expanding ring, palette lift ---------
-    {
-        float entries[3] = float[3](64.04, 124.66, 195.25);
-        for (int i = 0; i < 3; i++) {
-            float age = t - entries[i];
-            if (age < 0.0 || age > 3.0) continue;
-            float k = age / 3.0;
-            vec2 c = (stage >= 4) ? snellCenter(dep) : vec2(0.0, 0.10);
-            float ringR = k * 1.6;
-            float front = smoothstep(0.10, 0.0, abs(length(p - c) - ringR));
-            col += vec3(0.55, 0.80, 1.00) * front * exp(-k * 2.6) * 0.35;
-        }
-    }
+    // (Chorus-entry rings removed 2026-06-11: an expanding overlay ring
+    // with no visible cause reads as a bug, not an event — Louis flagged
+    // the 64.04s one live. Chorus arrivals are announced by the sun star /
+    // gold instead.)
 
     // ---- Radio static: the signal degrades, then dies (96 - 98.4) ------
     if (t > 96.0 && t < 98.4) {

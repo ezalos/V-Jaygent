@@ -125,32 +125,44 @@ void main() {
     if (aer > 0.001) {
         // accretion: the glitter wakes with the waves (~6.5s in)
         float gGlit = smoothstep(6.5, 10.0, u_time);
-        // the hole's pressure pulse warps the sparkle as it passes
+        // the hole's pressure pulse warps the sparkle as it passes —
+        // ground-projected, identical math to water-column's groundPulse
         vec2 warp = vec2(0.0);
         float front = 0.0;
-        if (stage == 1 || stage == 2) {
+        float H = 0.80;
+        if ((stage == 1 || stage == 2) && uv.y < H - 0.005) {
             float ph = (stage == 1)
                 ? fract((u_time - 23.1) / 8.0)
                 : mix(fract(u_time / 2.5), u_bar_phase, u_audio_playing);
             float amp = (stage == 1) ? 0.45 : 1.0;
-            vec2 q = (p - DISC_C) * vec2(1.0, 2.0);
-            float r0 = max(length(q), 1e-4);
-            float ringR = 0.12 + ph * 1.05;
-            float band = exp(-pow((r0 - ringR) / 0.085, 2.0));
+            const float F = 0.22;
+            float z  = F / (H - uv.y);
+            float xw = p.x * z / F;
+            float zc = F / (H - 0.40);
+            vec2  w  = vec2(xw, z - zc);
+            float rw = max(length(w), 1e-4);
+            float rho = 0.35 + ph * 4.5;
+            float band = exp(-pow((rw - rho) / 0.55, 2.0));
             front = band * exp(-ph * 2.4) * amp;
-            warp = (q / r0) * vec2(1.0, 0.5) * front * 0.05;
+            vec2 dirS = normalize(vec2(w.x / rw, -(w.y / rw) * 0.5) + 1e-5);
+            warp = dirS * front * 0.05 * clamp(1.0 / z, 0.05, 1.0);
         }
-        // finer toward the horizon so the sparkle sits on the sea plane
+        // finer toward the horizon so the sparkle sits on the sea plane;
+        // drift vector matches the water-column wave drift exactly so the
+        // hole's surroundings and the floating lights move as one water
         float persp = mix(2.6, 5.5, smoothstep(0.0, 0.80, uv.y));
-        vec2 gp = (p + warp) * persp + vec2(u_time * 0.05, u_time * 0.012);
-        gp += agit * 0.05 * sin(20.0 * p + u_time * 6.0);
+        vec2 gp = (p + warp) * persp + vec2(u_time * 0.060, u_time * 0.018);
         float g = caustic(gp, u_time * 1.6);
-        // only on the sea, fading at the horizon, never on the hole
-        float H = 0.80;
+        // only on the sea, fading at the horizon. The hole mask is scaled
+        // by the SAME accretion gate that births the hole (pre-12.8s there
+        // is no hole, so no void in the glitter — Louis's bug), and the
+        // dots stay gradually visible across the hole's outer 15%, where
+        // the water is still blue.
         float seaMask = smoothstep(H, H - 0.05, uv.y);
-        float R = discRadius(stage, sp);
+        float gHole = smoothstep(12.8, 16.3, u_time);
+        float R = discRadius(stage, sp) * gHole;
         float r = length((p - DISC_C) * vec2(1.0, 2.0));
-        float outside = smoothstep(R * 0.99, R * 1.06, r);
+        float outside = (R < 1e-4) ? 1.0 : smoothstep(R * 0.85, R * 1.02, r);
         col += vec3(0.95, 0.98, 0.92) * g * 0.45 * seaMask * outside * gGlit
              * (0.7 + 0.5 * midDrive) * (1.0 + 1.6 * agit) * (1.0 + 0.9 * front);
         col *= aer;
@@ -160,7 +172,8 @@ void main() {
     float uw = 1.0 - aer;
     if (uw > 0.001) {
         vec2 cp = p * rot2d(barAngle);
-        cp += agit * 0.06 * sin(18.0 * p + u_time * 5.0);
+        // (cursor warp jitter deactivated 2026-06-11 — agitation now only
+        // brightens, it no longer displaces)
         float c = caustic(cp + vec2(0.0, u_time * 0.015), u_time);
         // strongest near the surface light, dead by depth ~0.75
         float depthGain = 1.0 - smoothstep(0.15, 0.75, dep);
