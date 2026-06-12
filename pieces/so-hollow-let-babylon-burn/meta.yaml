@@ -1,6 +1,7 @@
-title: "So Hollow / Let Babylon Burn"
+title: So Hollow / Let Babylon Burn
 slug: so-hollow-let-babylon-burn
 created: 2026-05-06T05:45:55.107Z
+cursor: true
 notes: |
   Apocalyptic skyline of N upright pillars (a hollow Babylon), fire
   bleeding through horizontal cracks like brick courses splitting open.
@@ -51,7 +52,10 @@ notes: |
     pillars; key-rays after babylon → strikes draw across everything.
 duration: 378
 audio: audio.mp3
-audio_features: [beat, sections, key]
+audio_features:
+  - beat
+  - sections
+  - key
 keyboard_synth: true
 default_instrument: pluck
 time_source: audio
@@ -70,3 +74,4 @@ layers:
     blend: max
   - layer: heat-shimmer
     blend: replace
+rendered_at: '2026-06-03T06:42:35.087Z'

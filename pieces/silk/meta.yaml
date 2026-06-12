@@ -1,6 +1,7 @@
 title: "Silk"
 slug: silk
 created: 2026-06-02T14:02:39.045Z
+cursor: true
 architecture: C
 testability: pure-self-play
 notes: |

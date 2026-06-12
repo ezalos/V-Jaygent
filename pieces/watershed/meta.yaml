@@ -1,6 +1,7 @@
 title: Watershed
 slug: watershed
 created: 2026-05-22T16:26:44.116Z
+cursor: true
 architecture: A
 testability: pure-self-play
 duration: 90

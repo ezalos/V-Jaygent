@@ -1,6 +1,7 @@
-title: "Apollonian Foam"
+title: Apollonian Foam
 slug: apollonian-foam
 created: 2026-04-16T07:19:20.033Z
+cursor: false
 notes: |
   A classic Iñigo Quílez recipe: the apollonian gasket expressed as a signed
   distance field. The inner loop iteratively folds space into a unit cube
@@ -18,5 +19,5 @@ notes: |
   Goal: intricate and deep, "like reaching into something math was hiding."
 duration: 14
 uniforms: []
-render_scale: 0.50
+render_scale: 0.5
 published_at: null

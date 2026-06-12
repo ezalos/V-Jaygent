@@ -1,6 +1,7 @@
 title: tide
 slug: tide
 created: 2026-05-05T22:00:00.000Z
+cursor: false
 notes: |
   Second multi-layer flagship piece (v1). Demonstrates shared-state
   publish/consume coupling — the b-tier of layered-composition.md.

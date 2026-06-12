@@ -1,6 +1,7 @@
 title: keyboard
 slug: keyboard
 created: 2026-05-05T23:30:00.000Z
+cursor: false
 keyboard_synth: true
 notes: |
   Press **a s d f g h j k l** to play the white keys C4 → D5.

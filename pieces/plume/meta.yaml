@@ -1,6 +1,7 @@
 title: Plume
 slug: plume
 created: 2026-04-16T20:50:00.000Z
+cursor: true
 audio: audio.mp3
 time_source: audio
 duration: 500

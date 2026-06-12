@@ -1,6 +1,7 @@
 title: Father Ocean (Ben Böhmer Remix) — Ferrofluid
 slug: father-ocean-ben-bohmer-remix
 created: 2026-05-10T07:27:34.650Z
+cursor: true
 keyboard_synth: true
 notes: |
   Ofra Haza — *Father Ocean (Ben Böhmer Remix)*. 123 BPM, D major,
@@ -124,4 +125,4 @@ passes:
     target: screen
     inputs:
       u_field_state: simulate_field
-rendered_at: '2026-05-10T11:09:43.672Z'
+rendered_at: '2026-05-10T11:58:27.411Z'

@@ -1,6 +1,7 @@
 title: We Owe No One
 slug: we-owe-no-one
 created: 2026-05-20T18:08:57.988Z
+cursor: true
 architecture: E
 audio: audio.mp3
 audio_features:
@@ -80,4 +81,4 @@ layers:
     blend: replace
   - layer: vignette-grain
     blend: replace
-rendered_at: '2026-05-20T20:49:58.428Z'
+rendered_at: '2026-06-03T06:42:40.243Z'

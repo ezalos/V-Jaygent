@@ -1,6 +1,7 @@
 title: Shoal
 slug: shoal
 created: 2026-05-23T10:40:21.000Z
+cursor: true
 architecture: A
 testability: pure-self-play
 duration: 90
@@ -64,4 +65,4 @@ notes: |
   gravity so islands grow and shrink on the kick.
 uniforms: []
 published_at: null
-rendered_at: '2026-05-23T12:34:34.116Z'
+rendered_at: '2026-05-23T14:14:47.831Z'

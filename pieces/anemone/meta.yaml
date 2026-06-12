@@ -1,6 +1,7 @@
 title: Anemone
 slug: anemone
 created: 2026-05-25T14:47:49.000Z
+cursor: true
 architecture: A
 testability: audio-only
 duration: 482
@@ -80,4 +81,4 @@ notes: |
   back. The fractal *counts* the music.
 uniforms: []
 published_at: null
-rendered_at: '2026-05-25T16:07:29.200Z'
+rendered_at: '2026-05-25T16:32:14.264Z'

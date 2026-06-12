@@ -1,5 +1,6 @@
 title: "[engine test] layer publish/consume"
 slug: layer-publish-test
+cursor: false
 notes: |
   Integration test for shared-state publish/consume. Three layers:
     1. solid-warm (base, no shared state)

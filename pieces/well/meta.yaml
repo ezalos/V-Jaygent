@@ -1,6 +1,7 @@
 title: Well
 slug: well
 created: 2026-04-16T08:29:06.613Z
+cursor: true
 notes: |
   Your cursor is a mass; space curves around it. The background is a warm
   nebula built from domain-warped FBM noise — each pixel's color comes

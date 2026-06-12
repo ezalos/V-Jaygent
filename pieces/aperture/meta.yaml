@@ -1,6 +1,7 @@
 title: "Aperture"
 slug: aperture
 created: 2026-04-16T08:23:06.132Z
+cursor: true
 notes: |
   A cubic Julia set — iterate z_{n+1} = z_n³ + c, colored by escape time
   on the outside and by orbit trap on the inside. The parameter c tracks

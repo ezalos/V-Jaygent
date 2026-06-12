@@ -1,6 +1,7 @@
 title: "atoll"
 slug: atoll
 created: 2026-05-05T17:10:54.636Z
+cursor: true
 audio: audio.mp3
 keyboard_synth: true
 default_instrument: chip

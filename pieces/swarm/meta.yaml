@@ -1,6 +1,7 @@
 title: Swarm
 slug: swarm
 created: 2026-05-10T11:35:39.786Z
+cursor: true
 notes: |
   1000 Reynolds boids — separation, alignment, cohesion. Toroidal
   world (boids that leave one edge re-enter on the opposite). No

@@ -1,6 +1,7 @@
 title: Brick
 slug: brick
 created: 2026-04-18T00:00:00.000Z
+cursor: true
 notes: |
   For Pink Floyd's "Another Brick In The Wall, Part Two." A wall of bricks
   builds itself upward at the song's tempo (~104 BPM) — one row per beat,

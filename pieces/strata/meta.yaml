@@ -1,6 +1,7 @@
 title: Strata
 slug: strata
 created: 2026-04-16T20:30:00.000Z
+cursor: true
 duration: 45
 render_scale: 0.65
 uniforms: []

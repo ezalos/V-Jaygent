@@ -1,6 +1,7 @@
 title: Aurora
 slug: aurora
 created: 2026-05-11T07:59:17.700Z
+cursor: true
 architecture: C
 testability: pure-self-play
 notes: |

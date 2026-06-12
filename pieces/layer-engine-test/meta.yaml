@@ -1,5 +1,6 @@
 title: "[engine test] layer compositing"
 slug: layer-engine-test
+cursor: false
 notes: |
   Integration test for the layer engine. Two trivial layers — a warm
   vertical gradient base + a wave-displacement distort that samples

@@ -1,6 +1,7 @@
 title: First Bloom
 slug: first-bloom
 created: 2026-04-15T23:30:49.152Z
+cursor: false
 notes: |
   Two radial petal fields in polar coordinates (r, θ), with petal counts
   n and n-1 so their phase beat changes over time. The peak radius of each

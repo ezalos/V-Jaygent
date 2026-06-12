@@ -1,6 +1,7 @@
 title: breath
 slug: breath
 created: 2026-04-16T20:00:00.000Z
+cursor: true
 notes: |
   Aphex Twin — "aisatsana [102]" (Syro, 2014). A piece that answers VISION's
   open question on dynamic range downward: silence is part of the piece's
@@ -53,4 +54,4 @@ passes:
     target: screen
     inputs:
       u_state: simulate
-rendered_at: '2026-04-16T20:01:42.792Z'
+rendered_at: '2026-04-16T21:15:04.602Z'

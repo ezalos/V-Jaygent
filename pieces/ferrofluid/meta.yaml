@@ -1,6 +1,7 @@
 title: Ferrofluid
 slug: ferrofluid
 created: 2026-05-10T19:00:00.000Z
+cursor: true
 notes: |
   Ferrofluid surface under a moving magnetic dipole. The cursor IS the
   dipole — its position drives the field, the dipole moment rotates

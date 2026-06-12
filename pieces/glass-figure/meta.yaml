@@ -1,6 +1,7 @@
 title: Glass Figure
 slug: glass-figure
 created: 2026-04-16T20:03:39.591Z
+cursor: true
 duration: 420
 render_scale: 0.9
 uniforms: []

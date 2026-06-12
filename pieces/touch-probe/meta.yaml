@@ -1,6 +1,7 @@
 title: touch probe
 slug: touch-probe
 created: 2026-04-19T00:00:00.000Z
+cursor: true
 duration: 10
 render_scale: 1.0
 uniforms: []
