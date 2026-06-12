@@ -37,7 +37,14 @@ THRESH = {
     "rms_contrast_min": 0.03,        # 12 — collapse guard. Theory said 0.15; positive-tier p10 is 0.037
     "squint_region_lo": 0.005,       # 1  — theory 0.05; positive-tier p10 is 0.007
     "squint_region_hi": 0.50,        # 1  — theory 0.30; positive-tier p90 is 0.454
-    "squint_mask_level": 0.60,       # 1  — normalized-L threshold for "light"
+    # Re-fit 2026-06-12 (kinetic-energy-v3 filed trigger + corpus sweep): a
+    # single 0.6 light-mask was blind to dim-figure AND inverted (dark-figure-
+    # on-light-ground, e.g. ink-bloom) compositions. The squint now tests two
+    # squint strengths x both polarities; the piece aggregates at >=75% of
+    # core stills (AGG_FRACTION) instead of all-stills. Sweep: 7/13 -> 12/13
+    # positives, with the one remaining fail (chamber) a true full-frame-
+    # texture fail.
+    "squint_mask_levels": (0.45, 0.60),
     "warm_arc_deg": (315.0, 75.0),   # 10 — house warm hues, wrapping through 0°
     "warm_frac_min": 0.90,           # 10 — works as-is; flags sanctioned cold/blue pieces (needs meta exception flag)
     "sat_min": 0.25,                 # hue stats: pixel counts as "colored" above this S
@@ -131,12 +138,19 @@ def still_metrics(path):
     L32 = np.asarray(img.convert("L").resize((32, 32), Image.LANCZOS), dtype=np.float64) / 255.0
     span = L32.max() - L32.min()
     norm = (L32 - L32.min()) / (span + 1e-9)
-    frac = connected_fraction(norm > THRESH["squint_mask_level"]) if span > 1e-3 else 0.0
-    m["squint_macro"] = {
-        "value": round(frac, 4),
-        "pass": bool(THRESH["squint_region_lo"] <= frac <= THRESH["squint_region_hi"]
-                     and rms >= THRESH["rms_contrast_min"]),
-    }
+    lo, hi = THRESH["squint_region_lo"], THRESH["squint_region_hi"]
+    best, ok = 0.0, False
+    if span > 1e-3:
+        for lv in THRESH["squint_mask_levels"]:
+            for mask in (norm > lv, norm < (1.0 - lv)):   # light figure OR dark figure
+                frac = connected_fraction(mask)
+                if lo <= frac <= hi:
+                    ok, best = True, frac
+                    break
+                best = max(best, frac if frac <= hi else 0.0)
+            if ok:
+                break
+    m["squint_macro"] = {"value": round(best, 4), "pass": bool(ok and rms >= THRESH["rms_contrast_min"])}
 
     mean_l = float(L.mean())
     chrange = float((rgb.max(axis=2) - rgb.min(axis=2)).mean())
@@ -250,7 +264,10 @@ CLIP_THRESH = {
     "warp_err_max": 0.12,         # 16 — positives p90 = 0.08
     "frozen_floor": 0.0005,       # 19 — positives' quiet windows reach 0.0008; sub-beat shimmer
                                   #      is below flow resolution at 256px — catches true freezes only
-    "jerk_max": 0.20,             # 17 — positives p90 = 0.12
+    "jerk_max": 0.30,             # 17 — re-fit 2026-06-12 per kinetic-energy-v3 filed trigger:
+                                  #      0.2064 measured on a verified zero-teleport peak clip
+                                  #      (beat impulses + defocus breathing inflate flow jerk);
+                                  #      ceiling moved to verified-good max + margin
     "ncd_min": 0.90,              # 22 — positives p10 = 0.94 (lzma NCD); a looping piece compresses lower
     "flowhist_min": 0.002,        # 23 — count-normalized hists are small-magnitude; positives p50 = 0.0075
     "dyn_range_max": 0.55,        # 28 — positives p50 = 0.27
@@ -402,26 +419,49 @@ def interaction_metrics(slug):
     if not (d / "manifest.json").exists():
         return None
     man = json.loads((d / "manifest.json").read_text())
-    comparable = bool(man.get("stills_comparable"))
-    out = {"stills_comparable": comparable, "tests": {}}
+    # v2 manifests freeze the clock (stills_comparable is a class string);
+    # v1 manifests had a boolean keyed off time_source.
+    comparable = bool(man.get("clock_frozen") or man.get("stills_comparable") is True)
+    state_note = ("state-advancing sim: deltas corrected against the a-a2 drift baseline"
+                  if man.get("state_accumulates") else None)
+    legacy_note = None if comparable else "v1 capture, wall-clock piece: time delta contaminates the comparison"
+    out = {"stills_comparable": man.get("stills_comparable"), "clock_frozen": bool(man.get("clock_frozen")),
+           "tests": {}}
+
+    # No-cursor drift baseline: position a captured at the start and end of
+    # the stills block. With a frozen clock, 1 - corr(a, a2) is pure sim/state
+    # drift — cursor effects must exceed it to count.
+    a2 = d / "cursor-a2.png"
+    drift = None
+    if a2.exists() and (d / "cursor-a.png").exists():
+        drift = 1.0 - _corr(_gray_vec(d / "cursor-a.png"), _gray_vec(a2))
+        out["drift_baseline"] = round(drift, 4)
 
     tript = [d / f"cursor-{t}.png" for t in "abc"]
     if all(p.exists() for p in tript):
         vs = [_gray_vec(p) for p in tript]
         corrs = [_corr(vs[i], vs[j]) for i in range(3) for j in range(i + 1, 3)]
+        delta = 1.0 - min(corrs)
+        # Pass when cursor-position deltas clear BOTH the static threshold and
+        # twice the measured no-cursor drift (when a baseline exists).
+        floor = 1.0 - INTER_THRESH["triptych_corr_max"]
+        need = max(floor, 2.0 * drift) if drift is not None else floor
         out["tests"]["cursor_composition"] = {
-            "value": round(min(corrs), 3),
-            "pass": min(corrs) <= INTER_THRESH["triptych_corr_max"],
-            "note": None if comparable else "wall-clock piece: time delta contaminates the comparison",
+            "value": {"min_corr": round(min(corrs), 3), "delta": round(delta, 4),
+                      "needed": round(need, 4)},
+            "pass": delta >= need,
+            "note": legacy_note or state_note,
         }
 
     aba = [d / "cursor-aba-0.png", d / "cursor-aba-1.png"]
     if all(p.exists() for p in aba):
         c = _corr(_gray_vec(aba[0]), _gray_vec(aba[1]))
+        # Reversibility tolerance widens by the measured drift baseline.
+        need = INTER_THRESH["reversibility_corr_min"] - (drift if drift is not None else 0.0)
         out["tests"]["cursor_reversibility"] = {
             "value": round(c, 3),
-            "pass": c >= INTER_THRESH["reversibility_corr_min"],
-            "note": None if comparable else "wall-clock piece: time delta contaminates the comparison",
+            "pass": c >= need,
+            "note": legacy_note or state_note,
         }
 
     pair = [d / "cursor-active.png", d / "cursor-idle.png"]
@@ -431,8 +471,36 @@ def interaction_metrics(slug):
         out["tests"]["cursor_bounded"] = {
             "value": round(delta, 3),
             "pass": delta <= INTER_THRESH["dominance_delta_max"],
-            "note": None if comparable else "wall-clock piece: time delta contaminates the comparison",
+            "note": legacy_note,
         }
+
+    # Mechanical latency: frames from the annotated cursor jump to the first
+    # visual response above 3x the pre-jump noise floor. Clock is frozen during
+    # the burst, so the only motion in the clip is the cursor response.
+    lat = d / "latency.mp4"
+    lat_info = man.get("latency")
+    if lat.exists() and lat_info and lat_info.get("jump_at_ms") is not None:
+        frames = decode_clip(lat, max_frames=90)
+        if len(frames) > 10:
+            fps_eff = 60.0 / CLIP_THRESH["frame_step"]
+            jump_i = int(round(lat_info["jump_at_ms"] / 1000.0 * fps_eff))
+            deltas = [float(np.abs(b.astype(np.float32) - a.astype(np.float32)).mean()) / 255.0
+                      for a, b in zip(frames, frames[1:])]
+            pre = deltas[max(0, jump_i - 8):max(1, jump_i)]
+            floor = 3.0 * (np.mean(pre) if pre else 0.0) + 0.002
+            resp = next((i for i, v in enumerate(deltas[jump_i:], start=jump_i) if v > floor), None)
+            if resp is not None:
+                latency_frames_60 = (resp - jump_i) * CLIP_THRESH["frame_step"]
+                out["tests"]["cursor_latency"] = {
+                    "value": {"frames_at_60fps": latency_frames_60},
+                    "pass": latency_frames_60 <= 4,   # taste: ~3 frames; +1 capture tolerance
+                }
+            else:
+                out["tests"]["cursor_latency"] = {
+                    "value": {"frames_at_60fps": None},
+                    "pass": False,
+                    "note": "no visual response detected after the cursor jump",
+                }
 
     solos = sorted(d.glob("solo-*.png"))
     if len(solos) >= 2:
@@ -473,6 +541,16 @@ VERSION_RE = re.compile(r"^([a-z0-9-]+?)-(v\d+(?:-i\d+)?(?:-blocked)?|blocked)\.
 # Tests that hard-gate (passed 14/14 positives at calibration 2026-06-12).
 # Everything else is advisory until the negative corpus exists.
 HARD_GATES = ["no_blowout", "dominant_hues"]
+
+# Per-test piece-level aggregation over core stills. Default: every core
+# still must pass. squint_macro allows one outlier section (peak floods and
+# near-black moments legitimately have no banded region): >= 75% of stills.
+AGG_FRACTION = {"squint_macro": 0.75}
+
+
+def agg_pass(test, results):
+    need = AGG_FRACTION.get(test, 1.0)
+    return (sum(bool(r) for r in results) / max(len(results), 1)) >= need
 
 
 def palette_exception(slug):
@@ -537,8 +615,8 @@ def calibrate():
         core = list(pm["stills"].values())[1:-1] or list(pm["stills"].values())
         row = {"slug": slug, "verdict": verdict, "source": source, "tests": {}}
         for t in next(iter(pm["stills"].values())).keys():
-            allpass = all(s[t]["pass"] for s in pm["stills"].values())
-            corepass = all(s[t]["pass"] for s in core)
+            allpass = agg_pass(t, [s[t]["pass"] for s in pm["stills"].values()])
+            corepass = agg_pass(t, [s[t]["pass"] for s in core])
             row["tests"][t] = {"all": allpass, "core": corepass}
             tests_seen.add(t)
         for t, r in pm["piece"].items():
@@ -613,6 +691,13 @@ def main():
             sys.exit(f"no section stills found for {slug}")
         result = apply_palette_exception(piece_metrics(stills), slug)
         result["source"] = source
+        # Piece-level aggregates so consumers don't re-derive the rules.
+        core = list(result["stills"].values())[1:-1] or list(result["stills"].values())
+        result["aggregates"] = {
+            t: {"pass": agg_pass(t, [s[t]["pass"] for s in core]),
+                "rule": f">={int(AGG_FRACTION.get(t, 1.0) * 100)}% of core stills"}
+            for t in next(iter(result["stills"].values())).keys()
+        }
         if sys.argv[1] == "gate":
             core = list(result["stills"].values())[1:-1] or list(result["stills"].values())
             failures = [t for t in HARD_GATES if not all(s[t]["pass"] for s in core)]

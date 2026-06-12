@@ -15,81 +15,70 @@ a different axis the verdict doesn't encode.
 | anemone | chef-doeuvre | ✓ | ✓ | ✓ | ✗ | ✓ | — | ✓ | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
 | aurora | structural-rethink | ✓ | ✓ | ✓ | ✗ | ✓ | — | ✓ | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
 | chamber | ship-it | ✗ | ✗ | ✓ | ✓ | ✓ | — | ✗ | ✗ | — | — | ✓ | ✗ | ✗ | ✗ | — | ✓ | — |
-| danzas-percs | ship-it | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ | ✓ | ✗ | ✓ | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ |
+| danzas-percs | ship-it | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ | ✓ | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ | ✗ |
 | eclipse | ship-it | ✗ | ✓ | ✓ | ✗ | ✓ | — | ✓ | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
-| ink-bloom | ship-it | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ |
-| kinetic-energy | chef-doeuvre | ✓ | ✗ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ | ✓ | ✓ | ✓ |
-| le-mystere-abyssal | chef-doeuvre | ✓ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ | ✗ | ✓ |
+| ink-bloom | ship-it | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ |
+| kinetic-energy | structural-rethink | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| le-mystere-abyssal | chef-doeuvre | ✓ | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ | ✓ |
 | mozart-rondo-alla-turca-turkish-march | ship-it | ✓ | ✓ | ✓ | ✓ | ✓ | — | ✓ | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
-| murmuration | ship-it | ✗ | ✓ | ✓ | ✗ | ✓ | — | ✓ | ✓ | — | — | ✓ | ✓ | ✓ | ✗ | — | ✓ | — |
+| murmuration | ship-it | ✗ | ✓ | ✓ | ✗ | ✓ | — | ✓ | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
 | plume | ship-it | ✓ | ✓ | ✓ | ✓ | ✓ | — | ✓ | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
 | prism | ship-it | ✗ | ✗ | ✓ | ✗ | ✗ | — | ✓ | ✗ | — | — | ✓ | ✓ | ✓ | ✓ | — | ✗ | — |
 | shoal | ship-it | ✓ | ✓ | ✓ | ✗ | ✓ | — | ✓ | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
 | watershed | chef-doeuvre | ✗ | ✓ | ✓ | ✗ | ✓ | — | ✓ | ✓ | — | — | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
-| we-owe-no-one | ship-it | ✓ | ✗ | ✓ | ✗ | ✓ | — | ✓ | ✗ | — | — | ✓ | ✗ | ✗ | ✗ | — | ✓ | — |
+| we-owe-no-one | ship-it | ✓ | ✗ | ✓ | ✗ | ✓ | — | ✓ | ✗ | — | — | ✓ | ✗ | ✗ | ✓ | — | ✓ | — |
 
 ## Separation by tier (core rule)
 
 | test | pass rate (positive tier) | pass rate (negative tier) |
 |---|---|---|
-| arc | 8/14 | 1/1 |
-| depth_octaves | 9/14 | 1/1 |
-| dominant_hues | 14/14 | 1/1 |
-| empty_zones | 4/14 | 0/1 |
-| hue_drift_smooth | 11/14 | 1/1 |
-| jerk_smooth_all | 3/4 | 0/0 |
-| layout_varies | 13/14 | 1/1 |
-| lum_not_hue | 9/14 | 1/1 |
-| motion_dynamic_range | 3/4 | 0/0 |
-| never_frozen_all | 3/4 | 0/0 |
-| no_blowout | 14/14 | 1/1 |
-| one_over_f | 10/14 | 1/1 |
-| rms_contrast | 10/14 | 1/1 |
-| squint_macro | 7/14 | 1/1 |
-| trackability_all | 4/4 | 0/0 |
-| warm_arc | 11/14 | 1/1 |
-| window_divergence | 2/4 | 0/0 |
+| arc | 7/13 | 2/2 |
+| depth_octaves | 9/13 | 1/2 |
+| dominant_hues | 13/13 | 2/2 |
+| empty_zones | 3/13 | 1/2 |
+| hue_drift_smooth | 10/13 | 2/2 |
+| jerk_smooth_all | 3/3 | 1/1 |
+| layout_varies | 12/13 | 2/2 |
+| lum_not_hue | 8/13 | 2/2 |
+| motion_dynamic_range | 2/3 | 1/1 |
+| never_frozen_all | 2/3 | 1/1 |
+| no_blowout | 13/13 | 2/2 |
+| one_over_f | 10/13 | 1/2 |
+| rms_contrast | 9/13 | 2/2 |
+| squint_macro | 12/13 | 2/2 |
+| trackability_all | 3/3 | 1/1 |
+| warm_arc | 10/13 | 2/2 |
+| window_divergence | 1/3 | 1/1 |
 
-## Findings & threshold decisions (updated 2026-06-12, hand-written — re-append if the table is regenerated)
+## Findings & threshold decisions (updated 2026-06-12 PM — re-append if regenerated)
 
-**Stills (n=14 positive pieces):** theory thresholds mostly did NOT
-transfer to the house near-black glow aesthetic; corpus-fitted
-thresholds (positive-tier p10/p90) recovered most tests: rms_contrast
-1/14 → 10/14, one_over_f 3/14 → 10/14 (house spectra sit at −2.4…−4.3,
-far steeper than the art-corpus −2), lum_not_hue 1/14 → 9/14,
-squint_macro 0/14 → 7/14. Working as-is: no_blowout 14/14,
-dominant_hues 14/14 (the two HARD GATES), layout_varies 13/14,
-hue_drift_smooth 11/14, warm_arc 11/14 — warm_arc's three "fails" are
-the two sanctioned non-warm pieces (danzas-percs cold, le-mystere-abyssal
-blue; now handled via meta.yaml `palette_exception:`) plus prism (to
-inspect). Demoted: empty_zones (descriptive — the house fills frames
-with glow), arc-from-still-luminance (weak proxy; real test is
-clip-based).
+**Re-fits from the kinetic-energy-v3 filed triggers:**
+- `squint_macro` — root cause was TWO blind spots, not the level: a single
+  0.6 light-mask missed dim-figure compositions AND inverted (dark-figure-
+  on-light-ground) pieces entirely — ink-bloom, a watercolour on bright
+  paper, failed 0/4 stills. Now: two squint strengths (0.45, 0.60) x both
+  polarities per still, piece aggregates at >=75% of core stills
+  (AGG_FRACTION). Sweep result: 7/13 -> 12/13 positives; the remaining
+  fail (chamber) is a true full-frame-texture fail.
+- `jerk_max` 0.20 -> 0.30 — 0.2064 measured on a verified zero-teleport
+  peak clip; beat impulses + defocus breathing inflate flow jerk.
 
-**Clips (n=4 pieces with multi-window clips — PROVISIONAL):**
-trackability_all 4/4; never_frozen, jerk_smooth, motion_dynamic_range
-3/4; window_divergence 2/4. Implementation lessons that changed the
-code: Farnebäck needs uint8 frames (float [0,1] silently returns zero
-flow), and NCD requires lzma (zlib's 32 KB window saturates on ~27 KB
-frame stacks, driving NCD→1 for any pair). The frozen floor is set at
-the true-freeze level (0.0005 px/frame): sub-beat shimmer is below
-flow resolution at 256 px — never_frozen catches dead pieces, not
-quiet ones.
+**Harness v2 (closes the kinetic-energy-v3 gap list):** frozen-clock
+stills (`__vj.freezeClock`) make cursor deltas attributable on wall-clock
+pieces; `cursor-a2.png` gives a no-cursor drift baseline (kinetic-energy:
+0.32 — its sim steps per frame even with u_time frozen, and the metric
+now corrects for it); 30 s matrix cells (4 Mbps, webm intermediates
+dropped); annotated latency burst (jump at 500 ms = frame 6, 42 waypoint
+frames, mechanical `cursor_latency` counter); 12 s `build-cursor.mp4`
+across the pre-peak build for authority_during_build.
 
-**Interaction captures (first data, 2026-06-12):** cirrus —
-cursor_composition FAIL (triptych corr 0.993: the cursor does not
-recompose the mandala), reversibility pass, dominance pass, all six
-layer solos distinct, layer stack strongly non-additive (residual
-0.86), idle matrix alive in all four cells. Wall-clock pieces
-(kinetic-energy) get their stills flagged non-comparable in
-manifest.json — the grader sees the caveat.
+**Corpus note:** kinetic-energy's v3 verdict moved it to the negative
+tier — the calibration tiers update with verdicts, which is the point.
+`window_divergence` remains the weakest clip metric (1/3 positives,
+n=3) — provisional until more multi-window-clip pieces exist.
 
-**Corpus skew caveat stands:** one negative-tier piece with stills.
-Positive pass-rates measure recall, not discrimination. Negative
-evidence accumulates via the evidence-snapshot convention.
-
-**Status in the v2 rubric:** hard gates = no_blowout, dominant_hues
-(`bin/aesthetic-metrics.py gate <slug>`); everything else feeds the
-critique's `metrics:` panel as authoritative-unless-documented-misfire;
-thresholds live in THRESH/CLIP_THRESH/INTER_THRESH with fit provenance
-in comments.
+**Confirmed true finding:** even with frozen clock and a normalized noise
+floor, kinetic-energy shows no detectable visual response within the
+latency burst — matching the v3 critic's independent observation. The
+piece's cursor is a slow global attractor with no immediate local
+feature; that is a piece property, not a harness gap.

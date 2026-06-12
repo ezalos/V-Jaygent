@@ -200,7 +200,7 @@
    },
    "squint_macro": {
     "all": false,
-    "core": false
+    "core": true
    },
    "no_blowout": {
     "all": true,
@@ -353,8 +353,8 @@
     "core": true
    },
    "squint_macro": {
-    "all": false,
-    "core": false
+    "all": true,
+    "core": true
    },
    "no_blowout": {
     "all": true,
@@ -435,8 +435,8 @@
  },
  {
   "slug": "kinetic-energy",
-  "verdict": "chef-doeuvre",
-  "source": "evidence/kinetic-energy-v2",
+  "verdict": "structural-rethink",
+  "source": "evidence/kinetic-energy-v3",
   "tests": {
    "rms_contrast": {
     "all": false,
@@ -444,7 +444,7 @@
    },
    "squint_macro": {
     "all": false,
-    "core": false
+    "core": true
    },
    "no_blowout": {
     "all": true,
@@ -518,8 +518,8 @@
     "value": null
    },
    "jerk_smooth_all": {
-    "all": false,
-    "core": false,
+    "all": true,
+    "core": true,
     "value": null
    }
   }
@@ -534,8 +534,8 @@
     "core": false
    },
    "squint_macro": {
-    "all": false,
-    "core": false
+    "all": true,
+    "core": true
    },
    "no_blowout": {
     "all": true,
@@ -709,8 +709,8 @@
     "core": true
    },
    "squint_macro": {
-    "all": false,
-    "core": false
+    "all": true,
+    "core": true
    },
    "no_blowout": {
     "all": true,
@@ -1024,8 +1024,8 @@
     "core": false
    },
    "squint_macro": {
-    "all": false,
-    "core": false
+    "all": true,
+    "core": true
    },
    "no_blowout": {
     "all": true,

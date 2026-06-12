@@ -372,6 +372,9 @@ let lastAnalysisSampleT = performance.now();
 // compositor) within one frame.
 let currentAnalysisSample = audioAnalysis.sample(null, 0, analysisSampleState, 0);
 let startTime = performance.now();
+// Harness-only (set via __vj.freezeClock): when non-null, u_time pins here so
+// cursor-position captures are comparable on wall-clock pieces too.
+let frozenClockAt = null;
 let frameCount = 0;
 let mouse = [0, 0];
 let catalog = [];
@@ -844,9 +847,11 @@ function render() {
                     && (currentMeta?.time_source ?? 'audio') === 'audio'
                     && audioEl
                     && (audioPlaying || pausedMidTrack);
-  const now = useAudioTime
-    ? audioEl.currentTime
-    : (performance.now() - startTime) / 1000;
+  const now = frozenClockAt !== null
+    ? frozenClockAt
+    : useAudioTime
+      ? audioEl.currentTime
+      : (performance.now() - startTime) / 1000;
 
   sampleAudio();
   tapPulse *= 0.85;
@@ -3316,6 +3321,22 @@ function exposeRecordingHooks() {
   };
   window.__vj.getAudioTime = () => audioEl ? audioEl.currentTime : null;
   window.__vj.pauseAudio = () => { if (audioEl) audioEl.pause(); return Boolean(audioEl); };
+  // Freeze u_time at its current value (harness: comparable cursor stills on
+  // wall-clock pieces). Unfreeze resumes continuously. NOTE: multi-pass sims
+  // step per FRAME, not per u_time — state still accumulates while frozen;
+  // the capture manifest records that caveat.
+  window.__vj.freezeClock = (freeze = true) => {
+    if (freeze) {
+      const pausedMidTrack = audioEl && audioEl.paused && !audioEl.ended && audioEl.currentTime > 0.001;
+      const useAudio = currentMeta?.audio && (currentMeta?.time_source ?? 'audio') === 'audio'
+        && audioEl && (!audioEl.paused || pausedMidTrack);
+      frozenClockAt = useAudio ? audioEl.currentTime : (performance.now() - startTime) / 1000;
+    } else {
+      if (frozenClockAt !== null) startTime = performance.now() - frozenClockAt * 1000;
+      frozenClockAt = null;
+    }
+    return frozenClockAt;
+  };
   // Solo a layer by name (null restores the full stack). Returns the layer
   // names so the harness can iterate without re-parsing meta.yaml.
   window.__vj.soloLayer = (name = null) => {
@@ -3331,7 +3352,7 @@ function exposeRecordingHooks() {
       setTimeout(tick, 50);
     })();
   });
-  window.__vj.record = async (durationMs = 10000) => {
+  window.__vj.record = async (durationMs = 10000, bitsPerSecond = 12_000_000) => {
     const waited = await waitForProgram(5000);
     if (!waited) throw new Error('no program compiled in time');
     startTime = performance.now();
@@ -3348,7 +3369,7 @@ function exposeRecordingHooks() {
     const mctx = mirror.getContext('2d');
     const stream = mirror.captureStream(60);
     const chunks = [];
-    const rec = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 12_000_000 });
+    const rec = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: bitsPerSecond });
     rec.ondataavailable = (e) => e.data && e.data.size > 0 && chunks.push(e.data);
     return new Promise((resolve, reject) => {
       let rafId = 0;

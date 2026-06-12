@@ -2,7 +2,11 @@
  "slug": "kinetic-energy",
  "captured_at_audio_t": 147.3,
  "time_source": "wall",
- "stills_comparable": false,
+ "clock_frozen": true,
+ "state_accumulates": true,
+ "stills_comparable": "frozen-clock-state-advances",
+ "matrix_secs": 30,
+ "cursor_orbit": "centre (0.5,0.5), radius 0.3 of canvas, ~2.6 s/rev, 20 Hz pointermove",
  "captures": [
   "cursor-a.png",
   "cursor-b.png",
@@ -11,11 +15,23 @@
   "cursor-idle.png",
   "cursor-aba-0.png",
   "cursor-aba-1.png",
+  "cursor-a2.png",
   "latency.mp4",
   "matrix-both.mp4",
   "matrix-music.mp4",
   "matrix-cursor.mp4",
-  "matrix-neither.mp4"
+  "matrix-neither.mp4",
+  "build-cursor.mp4"
  ],
- "layers": []
+ "latency": {
+  "jump_at_ms": 500,
+  "burst_start_ms": 400,
+  "burst_fps": 60,
+  "jump_frame_index": 6
+ },
+ "layers": [],
+ "build": {
+  "start_t": 120.1,
+  "dur_s": 12
+ }
 }

@@ -124,8 +124,9 @@ For each iteration:
 
 ```
 node bin/inspect-music.mjs <slug>             # section-anchored stills + multi-window clips + clip-peak
-node bin/inspect-interaction.mjs <slug>       # cursor triptych, with/without pair, a→b→a pair, latency
-                                              #   clip, idle-matrix clips, per-layer solos, manifest.json
+node bin/inspect-interaction.mjs <slug>       # frozen-clock cursor triptych + a2 drift baseline, with/without
+                                              #   pair, a→b→a pair, annotated latency burst, 30s idle-matrix
+                                              #   cells, build-cursor.mp4, per-layer solos, manifest.json
 node bin/lint-palette.mjs <slug>              # warm-cycle check
 node bin/lint-idle.mjs <slug>                 # idle-survival check
 node bin/lint-composition.mjs <slug>          # quadrant / axis balance
@@ -343,14 +344,22 @@ comparison stays calibrated on both.
 
 14. The interaction captures at
     /home/ezalos/42/V-Jaygent/pieces/<slug>/inspect-interaction/
-    (from `bin/inspect-interaction.mjs`): cursor triptych
-    `cursor-{a,b,c}.png`, with/without pair `cursor-{active,idle}.png`,
-    reversibility pair `cursor-aba-{0,1}.png`, latency clip,
-    idle-matrix clips `matrix-{both,music,cursor,neither}.mp4`,
-    per-layer solos `solo-<layer>.png`, and `manifest.json`. Read
-    manifest.json first — it records the comparability class
-    (wall-clock pieces keep animating while paused, so cursor deltas
-    are contaminated by time deltas; say so when it matters). If this
+    (from `bin/inspect-interaction.mjs`): frozen-clock cursor
+    triptych `cursor-{a,b,c}.png` + drift baseline `cursor-a2.png`
+    (position a recaptured at the end of the stills block — the a↔a2
+    delta is pure no-cursor sim drift; cursor effects must exceed
+    it), with/without pair `cursor-{active,idle}.png`, reversibility
+    pair `cursor-aba-{0,1}.png`, annotated latency burst
+    `latency.mp4` + `latency-fNN.png` (manifest gives the jump
+    frame), 30 s idle-matrix clips
+    `matrix-{both,music,cursor,neither}.mp4`, build-spanning
+    `build-cursor.mp4` (12 s cursor orbit into the peak — answers
+    authority_during_build), per-layer solos `solo-<layer>.png`, and
+    `manifest.json`. Read manifest.json first — stills are captured
+    with the clock FROZEN (`clock_frozen: true`) so deltas are
+    cursor-attributable on wall-clock pieces too; multi-pass sims
+    still step per frame (class `frozen-clock-state-advances`,
+    correct against the a↔a2 baseline; say so when it matters). If this
     directory is missing for a cursor-reactive piece, every criterion
     that needs it FAILS as a harness gap naming
     bin/inspect-interaction.mjs.
@@ -623,7 +632,7 @@ they're missing, the criteria that need them fail as harness gaps.
 | music_without_cursor     | with the cursor parked and the track playing, does the piece still pass its music-side criteria? | matrix-music.mp4 (30 s)    |
 | cursor_without_music     | with audio silent and the cursor active, does the piece still pass its cursor-side criteria? | matrix-cursor.mp4 (30 s)       |
 | conflict_resolution      | where both channels touch the same feature, does the combination stay bounded — no blowout, no cancellation — when both push at once? | matrix-both.mp4 |
-| authority_during_build   | during a build, does cursor motion still produce a visible response within ~100 ms (reduced amplitude fine, zero not)? | latency clip or matrix-both.mp4 across a build |
+| authority_during_build   | during a build, does cursor motion still produce a visible response within ~100 ms (reduced amplitude fine, zero not)? | build-cursor.mp4 (12 s orbit across the pre-peak build) |
 | idle_cell                | do all four idle-matrix clips survive — none freezes, goes black, or looks broken, and the neither-cell self-plays? | matrix-{both,music,cursor,neither}.mp4 |
 
 Count passes. Record `dual_input_passes: N/M` over the applicable
