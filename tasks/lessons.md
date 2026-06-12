@@ -102,3 +102,16 @@ file is the human-readable index.
 - **Fix without regrade** — post-critique geometry/motion fixes get a
   clip watched before handback; stills + "motion will tell" shipped
   the perspective-pulse regression. (`feedback_fix_without_regrade.md`)
+- **Cahn-Hilliard / conserved-field craft** — global pulls flatten
+  conserved fields (bulk has no restoring force; bias = single-phase
+  evaporation instead); grid isotropy needs 9-pt stencils AND
+  rotation-not-translation drift AND alternating shear; explicit-CH
+  stability ceiling DT·mob·γ ≈ 0.078 (debris that self-heals = CFL,
+  not content); beat displacement must exceed half the pattern period.
+  (`feedback_cahn_hilliard_craft.md`)
+- **Stripe-aperture trackability misfire** — warp_err fails on
+  stripe-dominated fields regardless of real smoothness; override kit =
+  jerk_smooth passing + 12fps dense slice + fail-magnitude ∝ stripe
+  fineness. Harness wishlist: stripe-aware trackability + a
+  keyboard-event capture tool (both gaps shipped in no-son-of-mine's
+  critiques). (`feedback_cahn_hilliard_craft.md`)

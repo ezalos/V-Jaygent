@@ -100,6 +100,25 @@ CLI surfaces the error and exits non-zero. Common workaround: pass a
 different URL or download the audio manually and use
 `/vjay-new-piece` instead.
 
+**Spotify URLs (added 2026-06-12, no-son-of-mine run).** yt-dlp cannot
+download from Spotify (DRM). Resolve the track first, then source from
+YouTube:
+
+```bash
+# 1. track title from the oEmbed endpoint (no auth needed)
+curl -s 'https://open.spotify.com/oembed?url=<spotify-track-url>'
+#    → .title, e.g. "No Son Of Mine - Remastered 2007"
+# 2. find the best YouTube source (prefer the artist's official channel,
+#    album-length version)
+uvx yt-dlp --no-warnings --print '%(id)s | %(title)s | %(duration)s | %(channel)s' \
+  'ytsearch5:<artist> <title> official audio'
+# 3. run the CLI with the chosen YouTube URL + an explicit --slug
+#    (the auto-derived one would inherit YouTube title noise)
+```
+
+Pick the official-channel "(Official Audio)" upload over music videos
+(videos often have intros/outros that shift the analysis grid).
+
 ### 3. Hand off to artistic decisions
 
 Once the scaffold is in place, the piece is *technically* ready to
