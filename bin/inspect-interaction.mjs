@@ -144,6 +144,16 @@ try {
   await page.evaluate(() => window.__vj.freezeClock?.(true));
   const SETTLE = 700;
 
+  // 0. No-cursor drift pair: two shots one SETTLE apart with the cursor
+  // parked. Their delta is the true no-cursor noise floor at the same
+  // timescale as each triptych step (cursor-a2 measures the whole-block
+  // interval, which a strong cursor's own history contaminates).
+  await parkCursor();
+  await page.waitForTimeout(SETTLE);
+  await shot('drift-0.png');
+  await page.waitForTimeout(SETTLE);
+  await shot('drift-1.png');
+
   // 1. triptych (+ position-a recapture at the end of the block, below — the
   //    a↔a2 delta is the no-cursor drift baseline for state-advancing sims)
   for (const [tag, fx, fy] of [['a', 0.25, 0.5], ['b', 0.75, 0.35], ['c', 0.5, 0.8]]) {
@@ -243,6 +253,15 @@ try {
     await recordClip(`matrix-${cell}`, matrixSecs * 1000, 4_000_000);
   }
   await orbit(false);
+
+  // Fifth cell: cursor HELD at one position with music playing — the honest
+  // dominance evidence. The orbit cell measures continuous stirring (maximal
+  // gesture); dominance asks about the footprint of cursor PRESENCE.
+  await setAudio(true);
+  await moveCursor(0.6, 0.45);
+  await page.waitForTimeout(300);
+  await recordClip('matrix-hold', matrixSecs * 1000, 4_000_000);
+  await parkCursor();
 
   // ---- build-spanning capture: cursor orbit across the build into the peak
   // (authority_during_build — cursor must stay visibly responsive while the

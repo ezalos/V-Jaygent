@@ -82,7 +82,12 @@ void main() {
     // In focus: sharp streak cores carry the image, thin glow accent. Defocused:
     // the cores fade and the wide bloom takes over -> the sparks melt into
     // glowing clouds. This is the visible breathing in and out of focus.
-    vec3 col = base * mix(1.0, 0.45, defocus) + bloom * mix(0.22, 1.7, defocus);
+    // Brightest cores are EXEMPT from the defocus fade (v4 multi_octave fix):
+    // a thread of sharp filament survives the calm, so the quiet image keeps
+    // fine-scale structure under the dreamy bloom.
+    float coreKeep = smoothstep(0.25, 0.70, max(base.r, max(base.g, base.b)));
+    vec3 col = base * mix(mix(1.0, 0.45, defocus), 1.0, coreKeep)
+             + bloom * mix(0.22, 1.7, defocus);
 
     // --- Macro brightness envelope: two slowly-wandering hot-zones so the
     // squint sees light/dark structure across the frame, not flat texture.
@@ -109,6 +114,18 @@ void main() {
     float arc = smoothstep(0.0, 0.12, u_song_progress)
               * (1.0 - smoothstep(0.90, 1.0, u_song_progress));
     col *= mix(0.7, 1.0, arc);
+
+    // Intro ember seed (v4 eye_lands fix — frame 0 was a black rectangle in
+    // four straight critiques): during the near-silent opening, the blast
+    // centre carries a faint breathing ember so the eye has somewhere to land
+    // before the first particles ignite. Fades out as the song wakes up.
+    float intro = 1.0 - smoothstep(0.0, 0.05, u_song_progress);
+    if (intro > 0.001) {
+        vec2 bc = 0.5 + 0.34 * vec2(sin(u_time * 0.21), cos(u_time * 0.17));
+        vec2 bp = (uv - bc) * vec2(aspect, 1.0);
+        float breathe = 0.12 + 0.05 * sin(u_time * 0.8);
+        col += vec3(0.55, 0.18, 0.045) * intro * breathe * exp(-dot(bp, bp) / 0.012);
+    }
 
     // Each section builds internally — a gentle ramp across its own span so the
     // energy swells toward each boundary rather than sitting flat.

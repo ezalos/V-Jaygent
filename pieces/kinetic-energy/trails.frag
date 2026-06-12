@@ -13,6 +13,9 @@ uniform sampler2D u_trails;   // self ping-pong (previous frame)
 uniform float u_energy_smooth;
 uniform float u_downbeat;
 uniform float u_audio_playing;
+uniform vec2  u_mouse;        // cursor in target pixels; (0,0) when idle
+uniform vec4  u_touches[8];
+uniform int   u_touch_count;
 
 out vec4 fragColor;
 
@@ -23,6 +26,11 @@ const float SPLAT_R   = 0.0055;  // base streak scale in torus uv
 const float DECAY     = 0.86;    // per-frame trail retention (streak length); BOUNDED so
                                  // continuous playback can't accumulate to a full-frame wash
 const float DEPOSIT   = 1.15;    // peak deposition — high to offset the tight sharp streak
+const float EMBER     = 0.045;   // speed-independent ember floor: slow particles deposit a
+                                 // faint glow so calm passages show filaments, not a void
+                                 // (v4 fix — kept tiny so quiet still reads quiet)
+const float CURSOR_R  = 0.022;   // cursor ember-wake halo radius (torus uv)
+const float CURSOR_DEP = 0.075;  // per-frame wake deposition; steady state ≈ dep/(1-DECAY)
 
 // Warm luminance ramp: dim ember (coasting) -> amber -> cream-white (driven).
 // All warm — fast particles read as white-hot light, never a cool intrusion.
@@ -87,11 +95,35 @@ void main() {
                 float splat = exp(-q);
                 splat *= splat;                                 // sharpen the profile
 
-                // Deposition is PURELY speed-gated — slow particles deposit ~0
-                // so the ground stays near-black and quiet music reads quiet.
-                col += heat(lum) * splat * lum * DEPOSIT;
+                // Deposition is speed-gated with a small EMBER floor: fast
+                // particles burn cream-white, slow ones leave a faint ember
+                // filament instead of vanishing (the ground still reads
+                // near-black; the floor is far below the music's dynamic range).
+                col += heat(max(lum, 0.08)) * splat * (lum + EMBER) * DEPOSIT;
             }
         }
+    }
+
+    // --- Cursor light budget (v4 fix, path A): the pointer deposits its own
+    // dim ember wake, independent of particle speed and of the music — the
+    // cursor is a second LIGHT SOURCE, not just a second force. The ping-pong
+    // decay turns the moving halo into a fading comet tail automatically.
+    if (dot(u_mouse, u_mouse) > 1.0) {
+        vec2 mp = u_mouse / u_resolution;
+        vec2 d = uv - mp; d -= floor(d + 0.5);
+        d *= vec2(aspect, 1.0);
+        float g = exp(-dot(d, d) / (CURSOR_R * CURSOR_R));
+        col += heat(0.22) * g * CURSOR_DEP;
+    }
+    for (int i = 0; i < 8; i++) {
+        if (i >= u_touch_count) break;
+        vec4 t = u_touches[i];
+        if (t.w < 0.5) continue;
+        vec2 fp = t.xy / u_resolution;
+        vec2 d = uv - fp; d -= floor(d + 0.5);
+        d *= vec2(aspect, 1.0);
+        float g = exp(-dot(d, d) / (CURSOR_R * CURSOR_R));
+        col += heat(0.22) * g * CURSOR_DEP;
     }
 
     fragColor = vec4(col, 1.0);

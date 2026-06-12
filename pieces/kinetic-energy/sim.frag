@@ -1,4 +1,4 @@
-// ABOUTME: Particle simulation for "kinetic-energy" — 4096 particles in a 64x64
+// ABOUTME: Particle simulation for "kinetic-energy" — 1024 particles in a 32x32
 // ABOUTME: rgba16f ping-pong texture; xy = position (torus uv), zw = velocity.
 #version 300 es
 precision highp float;
@@ -79,10 +79,13 @@ void main() {
     // u_audio=0. The beat_phase term is the WIND-UP: tension ramps 0->1 across
     // the beat, then the downbeat impulse RELEASES it as a radial burst.
     float live    = mix(0.5, 1.0, u_audio_playing);          // baseline when silent
-    // Wide dynamic range: a small constant so the field never fully dies, but
-    // most of the drive comes from bass + energy — quiet sections stay calm
-    // (slow particles -> dark), the drop drives them hard (fast -> white-hot).
-    float drive   = live * (0.16 + 1.8 * u_audio_bass_stem + 1.1 * u_energy_smooth);
+    // Wide dynamic range: most of the drive comes from bass + energy — quiet
+    // MUSIC stays calm (slow particles -> dark), the drop drives them hard
+    // (fast -> white-hot). The constant term is larger when SILENT (no track)
+    // so the idle cell keeps visibly glowing embers instead of dying — the v4
+    // critique measured the old effective 0.08 silent drive as a dead screen.
+    float floorTerm = mix(0.42, 0.16, u_audio_playing);
+    float drive   = live * (floorTerm + 1.8 * u_audio_bass_stem + 1.1 * u_energy_smooth);
     float windup  = 1.0 + 1.6 * u_beat_phase * u_beat_phase;  // eased anticipation
 
     // Blast centre — slowly wandering. The implosion gathers TO it and the
@@ -117,14 +120,21 @@ void main() {
                    * (0.7 + 0.6 * u_energy_smooth);
     vel += (bd / br) * (burst * 2.7 + detonate * 7.5) * DT;
 
-    // --- Cursor as an instrument: a local attract that stirs the flow.
+    // --- Cursor as an instrument with REAL local authority (v4 fix, path A).
+    // The old pull (0.55) lost to the gather (2.4) and detonation (7.5) — the
+    // cursor whispered into a storm. Now it WINS inside its radius: a 2.6 pull
+    // plus a 1.1 tangential swirl, audio-independent, so dragging visibly
+    // gathers AND orbits sparks even in silence and through a build. Bounded
+    // by the smoothstep falloff so global dominance stays ≤ ~30%.
     // Toroidal delta so it wraps at the edges. Idle (u_mouse=0,0) → no pull.
     if (dot(u_mouse, u_mouse) > 1.0) {
         vec2 mp = u_mouse / u_resolution;
         vec2 md = mp - pos; md -= floor(md + 0.5);
         float mr = length(md) + 1e-4;
-        float fall = smoothstep(0.28, 0.0, mr);
-        vel += (md / mr) * fall * fall * 0.55 * DT;
+        float fall = smoothstep(0.30, 0.0, mr);
+        vec2 dir  = md / mr;
+        vec2 tang = vec2(-dir.y, dir.x);
+        vel += (dir * 2.6 + tang * 1.1) * fall * fall * DT;
     }
     // Multi-touch: same pull per active finger.
     for (int i = 0; i < 8; i++) {
