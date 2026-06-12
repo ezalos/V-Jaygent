@@ -95,6 +95,9 @@ for the supporting cross-cutting docs.
 
 - Architecture: `brainstorming/techniques/using-lib.md` (4-tier code
   organization + layer engine contract + audio analysis JSON schema)
+- Lab pieces (POC an element outside the work — research → N switchable
+  treatments → Louis picks → integrate): `brainstorming/techniques/lab-pieces.md`,
+  canonical example `pieces/bubbles/`
 - Aesthetic principles: `brainstorming/techniques/layered-composition.md`,
   `music-composition.md`, `music-to-shader.md`,
   `audio-cursor-together.md`, `keyboard-synth.md`, `interactivity.md`,
