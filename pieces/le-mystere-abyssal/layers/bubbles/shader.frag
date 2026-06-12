@@ -58,6 +58,11 @@ float sunPresence(int stage, float sp) {
 }
 // ==================================================== end NARRATIVE ====
 
+// iq cosine palette — the "beautiful colors" the hope curve brings in.
+vec3 iqPal(float t, vec3 phase) {
+    return 0.5 + 0.5 * cos(6.28318 * (t + phase));
+}
+
 // Diver path — kept in sync with light-shaft's diverPos.
 vec2 diverPos(float t) {
     float pr = smoothstep(88.7, 124.7, t);
@@ -108,8 +113,13 @@ void main() {
     float voc = mix(0.40 + 0.30 * sin(t * 0.47), u_audio_vocals_stem, u_audio_playing);
     float emission = emissionBase(stage, sp, t, voc);
 
-    // chorus warmth: bubble rims catch gold when the myth is sung
-    float goldAmt = (stage == 5 || stage == 9) ? 0.85 : 0.0;
+    // The hope curve: her fizz is WHITE — the beautiful colors arrive only
+    // when the narrative offers hope (the star, the dream, the sun), and
+    // they leave with it (Louis 2026-06-12, from the bubbles lab).
+    float hope = sunPresence(stage, sp);
+    if (stage == 3) hope = max(hope, 0.30 * smoothstep(68.0, 72.0, t));
+    if (stage == 5) hope = max(hope, 0.55);
+    if (stage == 8 && t > 189.2) hope = max(hope, 0.30);
 
     // Cursor deflection deactivated (Louis 2026-06-11: mouse warps add
     // nothing meaningful for now). Flip to re-enable.
@@ -131,7 +141,6 @@ void main() {
 
     const float STRIP = 0.075;   // column spacing in p-space x
     vec3 col = vec3(0.0);
-    float cover = 0.0;
 
     // her breath: a focused stream above the diver while she's visible
     float diverPlume = (t > 90.0 && t < 143.0) ? 1.0 : 0.0;
@@ -170,59 +179,70 @@ void main() {
         if (alive < 0.5) continue;
 
         float speed   = (0.085 + 0.10 * hash21(vec2(strip, 3.1))) * (1.0 + vent * 0.9)
-                      * mix(1.0, 0.32, dream);
-        float spacing = (0.15 + 0.12 * hash21(vec2(strip, 5.9))) * mix(1.0, 1.7, dream);
+                      * mix(1.0, 0.45, dream);
+        float colWob  = sin(ps.y * (7.0 + 4.0 * h) + h * 6.2831 + t * mix(2.0, 0.7, dream))
+                      * mix(0.010, 0.022, dream);
+        float xJit = xCol + colWob;
+
+        // ---- pointillist fizz: her voice as a stream of white sparks ----
+        // (the bubbles-lab winner: no bubble at all — dots whose density
+        // breathes; white until hope colours them)
+        float spacing = 0.045 + 0.030 * hash21(vec2(strip, 5.9));
         float yFlow = ps.y + 0.55 - t * speed;
         float cell = floor(yFlow / spacing);
         float hb = hash21(vec2(strip * 7.7, cell));
-
-        // not every slot holds a bubble; vents are denser
-        if (hb < mix(0.35, 0.05, clamp(vent + breath, 0.0, 1.0))) continue;
-
         float yC = (cell + 0.5) * spacing - 0.55 + t * speed;
-        // breath bubbles only exist above the diver
-        if (breath > 0.5 && vent < 0.05 && yC < dvr.y) continue;
+        bool breathOk = !(breath > 0.5 && vent < 0.05 && yC < dvr.y);
+        if (hb > mix(0.45, 0.10, clamp(vent + breath, 0.0, 1.0)) || !breathOk) {
+            // no dot in this slot
+        } else {
+            vec2 dotP = vec2(xJit + (hb - 0.5) * 0.024,
+                             fract((yC + 0.55) / 1.1) * 1.1 - 0.55);
+            float dd = dot(ps - dotP, ps - dotP);
+            float r = 0.0035 + 0.0045 * hb;
+            float tw = 0.55 + 0.45 * sin(t * (2.2 + hb * 3.0) + hb * 40.0);
+            vec3 white = vec3(0.90, 0.95, 1.00) * max(extinction(dep * 0.7), vec3(0.22));
+            vec3 hue = iqPal(hb * 0.9 + t * 0.01 + 0.05, vec3(0.0, 0.33, 0.67));
+            vec3 dotCol = mix(white, hue, hope * smoothstep(0.05, 0.65, hb));
+            if (ventBlack && vent > 0.05) dotCol = mix(dotCol, vec3(0.55, 0.40, 1.00), 0.5);
+            col += dotCol * exp(-dd / (r * r)) * (0.50 + 0.40 * voc) * tw;
+        }
 
-        // the dream slows the wobble into a wide lazy sway
-        float wobF = mix(9.0 + 6.0 * hb, 3.0 + 2.0 * hb, dream);
-        float wobT = mix(2.3, 0.7, dream);
-        float wob = sin(yC * wobF + hb * 6.2831 + t * wobT) * mix(0.012, 0.030, dream);
-        vec2 bPos = vec2(xCol + wob, fract((yC + 0.55) / 1.1) * 1.1 - 0.55);
-
-        // size grows as it rises (pressure falls)
-        float r = (0.006 + 0.012 * hb) * (1.0 + 0.6 * (bPos.y + 0.5))
-                * mix(1.0, 1.6, dream);
-
-        // ---- the bubble is GLASS: it refracts the scene beneath it ------
-        vec2 d = ps - bPos;                       // perfect circle, no squish
-        float dist = length(d);
-        float dN = dist / r;
-        if (dN > 1.10) continue;
-
-        float inside = smoothstep(1.02, 0.90, dN);
-        // lens: magnified at the centre, bending hard toward the rim — the
-        // window, the rays, the sun pass through the glass
-        float bend = mix(0.55, -0.35, smoothstep(0.0, 1.0, dN * dN));
-        vec2 lensUV = uv - (d / vec2(aspect, 1.0)) * bend;
-        vec3 through = texture(u_below, lensUV).rgb;
-        if (dot(through, vec3(1.0)) < 0.01) through = vec3(0.015, 0.045, 0.10);
-        through *= 1.0 + 0.25 * (1.0 - dN);       // focal brightening
-
-        // fresnel rim: scene + chorus gold caught on the glass edge
-        float fres = smoothstep(0.55, 1.0, dN);
-        vec3 rimCol = mix(vec3(0.62, 0.88, 1.00) * extinction(dep * 0.85),
-                          vec3(1.00, 0.72, 0.28), goldAmt);
-        if (ventBlack && vent > 0.05) rimCol = mix(rimCol, vec3(0.55, 0.40, 1.00), 0.6);
-        vec3 bub = mix(through, rimCol, fres * (0.30 + 0.30 * voc + 0.25 * goldAmt));
-
-        // one glint of the light above, mirrored in the glass
-        vec2 gOff = bPos + r * 0.42 * vec2(0.30, 0.75);
-        float gd2 = dot(ps - gOff, ps - gOff);
-        bub += vec3(1.00, 0.97, 0.90) * exp(-gd2 / (r * r * 0.05)) * 0.65;
-
-        col = mix(col, bub, inside);
-        cover = max(cover, inside);
+        // ---- rare soap-film accents: small iridescent bubbles ----------
+        // (lab treatment 2, "if small" — larger and slower inside the dream)
+        if (hash21(vec2(strip, 77.7)) < mix(0.10, 0.30, dream) && stage >= 4 && stage <= 9) {
+            float fSpacing = 0.55;
+            float fFlow = ps.y + 0.55 - t * speed * 0.6;
+            float fCell = floor(fFlow / fSpacing);
+            float fh = hash21(vec2(strip * 3.3, fCell));
+            float fyC = (fCell + 0.5) * fSpacing - 0.55 + t * speed * 0.6;
+            vec2 fPos = vec2(xJit, fract((fyC + 0.55) / 1.1) * 1.1 - 0.55);
+            float R = (0.016 + 0.018 * fh) * mix(1.0, 1.25, dream);
+            vec2 q = (ps - fPos) / R;
+            float r2 = dot(q, q);
+            if (r2 < 1.0) {
+                vec3 N = vec3(q, sqrt(max(1.0 - r2, 0.0)));
+                // the film shows the scene through itself (keeps the
+                // u_below coupling) with a thin-film iridescent rim
+                vec3 through = texture(u_below, uv).rgb;
+                if (dot(through, vec3(1.0)) < 0.01) through = vec3(0.015, 0.045, 0.10);
+                float F = 0.04 + 0.96 * pow(1.0 - N.z, 5.0);
+                vec3 film = iqPal((1.0 - N.z) * 1.3 + fh + t * 0.02,
+                                  vec3(0.0, 0.33, 0.67));
+                film = mix(vec3(0.85, 0.92, 1.00), film, clamp(hope + 0.25, 0.0, 1.0));
+                // rim-dominant: the interior stays transparent (the scene
+                // through the film), the iridescence lives on the edge —
+                // body-mixed films read as muddy smudges at dream scale
+                vec3 bub = mix(through, film, clamp(F * 1.5, 0.0, 0.9)
+                                            * smoothstep(0.35, 0.95, r2));
+                bub += vec3(1.0, 0.98, 0.92)
+                     * exp(-dot(q - vec2(0.3, 0.45), q - vec2(0.3, 0.45)) * 18.0) * 0.4;
+                float inside = smoothstep(1.0, 0.88, r2);
+                col = mix(col, max(col, bub), inside);
+            }
+        }
     }
 
-    fragColor = vec4(col, cover);
+    float a = clamp(max(col.r, max(col.g, col.b)), 0.0, 1.0);
+    fragColor = vec4(col, a);
 }

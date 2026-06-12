@@ -38,7 +38,7 @@ layers:
   - layer: narcosis
     blend: screen
   - layer: bubbles
-    blend: normal
+    blend: screen
   - layer: deep-life
     blend: screen
   - layer: events

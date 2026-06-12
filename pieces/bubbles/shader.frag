@@ -84,23 +84,26 @@ vec3 tPhotoreal(vec2 p, float t) {
     return col;
 }
 
-// 2 · soap film: thin-film interference skin, OPD-driven rainbow,
-// thickness draining top→bottom.
+// 2 · soap film, SMALL: a cluster of little thin-film bubbles rising on
+// zigzag paths (Louis 2026-06-12: works if small).
 vec3 tSoapFilm(vec2 p, float t) {
     vec3 col = bgScene(p, t) * 0.55;
-    vec2 c = vec2(0.12 * sin(t * 0.4), 0.10 * sin(t * 0.27));
-    float R = 0.42;
-    vec2 q = (p - c) / R;
-    float r2 = dot(q, q);
-    if (r2 < 1.0) {
+    for (int i = 0; i < 9; i++) {
+        float seed = fract(float(i) * 0.618 + 0.11);
+        vec2 c = risePath(seed * 0.93, seed, t * 0.7);
+        float R = 0.035 + 0.045 * seed;
+        vec2 q = (p - c) / R;
+        float r2 = dot(q, q);
+        if (r2 > 1.0) continue;
         vec3 N = hemiN(q);
-        // film thickness: drains downward + swirls
-        float th = 0.55 - 0.35 * q.y + 0.18 * fbmRot(q * 2.5 + t * 0.10);
-        vec3 film = iqPal(th * 2.2 + (1.0 - N.z) * 1.3, vec3(0.0, 0.33, 0.67));
+        float th = 0.55 - 0.35 * q.y
+                 + 0.18 * fbmRot(q * 2.5 + t * 0.10 + seed * 9.0);
+        vec3 film = iqPal(th * 2.2 + (1.0 - N.z) * 1.3 + seed,
+                          vec3(0.0, 0.33, 0.67));
         float F = schlick(N.z, 0.04);
-        col = mix(col, col * 0.9 + film * 0.16, smoothstep(1.0, 0.96, r2));
-        col += film * F * 0.85 * smoothstep(1.0, 0.80, r2);
-        col += vec3(1.0) * pow(max(dot(N, normalize(vec3(0.4, 0.6, 0.6))), 0.0), 24.0) * 0.6;
+        col = mix(col, col * 0.9 + film * 0.16, smoothstep(1.0, 0.94, r2));
+        col += film * F * 0.95 * smoothstep(1.0, 0.78, r2);
+        col += vec3(1.0) * pow(max(dot(N, normalize(vec3(0.4, 0.6, 0.6))), 0.0), 24.0) * 0.5;
     }
     return col;
 }
@@ -161,16 +164,21 @@ vec3 tChampagne(vec2 p, float t) {
     return col;
 }
 
-// 5 · guinness reverse cascade: tiny nitrogen motes — sinking at the walls,
-// rising in the heart of the glass.
+// 5 · guinness reverse cascade: tiny nitrogen motes — rising in the heart,
+// sinking at the walls, on a CONTINUOUS circulation profile (the v1 side
+// flip was abrupt — Louis 2026-06-12) with a lateral roll-over drift.
 vec3 tGuinness(vec2 p, float t) {
     vec3 col = mix(vec3(0.02, 0.013, 0.008), vec3(0.07, 0.045, 0.025),
                    smoothstep(-0.6, 0.8, p.y));
-    float wall = smoothstep(0.25, 0.75, abs(p.x));   // 1 near walls
+    // smooth two-cell circulation: vy = cos profile (up centre, down walls,
+    // zero-crossing soft), vx rolls over at the top and under at the bottom
+    float xN = clamp(p.x / 0.85, -1.0, 1.0);
+    float vy = cos(xN * 3.14159);
+    float vx = 0.45 * sin(xN * 3.14159) * sin(clamp(p.y / 0.55, -1.0, 1.0) * 1.5708);
     for (int o = 0; o < 2; o++) {
         float scale = (o == 0) ? 26.0 : 44.0;
-        float dir = mix(1.0, -1.0, wall);            // up centre, down walls
-        vec2 sPos = p + vec2(0.0, -t * 0.05 * dir * ((o == 0) ? 1.0 : 0.6));
+        float spd = 0.05 * ((o == 0) ? 1.0 : 0.6);
+        vec2 sPos = p - vec2(vx, vy) * t * spd;
         vec2 cell = floor(sPos * scale);
         vec2 fp = fract(sPos * scale);
         float h = hash21(cell + float(o) * 31.7);
@@ -324,10 +332,13 @@ vec3 tTargets(vec2 p, float t) {
     return col;
 }
 
-// 12 · pointillist effervescence: no bubble at all — a field of pure-hue
-// dots whose density and shimmer rise like fizz.
+// 12 · pointillist effervescence: no bubble at all — a field of dots whose
+// density and shimmer rise like fizz. WHITE by default; the colors bloom
+// in and out on a slow "hope" breath (Louis 2026-06-12: in the piece, white
+// until hope enters the narrative, then the beautiful colors arrive).
 vec3 tPointillism(vec2 p, float t) {
     vec3 col = vec3(0.04, 0.06, 0.10);
+    float hope = smoothstep(0.25, 0.9, 0.5 + 0.5 * sin(t * 0.22));
     for (int o = 0; o < 3; o++) {
         float fo = float(o);
         float scale = 18.0 + fo * 14.0;
@@ -340,9 +351,10 @@ vec3 tPointillism(vec2 p, float t) {
         if (h > 0.25 + 0.35 * wave) continue;
         vec2 jit = hash22(cell * 1.9) * 0.7 + 0.15;
         float d = length(ff - jit);
+        vec3 white = vec3(0.90, 0.95, 1.00);
         vec3 hue = iqPal(h * 3.0 + fo * 0.33, vec3(0.0, 0.33, 0.67));
         float tw = 0.6 + 0.4 * sin(t * (2.0 + h * 4.0) + h * 40.0);
-        col += hue * exp(-d * d * 42.0) * 0.45 * tw;
+        col += mix(white, hue, hope) * exp(-d * d * 42.0) * 0.45 * tw;
     }
     return col;
 }
