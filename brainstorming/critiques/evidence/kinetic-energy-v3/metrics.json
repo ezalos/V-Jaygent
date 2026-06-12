@@ -1,0 +1,437 @@
+=== piece (stills+clips):
+{
+ "stills": {
+  "music-00-t1.0-intro.png": {
+   "rms_contrast": {
+    "value": 0.0001,
+    "pass": false
+   },
+   "squint_macro": {
+    "value": 0.0,
+    "pass": false
+   },
+   "no_blowout": {
+    "value": {
+     "mean_l": 0.005,
+     "ch_range": 0.004
+    },
+    "pass": true
+   },
+   "empty_zones": {
+    "value": 0.0,
+    "pass": false
+   },
+   "one_over_f": {
+    "value": -1.496,
+    "pass": false
+   },
+   "depth_octaves": {
+    "value": 5,
+    "pass": true
+   },
+   "warm_arc": {
+    "value": null,
+    "pass": true,
+    "note": "near-monochrome (<0.5% colored px)"
+   },
+   "lum_not_hue": {
+    "value": null,
+    "pass": true,
+    "note": "near-monochrome"
+   },
+   "dominant_hues": {
+    "value": 0,
+    "pass": true
+   }
+  },
+  "music-01-t66.7-verse.png": {
+   "rms_contrast": {
+    "value": 0.0347,
+    "pass": true
+   },
+   "squint_macro": {
+    "value": 0.002,
+    "pass": false
+   },
+   "no_blowout": {
+    "value": {
+     "mean_l": 0.013,
+     "ch_range": 0.017
+    },
+    "pass": true
+   },
+   "empty_zones": {
+    "value": 0.892,
+    "pass": true
+   },
+   "one_over_f": {
+    "value": -2.671,
+    "pass": true
+   },
+   "depth_octaves": {
+    "value": 3,
+    "pass": true
+   },
+   "warm_arc": {
+    "value": 1.0,
+    "pass": true
+   },
+   "lum_not_hue": {
+    "value": {
+     "l_range": 0.174,
+     "hue_std": 5.1
+    },
+    "pass": true
+   },
+   "dominant_hues": {
+    "value": 1,
+    "pass": true
+   }
+  },
+  "music-02-t126.6-pre-peak.png": {
+   "rms_contrast": {
+    "value": 0.0573,
+    "pass": true
+   },
+   "squint_macro": {
+    "value": 0.0117,
+    "pass": true
+   },
+   "no_blowout": {
+    "value": {
+     "mean_l": 0.021,
+     "ch_range": 0.032
+    },
+    "pass": true
+   },
+   "empty_zones": {
+    "value": 0.892,
+    "pass": true
+   },
+   "one_over_f": {
+    "value": -1.749,
+    "pass": false
+   },
+   "depth_octaves": {
+    "value": 5,
+    "pass": true
+   },
+   "warm_arc": {
+    "value": 1.0,
+    "pass": true
+   },
+   "lum_not_hue": {
+    "value": {
+     "l_range": 0.31,
+     "hue_std": 5.4
+    },
+    "pass": true
+   },
+   "dominant_hues": {
+    "value": 1,
+    "pass": true
+   }
+  },
+  "music-03-t147.3-peak.png": {
+   "rms_contrast": {
+    "value": 0.0377,
+    "pass": true
+   },
+   "squint_macro": {
+    "value": 0.0049,
+    "pass": false
+   },
+   "no_blowout": {
+    "value": {
+     "mean_l": 0.011,
+     "ch_range": 0.014
+    },
+    "pass": true
+   },
+   "empty_zones": {
+    "value": 0.95,
+    "pass": true
+   },
+   "one_over_f": {
+    "value": -1.725,
+    "pass": false
+   },
+   "depth_octaves": {
+    "value": 5,
+    "pass": true
+   },
+   "warm_arc": {
+    "value": 1.0,
+    "pass": true
+   },
+   "lum_not_hue": {
+    "value": {
+     "l_range": 0.177,
+     "hue_std": 7.1
+    },
+    "pass": true
+   },
+   "dominant_hues": {
+    "value": 1,
+    "pass": true
+   }
+  },
+  "music-04-t194.6-quiet.png": {
+   "rms_contrast": {
+    "value": 0.054,
+    "pass": true
+   },
+   "squint_macro": {
+    "value": 0.0137,
+    "pass": true
+   },
+   "no_blowout": {
+    "value": {
+     "mean_l": 0.016,
+     "ch_range": 0.023
+    },
+    "pass": true
+   },
+   "empty_zones": {
+    "value": 0.943,
+    "pass": true
+   },
+   "one_over_f": {
+    "value": -2.329,
+    "pass": true
+   },
+   "depth_octaves": {
+    "value": 2,
+    "pass": false
+   },
+   "warm_arc": {
+    "value": 1.0,
+    "pass": true
+   },
+   "lum_not_hue": {
+    "value": {
+     "l_range": 0.329,
+     "hue_std": 6.1
+    },
+    "pass": true
+   },
+   "dominant_hues": {
+    "value": 1,
+    "pass": true
+   }
+  },
+  "music-05-t199.7-outro.png": {
+   "rms_contrast": {
+    "value": 0.0461,
+    "pass": true
+   },
+   "squint_macro": {
+    "value": 0.0078,
+    "pass": true
+   },
+   "no_blowout": {
+    "value": {
+     "mean_l": 0.013,
+     "ch_range": 0.018
+    },
+    "pass": true
+   },
+   "empty_zones": {
+    "value": 0.951,
+    "pass": true
+   },
+   "one_over_f": {
+    "value": -2.102,
+    "pass": false
+   },
+   "depth_octaves": {
+    "value": 2,
+    "pass": false
+   },
+   "warm_arc": {
+    "value": 1.0,
+    "pass": true
+   },
+   "lum_not_hue": {
+    "value": {
+     "l_range": 0.27,
+     "hue_std": 5.7
+    },
+    "pass": true
+   },
+   "dominant_hues": {
+    "value": 1,
+    "pass": true
+   }
+  }
+ },
+ "piece": {
+  "arc": {
+   "value": 0.225,
+   "pass": true
+  },
+  "hue_drift_smooth": {
+   "value": [
+    2.4,
+    1.8,
+    1.0,
+    0.0
+   ],
+   "pass": true
+  },
+  "layout_varies": {
+   "value": -0.039,
+   "pass": true
+  }
+ },
+ "source": "evidence/kinetic-energy-v2",
+ "clips": {
+  "clips": {
+   "clip-w0-t2.2-intro.mp4": {
+    "trackability": {
+     "value": {
+      "warp_err": 0.0534,
+      "speed_deg_s": 0.0
+     },
+     "pass": true
+    },
+    "never_frozen": {
+     "value": 0.0966,
+     "pass": true
+    },
+    "jerk_smooth": {
+     "value": 0.0289,
+     "pass": true
+    }
+   },
+   "clip-w1-t66.7-verse.mp4": {
+    "trackability": {
+     "value": {
+      "warp_err": 0.1055,
+      "speed_deg_s": 0.99
+     },
+     "pass": true
+    },
+    "never_frozen": {
+     "value": 0.501,
+     "pass": true
+    },
+    "jerk_smooth": {
+     "value": 0.1885,
+     "pass": true
+    }
+   },
+   "clip-w2-t126.6-build.mp4": {
+    "trackability": {
+     "value": {
+      "warp_err": 0.0896,
+      "speed_deg_s": 0.0
+     },
+     "pass": true
+    },
+    "never_frozen": {
+     "value": 0.5231,
+     "pass": true
+    },
+    "jerk_smooth": {
+     "value": 0.0786,
+     "pass": true
+    }
+   },
+   "clip-w3-t147.3-peak.mp4": {
+    "trackability": {
+     "value": {
+      "warp_err": 0.1187,
+      "speed_deg_s": 1.29
+     },
+     "pass": true
+    },
+    "never_frozen": {
+     "value": 0.5214,
+     "pass": true
+    },
+    "jerk_smooth": {
+     "value": 0.2064,
+     "pass": false
+    }
+   },
+   "clip-w4-t196.7-outro.mp4": {
+    "trackability": {
+     "value": {
+      "warp_err": 0.0423,
+      "speed_deg_s": 0.0
+     },
+     "pass": true
+    },
+    "never_frozen": {
+     "value": 0.0697,
+     "pass": true
+    },
+    "jerk_smooth": {
+     "value": 0.0124,
+     "pass": true
+    }
+   }
+  },
+  "piece": {
+   "window_divergence": {
+    "value": {
+     "min_ncd": 0.953,
+     "min_flowhist": 0.015
+    },
+    "pass": true
+   },
+   "motion_dynamic_range": {
+    "value": 0.133,
+    "pass": true
+   },
+   "trackability_all": {
+    "pass": true
+   },
+   "never_frozen_all": {
+    "pass": true
+   },
+   "jerk_smooth_all": {
+    "pass": false
+   }
+  }
+ }
+}
+=== interaction:
+{
+ "stills_comparable": false,
+ "tests": {
+  "cursor_composition": {
+   "value": 0.493,
+   "pass": true,
+   "note": "wall-clock piece: time delta contaminates the comparison"
+  },
+  "cursor_reversibility": {
+   "value": 0.897,
+   "pass": false,
+   "note": "wall-clock piece: time delta contaminates the comparison"
+  },
+  "cursor_bounded": {
+   "value": 0.257,
+   "pass": true,
+   "note": "wall-clock piece: time delta contaminates the comparison"
+  },
+  "idle_matrix_alive": {
+   "value": {
+    "both": 0.4281,
+    "music": 0.603,
+    "cursor": 0.0484,
+    "neither": 0.0123
+   },
+   "pass": true
+  }
+ }
+}
+=== gate:
+{
+ "gates": [
+  "no_blowout",
+  "dominant_hues"
+ ],
+ "failures": []
+}
