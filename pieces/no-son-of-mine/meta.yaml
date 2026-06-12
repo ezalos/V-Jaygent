@@ -1,0 +1,69 @@
+title: No Son Of Mine
+slug: no-son-of-mine
+created: 2026-06-12T06:45:33.125Z
+cursor: true
+keyboard_synth: true
+notes: |
+  Genesis — *No Son Of Mine* (1991, We Can't Dance). 400s, 103.4 BPM,
+  E minor, 8 sections, Demucs stems.
+
+  Thesis: two phases that cannot stay mixed. The song's estrangement
+  rendered as canonical Cahn-Hilliard spinodal decomposition —
+  ∂h/∂t = ∇²(h³ − h − γ∇²h) on a half-res rgba16f ping-pong. You can
+  stir father (wine) and son (cream) together with the cursor; the
+  physics always pulls them apart again. The domain wall is where the
+  song lives: it glows ember, carries the voice, ruptures on the bar.
+
+  Arc (section state machine): gray mix shudders into a fine labyrinth
+  (verses) → quench deepens, walls heat (choruses) → the bridge blows
+  the remelt blob up (the return home) → final choruses bias the
+  balance dark so the cream phase shrinks to cast-out islands → the
+  mobility freezes and the light goes out. The piece ends because the
+  equation reaches its ground state.
+
+  Audio bindings:
+    - vocals stem → wall heat (ember → amber → white-hot)
+    - drums stem  → grain jitter (sub-beat shimmer) + rupture ring depth
+    - bass stem   → downbeat shear strength along wall tangents
+    - downbeat / bar grid → expanding refraction shock ring from a
+      per-bar wandering epicenter (geometry, not flash)
+    - u_to_section_change → walls tense (heat) before every boundary
+    - sections → quench depth γ, mobility, phase bias, freeze + fade
+  Mouse / touch: vortex stir (advects the field — visibly remixes) +
+    local remelt; all 8 touch points stir on mobile; tap = shock ring.
+  Keyboard (synth on): white keys inject cream droplets, black keys
+    wine droplets, pitch-mapped; the field swallows or expels them.
+  Palette: warm cycle [near-black wine, wine, ember, amber, cream];
+    luminance contrast (cream-on-near-black), no cool intrusions.
+  Idle: CH coarsens autonomously; wandering remelt blob refreshes the
+    labyrinth ~10s; synthetic rings every 9s; wall glow breathes.
+duration: 400
+render_scale: 0.75
+architecture: C
+audio: audio.mp3
+audio_features:
+  - beat
+  - sections
+  - key
+  - stems.bass
+  - stems.drums
+  - stems.vocals
+  - stems.other
+time_source: audio
+published_at: null
+passes:
+  - name: simulate
+    shader: sim.frag
+    target:
+      format: rgba16f
+      ping_pong: true
+      scale: 0.5
+    inputs:
+      u_state: simulate
+    iterations: 6
+  - name: display
+    shader: shader.frag
+    target: screen
+    inputs:
+      u_state: simulate
+rendered_at: '2026-06-12T08:14:06.978Z'
