@@ -17,3 +17,4 @@ data/
 # regeneratable on demand. The runner script and pieces/chaos-warp-test/
 # (a permanent diagnostic harness) ARE committed.
 pieces/xtest-layer-*/
+bin/__pycache__/
