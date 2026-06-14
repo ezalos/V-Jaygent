@@ -200,6 +200,20 @@ reference catalog the gates check against.
    for X"). If you can't pick a sibling, brainstorm more before
    moving on.
 
+   **Distinctness check (added 2026-06-14, kaaris-63).** Before
+   locking the thesis, grep the catalog so it is NOT a near-duplicate
+   of a shipped piece — same canonical algorithm + same visual
+   language = a recolored duplicate that fails the distinctness bar:
+   ```
+   for f in pieces/*/meta.yaml; do printf '%s ' $(basename $(dirname $f)); grep -m1 '^title:' $f; done
+   grep -rilE "<canonical-algo>|<visual-language-keywords>" pieces/*/meta.yaml brainstorming/pieces/*.md
+   ```
+   Read any hit's notes; if the look + algorithm are taken, pick
+   different white-space. (kaaris-63's obvious dark-trap thesis —
+   Voronoi molten fracture + 808 shockwaves + vocal-lit core — was
+   nearly identical to `we-owe-no-one`; caught only by reading its
+   meta. The catalog is ~55 pieces; assume your first idea is taken.)
+
 2. **≥ 2 eye-landing candidates.** Name them. "A central pulsing
    sphere" is one — fail. "Four orbiting cores with a central fold
    cross + collision shockwaves" is four — pass. Eye-landing fail
@@ -485,6 +499,12 @@ Write `pieces/<slug>/shader.frag`. Respect:
 - **`#version 300 es`** on the first code line (the hoister handles it
   even if ABOUTME is above)
 - **`precision highp float;`** second
+- **Avoid GLSL reserved words as variable names** — `patch`, `active`,
+  `sample`, `filter`, `input`, `output`, `common`, `partition` and the
+  rest of the reserved set compile-error as `Illegal use of reserved
+  word` (they read like natural locals). Prefer specific names
+  (`wallHeat`, `litLane`, `wineLow`). Each costs a full sanity render to
+  discover. (kaaris-63 lost two round-trips to `patch` and `active`.)
 - **Use `lib/` via `#include`** for anything generic. `fbm`, `vnoise`,
   `hash21`, `rot2d`, `reinhard`, `sdCircle`, `laplacian4` — all live in
   `lib/`. Do not re-implement them inline. Check `ls lib/` if unsure

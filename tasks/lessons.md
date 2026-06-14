@@ -136,3 +136,20 @@ file is the human-readable index.
 - **/vjay-* skills aren't Skill-tool registered** — read
   `skills/vjay-*/SKILL.md` and follow manually; the independent critic
   loop isn't auto-invokable. (`reference_vjay_skills_invocation.md`)
+- **Catalog-distinctness check before locking a thesis** — grep
+  `pieces/*/meta.yaml` + `brainstorming/pieces` for the canonical
+  algorithm AND the visual language; the catalog is ~55 pieces and a
+  near-duplicate fails the distinctness bar. kaaris-63's first dark-trap
+  thesis was nearly identical to `we-owe-no-one`'s Voronoi fracture
+  forge — caught only by reading its meta. Now a gate in vjay-new-piece
+  §1b. (`feedback_catalog_distinctness_check.md`)
+- **GLSL reserved words bite as shader locals** — `patch`, `active`,
+  `sample`, `filter`, `input`, `output` etc. compile-error as `Illegal
+  use of reserved word`; cost 2 round-trips on kaaris-63. Now a caution
+  in vjay-new-piece §7. (`reference_glsl_reserved_words.md`)
+- **Zoom/tunnel-piece craft** — compact the central glow (additive core
+  + audio envelope blows to a white disc at the drop; let clench/rings/
+  flares carry drop intensity); trackability/jerk misfire on the
+  radial-zoom 1/r singularity + headless fps — grade continuity by a
+  0.1s temporal strip and document the override.
+  (`feedback_zoom_tunnel_pieces.md`)
