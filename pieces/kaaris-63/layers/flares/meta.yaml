@@ -1,0 +1,8 @@
+name: flares
+identity: "cream-hot sparks racing up the throat (hi-hat) + radial streaks on key-press"
+default_blend: max
+uniforms: {}
+reads:
+  - u_below
+publishes: []
+consumes: []

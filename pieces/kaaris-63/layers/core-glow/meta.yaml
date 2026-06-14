@@ -1,0 +1,8 @@
+name: core-glow
+identity: "vanishing-point ember pull; bass pulse, vocal brightness, swirling tendrils"
+default_blend: add
+uniforms: {}
+reads:
+  - u_below
+publishes: []
+consumes: []

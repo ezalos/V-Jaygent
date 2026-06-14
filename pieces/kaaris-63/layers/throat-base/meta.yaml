@@ -1,0 +1,9 @@
+name: throat-base
+identity: "log-polar descent tunnel — fbm-veined rock walls, cartilage rings, 808 clench"
+default_blend: normal
+uniforms: {}
+reads:
+  - u_below
+  - u_history
+publishes: []
+consumes: []

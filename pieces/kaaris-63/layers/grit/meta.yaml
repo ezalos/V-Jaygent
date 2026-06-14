@@ -1,0 +1,8 @@
+name: grit
+identity: "warm dust + radial heat-shimmer refracting u_below; hi-hat drives density"
+default_blend: screen
+uniforms: {}
+reads:
+  - u_below
+publishes: []
+consumes: []

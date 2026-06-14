@@ -1,0 +1,80 @@
+title: 63 — The Descent
+slug: kaaris-63
+created: 2026-06-14T09:41:55.982Z
+cursor: true
+keyboard_synth: true
+architecture: E
+audio: audio.mp3
+audio_features:
+  - beat
+  - sections
+  - stems
+  - key
+time_source: audio
+duration: 257
+render_scale: 0.62
+notes: |
+  Kaaris — "63". Dark, hard French trap. 123 BPM, A# minor, 4:17.
+  Kaaris = "Le Diable" — so the piece is a descent.
+
+  THE DESCENT. A first-person infinite fall down a warm-veined throat,
+  built as a log-polar conformal tunnel (angle -> wall-x, 1/radius ->
+  depth). The 808 sub-bass IS gravity: every kick CLENCHES the throat
+  (radius contracts, the cartilage rings rush in) and you keep falling.
+  Dark volcanic-glass walls veined with ember/wine cracks; transverse
+  rings rush past and compress toward the vanishing point; hi-hat rolls
+  scatter fast warm grit down the walls; a deep ember core glows at the
+  centre and brightens with the vocal flow; downbeats snap the tunnel's
+  rotation. You do not escape — you fall.
+
+  Architecture E — 5-layer stack, bottom -> top:
+    1. throat-base    THE LEAD. log-polar tunnel: fbm-veined rock walls,
+                      transverse rings (1/r foreshortening), 808 clench,
+                      downbeat rotation snap, vocal wall-heat, pre-drop
+                      throat-squeeze, cursor steer + heat. normal blend.
+    2. core-glow      the vanishing-point ember pull; bass pulse, vocal
+                      brightness, slow swirling tendrils. add blend.
+    3. flares         cream-hot sparks racing up the walls (hi-hat) +
+                      full radial streaks when keys are played. max blend.
+    4. grit           fine fast-scrolling warm dust shimmer; the
+                      always-on sub-beat motion (hi-hat). screen blend.
+    5. vignette-grain warm vignette, bloom, 1/f grain, Reinhard. replace.
+
+  Audio — Demucs stems (no audio-on-brightness literalism; bindings are
+  geometric / heat / spawn):
+    - bass stem / kick -> throat clench + core pulse (the gravity)
+    - drums stem (hi-hat) -> grit scroll speed + flare spawn rate
+    - vocals stem -> wall heat + core brightness (the flow lights it)
+    - other stem -> ember vein contrast / surge
+    - downbeat -> tunnel rotation snap (visible phase-lock)
+    - beat phase -> per-beat wall micro-rock
+    - to-section-change -> pre-tension throat-squeeze before drops
+
+  Cursor (u_mouse): steers the fall off-axis (lean into a wall) and
+  heats a local wall patch. Keyboard: each key lights a radial ember
+  streak down the throat (play notes over the beat).
+
+  Palette: strictly warm blackbody — near-black, wine, blood-ember,
+  amber, cream. No cool intrusions.
+
+  Arc (8-section stem analysis): silent intro 0-8s (slow dark drift) ->
+  build 8-30s -> heavy drop / verse 30-108s (violent clenching fall) ->
+  breakdown 108-123s (the fall stalls) -> verse 2 123-217s (resumes
+  harder) -> wind-down 217-248s -> silent tail 248-257s (fade to black).
+
+  Idle (u_audio_playing == 0): still falling slowly; walls breathe;
+  ember veins and core pulse on synthetic drivers; grit drifts. Survives
+  idle by construction — the fall is autonomous.
+layers:
+  - layer: throat-base
+    blend: normal
+  - layer: core-glow
+    blend: add
+  - layer: flares
+    blend: max
+  - layer: grit
+    blend: screen
+  - layer: vignette-grain
+    blend: replace
+published_at: null
+rendered_at: '2026-06-14T10:52:14.748Z'
