@@ -166,19 +166,21 @@ void main() {
         col += vec3(0.85, 0.95, 1.00) * bulb * blink * 1.2;
     }
 
-    // ---- Her dissolution: she becomes the sea (143 - 156) ---------------
-    if (t > 142.5 && t < 157.0) {
-        vec2 origin = diverPos(142.5);
-        float k = (t - 142.5) / 12.0;
-        for (int i = 0; i < 18; i++) {
+    // ---- Her light disperses: as her trace is lost (~100) the falling
+    // light breaks apart into rising warm motes — the bubbles that become
+    // her only sign of life (Louis 2026-06-15: don't show her long after).
+    if (t > 99.0 && t < 110.0) {
+        vec2 origin = diverPos(100.0);
+        float k = (t - 99.0) / 11.0;
+        for (int i = 0; i < 22; i++) {
             float hi = float(i) * 1.618;
-            vec2 dir = vec2(cos(hi * 6.2831), sin(hi * 6.2831) * 0.7 + 0.35);
-            float spd = 0.04 + 0.05 * hash21(vec2(hi, 3.3));
-            vec2 pt = origin + dir * spd * (t - 142.5)
-                    + vec2(0.0, 0.012 * (t - 142.5) * hash21(vec2(hi, 7.7)));
+            // mostly upward — they rise toward the surface like her bubbles
+            vec2 dir = vec2(cos(hi * 6.2831) * 0.55, abs(sin(hi * 6.2831)) * 0.5 + 0.5);
+            float spd = 0.05 + 0.06 * hash21(vec2(hi, 3.3));
+            vec2 pt = origin + dir * spd * (t - 99.0);
             float d = length(p - pt);
-            float fade = (1.0 - smoothstep(0.55, 1.0, k)) * smoothstep(0.0, 0.08, k);
-            col += vec3(0.55, 0.80, 0.90) * exp(-d * d * 1800.0) * fade * 0.85;
+            float fade = (1.0 - smoothstep(0.5, 1.0, k)) * smoothstep(0.0, 0.10, k);
+            col += vec3(0.95, 0.92, 0.80) * exp(-d * d * 2000.0) * fade * 0.95;
         }
     }
 

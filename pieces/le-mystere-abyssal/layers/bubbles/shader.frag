@@ -103,7 +103,7 @@ float emissionBase(int stage, float sp, float t, float voc) {
 vec3 voiceFizz(vec2 p, float aspect, float t, int stage, float sp,
                float dep, float voc, float hope) {
     float emission = emissionBase(stage, sp, t, voc);
-    float diverPlume = (t > 90.0 && t < 143.0) ? 1.0 : 0.0;
+    float diverPlume = (t > 90.0 && t < 106.0) ? 1.0 : 0.0;  // she is gone by ~105
     vec2 dvr = diverPos(t);
     const float STRIP = 0.075;
     vec3 col = vec3(0.0);
@@ -161,26 +161,51 @@ vec3 voiceFizz(vec2 p, float aspect, float t, int stage, float sp,
     return col;
 }
 
-// #2 SOAP-FILM IRIDESCENCE — l'ivresse des profondeurs. Parallax depth (near
-// = bigger/faster/brighter), per-bubble film character so the dominant colour
-// varies, iridescence + glint steered toward a slow-moving light. Coupling:
-// the brightest thing below (the sun glimmer) bends through each bubble.
-vec3 dreamBubbles(vec2 p, vec2 uv, float aspect, float t, float voc) {
+// #2 SOAP-FILM IRIDESCENCE — l'ivresse des profondeurs. dream=0 (descent):
+// medium parallax pearls. dream=1 (narcosis): MANY tiny bubbles, each a
+// little prism that splits a slow-MOVING light into a coloured ray sweeping
+// across the field — the iridescence animates and every bubble differs, for
+// the "crazy" rapture effect Louis asked for (2026-06-15).
+vec3 dreamBubbles(vec2 p, vec2 uv, float aspect, float t, float voc, float dream) {
     vec3 col = vec3(0.0);
-    vec3 lightDir = normalize(vec3(0.4 * cos(t * 0.2), 0.45 + 0.20 * sin(t * 0.15), 0.85));
-    for (int i = 0; i < 22; i++) {
+    // the light moves, so the prism rays sweep as it crosses the field
+    vec2 lightP = vec2(0.42 * sin(t * 0.22), -0.26 + 0.24 * sin(t * 0.17));
+    vec3 lightDir = normalize(vec3(lightP * 0.7, 0.85));
+    for (int i = 0; i < 40; i++) {
         float fi = float(i);
         float seed  = hash21(vec2(fi, 1.7));
         float seed2 = hash21(vec2(fi, 9.3));
         float z     = hash21(vec2(fi, 4.2));   // depth: 0 far, 1 near
         float chr   = hash21(vec2(fi, 7.9));   // film character
-        float rate = mix(0.025, 0.065, z);
+        float rate = mix(0.025, 0.07, z);
         float life = fract(t * rate + seed);
         float yr = life * 1.5 - 0.75;
-        float xr = (seed - 0.5) * 1.7
-                 + mix(0.03, 0.08, z) * sin(yr * 7.0 + seed * 40.0 + t * (0.6 + seed));
+        float xr = (seed - 0.5) * 1.85
+                 + mix(0.03, 0.09, z) * sin(yr * 7.0 + seed * 40.0 + t * (0.6 + seed));
         vec2 c = vec2(xr, yr);
-        float R = mix(0.026, 0.075, z);
+        float fade = smoothstep(0.0, 0.07, life) * smoothstep(1.0, 0.85, life)
+                   * mix(0.55, 1.0, z);
+        // skip half the field in the descent (it carries fewer, larger pearls)
+        if (dream < 0.5 && seed2 > 0.55) continue;
+
+        // PRISM RAY: the moving light refracts through the bubble into a
+        // spectrally-spread beam pointing away from the light, brightest when
+        // the bubble sits near it. Many of these = a sweeping rainbow fan.
+        if (dream > 0.01) {
+            vec2 rd = normalize(c - lightP + 1e-4);
+            vec2 rel = p - c;
+            float along = dot(rel, rd);
+            float perp = dot(rel, vec2(-rd.y, rd.x));
+            float beam = exp(-perp * perp / 0.00022) * exp(-max(along, 0.0) * 4.5)
+                       * step(-0.01, along);
+            float spec = fract(along * 5.0 + chr * 3.0 + t * 0.35);
+            vec3 rayCol = iqPal(spec, vec3(0.0, 0.33, 0.67));
+            float nearSun = exp(-dot(c - lightP, c - lightP) * 2.0);
+            col += rayCol * beam * nearSun * dream * fade * 1.7 * (0.6 + 0.5 * voc);
+        }
+
+        // the bubble: medium pearls in the descent, tiny in the dream
+        float R = mix(mix(0.026, 0.062, z), mix(0.006, 0.015, z), dream);
         vec2 q = (p - c) / R;
         float r2 = dot(q, q);
         if (r2 > 1.0) continue;
@@ -188,20 +213,20 @@ vec3 dreamBubbles(vec2 p, vec2 uv, float aspect, float t, float voc) {
         float cosL = max(dot(N, lightDir), 0.0);
         float ringFreq = mix(1.6, 4.2, chr);
         float thickness = (1.0 - 0.6 * life) * (0.72 - 0.40 * q.y);
-        float opd = seed2 + thickness * ringFreq + (1.0 - N.z) * 1.6 + (1.0 - cosL) * 1.4;
+        // animated: each film evolves on its OWN clock so the iridescence is
+        // never static and every bubble shows a different dominant colour
+        float opd = seed2 * 3.0 + thickness * ringFreq + (1.0 - N.z) * 1.6
+                  + (1.0 - cosL) * 1.4 + t * (0.15 + 0.5 * chr);
         vec3 film = iqPal(opd, vec3(0.0, 0.33, 0.67));
         float F = 0.04 + 0.96 * pow(1.0 - N.z, 5.0);
-        float fade = smoothstep(0.0, 0.07, life) * smoothstep(1.0, 0.85, life)
-                   * mix(0.55, 1.0, z);
-        // emissive iridescent skin across the whole disc, rim-weighted, so the
-        // pearl reads vibrant under screen blend (not just a faint rim)
         vec3 bub = film * (0.55 + 0.85 * F);
-        // coupling: only the bright things below (the sun) bend through
-        vec2 lensUV = uv - (q * R / vec2(aspect, 1.0)) * 0.45 * (1.0 - N.z);
-        vec3 seen = texture(u_below, lensUV).rgb;
-        float seenBright = max(seen.r, max(seen.g, seen.b));
-        bub += seen * smoothstep(0.45, 1.0, seenBright) * 0.7 * smoothstep(1.0, 0.4, r2);
-        // glint tracks the light
+        // coupling (descent pearls only — tiny dream bubbles refract via rays)
+        if (dream < 0.5) {
+            vec2 lensUV = uv - (q * R / vec2(aspect, 1.0)) * 0.45 * (1.0 - N.z);
+            vec3 seen = texture(u_below, lensUV).rgb;
+            float seenBright = max(seen.r, max(seen.g, seen.b));
+            bub += seen * smoothstep(0.45, 1.0, seenBright) * 0.7 * smoothstep(1.0, 0.4, r2);
+        }
         bub += vec3(1.0) * pow(cosL, 40.0) * 0.7 * smoothstep(1.0, 0.9, r2);
         float cover = smoothstep(1.0, 0.80, r2) * fade * (0.75 + 0.35 * voc);
         col = max(col, bub * cover);
@@ -263,14 +288,21 @@ void main() {
     if (stage == 8 && t > 189.2) hope = max(hope, 0.30);
 
     // The bubble vocabulary lands with the music moment:
-    //   B3 narcosis dream   -> soap-film iridescence (the rapture)
-    //   C3 sun bloom        -> merging metaballs (the colours of hope)
-    //   everything else     -> pointillist fizz (the literal rising bubbles)
+    //   B2 descent (after trace lost ~103) -> fizz, then soap-film pearls,
+    //                                          alternating across the long
+    //                                          "only bubbles" stretch
+    //   B3 narcosis dream                  -> tiny prismatic soap films
+    //   C3 sun bloom                       -> merging metaballs
+    //   everything else                    -> pointillist fizz
     vec3 col;
     if (stage == 5) {
-        col = dreamBubbles(p, uv, aspect, t, voc);
+        col = dreamBubbles(p, uv, aspect, t, voc, 1.0);
     } else if (stage == 9) {
         col = joyBubbles(p, t, sp, voc);
+    } else if (stage == 4 && t > 113.0) {
+        // second half of the descent: the pearls take over (a calm build
+        // into the dream that follows at 124.7)
+        col = dreamBubbles(p, uv, aspect, t, voc, 0.0);
     } else {
         col = voiceFizz(p, aspect, t, stage, sp, dep, voc, hope);
     }

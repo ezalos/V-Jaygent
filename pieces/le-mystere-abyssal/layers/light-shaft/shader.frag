@@ -84,7 +84,10 @@ vec2 diverPos(float t) {
 }
 
 float diverFade(float t) {
-    return smoothstep(86.5, 90.0, t) * (1.0 - smoothstep(139.5, 143.0, t));
+    // She is gone shortly after the trace is lost (~97) — appearing until
+    // 140 was wrong (Louis 2026-06-15). The deep-life layer takes over her
+    // dispersal into rising motes at ~99-109.
+    return smoothstep(86.5, 90.0, t) * (1.0 - smoothstep(99.0, 105.0, t));
 }
 
 void main() {
