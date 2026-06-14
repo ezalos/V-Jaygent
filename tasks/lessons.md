@@ -115,3 +115,24 @@ file is the human-readable index.
   fineness. Harness wishlist: stripe-aware trackability + a
   keyboard-event capture tool (both gaps shipped in no-son-of-mine's
   critiques). (`feedback_cahn_hilliard_craft.md`)
+- **rot2d is CLOCKWISE** — `lib/math.glsl rot2d(a)` is column-major
+  `mat2(c,-s,s,c)` = CW (the comment said CCW; corrected 2026-06-14).
+  For sign-sensitive integration pass `rot2d(-a)`; `rot2d(a)` turned the
+  soudarded Kuramoto coupling into anti-diffusion → Nyquist checkerboard.
+  Suspect this first when a rotation has the wrong sign.
+  (`reference_rot2d_handedness.md`)
+- **Kuramoto / oscillatory-media craft** — pure Kuramoto α≈0 (Sakaguchi
+  α large = frustrated fine static + stabilises the antiphase
+  checkerboard); seed smooth near-uniform phase + planted `atan` spiral
+  cores (random seed = a defect labyrinth that won't coarsen in a song);
+  coarse sim lattice (~0.20) for screen-visible spirals; trackability +
+  depth_octaves both misfire on smooth cyclic phase fields.
+  (`feedback_kuramoto_phase_field_craft.md`)
+- **Headless idle cells go black for time_source:audio multipass** —
+  inspect-interaction's no-audio cells (matrix-cursor/neither) capture
+  pure black (autoplay/rAF artifact, NOT a shader bug — render loop isn't
+  audio-gated); grade idle/cursor-only via matrix-music + wall-clock.
+  (`reference_headless_idle_audio_black.md`)
+- **/vjay-* skills aren't Skill-tool registered** — read
+  `skills/vjay-*/SKILL.md` and follow manually; the independent critic
+  loop isn't auto-invokable. (`reference_vjay_skills_invocation.md`)

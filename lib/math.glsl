@@ -14,7 +14,12 @@ vec2  saturate2(vec2  x)  { return clamp(x, 0.0, 1.0); }
 vec3  saturate3(vec3  x)  { return clamp(x, 0.0, 1.0); }
 vec4  saturate4(vec4  x)  { return clamp(x, 0.0, 1.0); }
 
-// 2D rotation matrix. Multiply on the left of a vec2 to rotate counter-clockwise.
+// 2D rotation matrix. NOTE: mat2 is column-major, so mat2(c,-s,s,c) is
+// [[c, s], [-s, c]] and `rot2d(a) * v` rotates v CLOCKWISE by `a` (by -a in the
+// usual math convention). Handedness-agnostic uses (kaleidoscope symmetry,
+// spinning a frame) don't care; for sign-sensitive integration (phase
+// diffusion/coupling) pass `rot2d(-a)` to rotate by +a. (Corrected 2026-06-14:
+// the prior comment claimed counter-clockwise, which is wrong.)
 mat2 rot2d(float a) {
     float c = cos(a), s = sin(a);
     return mat2(c, -s, s, c);
