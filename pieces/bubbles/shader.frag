@@ -91,33 +91,48 @@ vec3 tPhotoreal(vec2 p, float t) {
 // the curved skin: so each bubble's colour sweeps the spectrum as it climbs.
 vec3 tSoapFilm(vec2 p, float t) {
     vec3 col = bgScene(p, t) * 0.55;
-    for (int i = 0; i < 44; i++) {
+    // a slow-moving light source the iridescence and highlights follow
+    vec3 lightDir = normalize(vec3(0.5 * cos(t * 0.25),
+                                   0.30 + 0.30 * sin(t * 0.19), 0.85));
+    for (int i = 0; i < 46; i++) {
         float fi = float(i);
         float seed  = hash21(vec2(fi, 1.7));
         float seed2 = hash21(vec2(fi, 9.3));
-        // own clock: a rise phase in [0,1) over the bubble's life
-        float life = fract(t * (0.05 + 0.07 * seed2) + seed);
-        float yr = life * 1.45 - 0.72;                       // bottom -> top
-        float xr = (seed - 0.5) * 1.75
-                 + 0.06 * sin(yr * 7.0 + seed * 40.0 + t * (0.8 + seed));
+        float z     = hash21(vec2(fi, 4.2));   // parallax depth: 0 far, 1 near
+        float chr   = hash21(vec2(fi, 7.9));   // film character (band width)
+        // parallax: near bubbles are bigger, rise faster, sway more
+        float rate = mix(0.035, 0.13, z);
+        float life = fract(t * rate + seed);
+        float yr = life * 1.5 - 0.75;                        // bottom -> top
+        float xr = (seed - 0.5) * 1.85
+                 + mix(0.03, 0.09, z) * sin(yr * 7.0 + seed * 40.0 + t * (0.8 + seed));
         vec2 c = vec2(xr, yr);
-        float R = 0.016 + 0.030 * seed2;
+        float R = mix(0.010, 0.052, z);
         vec2 q = (p - c) / R;
         float r2 = dot(q, q);
         if (r2 > 1.0) continue;
         vec3 N = hemiN(q);
-        // thickness drains: thins with life and from top to bottom of the skin
-        float thickness = (1.0 - 0.65 * life) * (0.72 - 0.40 * q.y);
-        // OPD-style rainbow: thickness sets the travelling base hue, the view
-        // angle (1-N.z) adds the concentric interference rings
-        float opd = thickness * 3.2 + (1.0 - N.z) * 2.0;
+        float cosL = max(dot(N, lightDir), 0.0);
+        // per-bubble variation: a thin film (low ring freq) shows ONE wide
+        // dominant band; a thicker film shows many fine rings — so which
+        // colour "takes more space" differs bubble to bubble
+        float ringFreq = mix(1.6, 4.8, chr);
+        float base     = seed2;                  // which colour sits at centre
+        // thickness drains with life and from top to bottom of the skin
+        float thickness = (1.0 - 0.6 * life) * (0.72 - 0.40 * q.y);
+        // OPD rainbow, steered toward the light: the band shifts with cosL so
+        // the iridescence leans toward the moving source as it passes
+        float opd = base + thickness * ringFreq + (1.0 - N.z) * 1.6
+                  + (1.0 - cosL) * 1.4;
         vec3 film = iqPal(opd, vec3(0.0, 0.33, 0.67));
         float F = schlick(N.z, 0.04);
-        // fade in/out at the ends of life so bubbles don't pop in/out
-        float fade = smoothstep(0.0, 0.07, life) * smoothstep(1.0, 0.85, life);
+        // parallax: far bubbles are dimmer; fade in/out over life
+        float fade = smoothstep(0.0, 0.07, life) * smoothstep(1.0, 0.85, life)
+                   * mix(0.5, 1.0, z);
         col = mix(col, col * 0.9 + film * 0.16, smoothstep(1.0, 0.94, r2) * fade);
-        col += film * F * 1.0 * smoothstep(1.0, 0.78, r2) * fade;
-        col += vec3(1.0) * pow(max(dot(N, normalize(vec3(0.4, 0.6, 0.6))), 0.0), 24.0) * 0.5 * fade;
+        col += film * F * smoothstep(1.0, 0.78, r2) * fade;
+        // specular aimed AT the light (so the glint tracks the source)
+        col += vec3(1.0) * pow(cosL, 40.0) * 0.6 * fade * smoothstep(1.0, 0.9, r2);
     }
     return col;
 }
@@ -232,38 +247,50 @@ vec3 tFoam(vec2 p, float t) {
     return col;
 }
 
-// 7 · metaballs: bubbles RISE and cross paths, merging into peanuts and
-// splitting as they pass — general drift upward, chaos kept (Louis 2026-06-14).
+// 7 · metaballs: 16 bubbles RISE and cross paths, merging into peanuts. The
+// interior is a contribution-weighted blend of each ball's own vibrant hue,
+// so where two balls fuse their colours mix in the neck — the merging itself
+// becomes the show (Louis 2026-06-15: 2x balls + a fun interior).
 vec3 tMetaballs(vec2 p, float t) {
     float field = 0.0;
     vec2 grad = vec2(0.0);
-    for (int i = 0; i < 8; i++) {
+    vec3 fieldCol = vec3(0.0);          // colour weighted by each ball's pull
+    for (int i = 0; i < 16; i++) {
         float fi = float(i);
         float seed = hash21(vec2(fi, 3.1));
         float spd = 0.10 + 0.12 * seed;                   // each its own rise rate
         float life = fract(seed + t * spd);
         float y = life * 1.75 - 0.88;                     // bottom -> top, wraps
-        float x = (seed - 0.5) * 1.45
-                + 0.24 * sin(t * (0.5 + 0.7 * seed) + fi * 2.1);  // wander -> crossings
+        float x = (seed - 0.5) * 1.5
+                + 0.26 * sin(t * (0.5 + 0.7 * seed) + fi * 2.1);  // wander -> crossings
         vec2 c = vec2(x, y);
         // grow in at the bottom, shrink out at the top so the wrap never pops
-        float R = (0.05 + 0.035 * fract(fi * 0.618))
+        float R = (0.042 + 0.030 * fract(fi * 0.618))
                 * smoothstep(0.0, 0.12, life) * smoothstep(1.0, 0.85, life);
         vec2 d = p - c;
         float r2 = max(dot(d, d), 1e-4);
-        field += R * R / r2;
+        float w = R * R / r2;
+        field += w;
         grad += -2.0 * R * R * d / (r2 * r2);
+        vec3 hue = iqPal(seed * 1.7 + fi * 0.13, vec3(0.0, 0.33, 0.67));
+        fieldCol += hue * w;            // each ball tints by how hard it pulls
     }
-    vec3 col = mix(vec3(0.01, 0.04, 0.10), vec3(0.05, 0.16, 0.26),
+    fieldCol /= max(field, 1e-3);
+    vec3 col = mix(vec3(0.01, 0.03, 0.08), vec3(0.03, 0.09, 0.16),
                    smoothstep(-0.6, 0.6, p.y));
     float surfD = field - 1.0;
     float blob = smoothstep(0.0, 0.25, surfD);
     vec3 N = normalize(vec3(grad, 2.2));
     float F = schlick(N.z, 0.04);
-    vec3 body = mix(vec3(0.10, 0.30, 0.42), vec3(0.55, 0.85, 0.95), F);
+    // interior: the blended ball colours, lifted toward white on the lit
+    // crown, with an angle-driven iridescent sheen on top
+    vec3 sheen = iqPal((1.0 - N.z) * 1.6 + 0.3, vec3(0.0, 0.33, 0.67));
+    vec3 body = fieldCol * (0.45 + 0.55 * N.z) + sheen * F * 0.55;
     body += vec3(1.0) * pow(max(dot(N, normalize(vec3(0.4, 0.6, 0.55))), 0.0), 30.0);
     col = mix(col, body, blob);
-    col += vec3(0.5, 0.8, 0.9) * smoothstep(0.10, 0.0, abs(surfD)) * 0.55;
+    // the fusion seam glows with the LOCAL blended colour — brightest exactly
+    // where two balls are connecting
+    col += fieldCol * smoothstep(0.10, 0.0, abs(surfD)) * 0.6;
     return col;
 }
 
@@ -366,11 +393,18 @@ vec3 tPointillism(vec2 p, float t) {
         vec2 sPos = p + vec2(0.0, -t * (0.03 + 0.025 * fo));
         vec2 cell = floor(sPos * scale);
         vec2 ff = fract(sPos * scale);
-        float h = hash21(cell + fo * 13.1);
+        // BUG FIX (Louis 2026-06-15): after a long run the scrolling cell.y
+        // grew into the millions; GPU sin() loses precision on huge args, so
+        // hash21/hash22 collapsed to constants and the back layer froze into a
+        // square grid of one-colour dots. Wrap cell.y for HASHING ONLY (the
+        // dot's screen position still uses true `ff`), so hash inputs stay
+        // bounded forever while the field tiles seamlessly across the wrap.
+        vec2 hcell = vec2(cell.x, mod(cell.y, 512.0));
+        float h = hash21(hcell + fo * 13.1);
         // density wave: fizz fronts rising through the field
         float wave = 0.5 + 0.5 * sin(p.y * 3.0 - t * 0.9 + fo * 2.0);
         if (h > 0.25 + 0.35 * wave) continue;
-        vec2 jit = hash22(cell * 1.9) * 0.7 + 0.15;
+        vec2 jit = hash22(hcell * 1.9) * 0.7 + 0.15;
         float d = length(ff - jit);
         vec3 hue = iqPal(h * 3.0 + fo * 0.33, vec3(0.0, 0.33, 0.67));
         float tw = 0.6 + 0.4 * sin(t * (2.0 + h * 4.0) + h * 40.0);
