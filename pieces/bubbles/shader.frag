@@ -84,26 +84,40 @@ vec3 tPhotoreal(vec2 p, float t) {
     return col;
 }
 
-// 2 · soap film, SMALL: a cluster of little thin-film bubbles rising on
-// zigzag paths (Louis 2026-06-12: works if small).
+// 2 · soap film: MANY small thin-film bubbles, with iridescence that changes
+// DYNAMICALLY and physically — not random (Louis 2026-06-14). The film
+// DRAINS as each bubble rises (thinner over its life and toward the top), and
+// the optical-path-difference rainbow rings come from the view angle across
+// the curved skin: so each bubble's colour sweeps the spectrum as it climbs.
 vec3 tSoapFilm(vec2 p, float t) {
     vec3 col = bgScene(p, t) * 0.55;
-    for (int i = 0; i < 9; i++) {
-        float seed = fract(float(i) * 0.618 + 0.11);
-        vec2 c = risePath(seed * 0.93, seed, t * 0.7);
-        float R = 0.035 + 0.045 * seed;
+    for (int i = 0; i < 44; i++) {
+        float fi = float(i);
+        float seed  = hash21(vec2(fi, 1.7));
+        float seed2 = hash21(vec2(fi, 9.3));
+        // own clock: a rise phase in [0,1) over the bubble's life
+        float life = fract(t * (0.05 + 0.07 * seed2) + seed);
+        float yr = life * 1.45 - 0.72;                       // bottom -> top
+        float xr = (seed - 0.5) * 1.75
+                 + 0.06 * sin(yr * 7.0 + seed * 40.0 + t * (0.8 + seed));
+        vec2 c = vec2(xr, yr);
+        float R = 0.016 + 0.030 * seed2;
         vec2 q = (p - c) / R;
         float r2 = dot(q, q);
         if (r2 > 1.0) continue;
         vec3 N = hemiN(q);
-        float th = 0.55 - 0.35 * q.y
-                 + 0.18 * fbmRot(q * 2.5 + t * 0.10 + seed * 9.0);
-        vec3 film = iqPal(th * 2.2 + (1.0 - N.z) * 1.3 + seed,
-                          vec3(0.0, 0.33, 0.67));
+        // thickness drains: thins with life and from top to bottom of the skin
+        float thickness = (1.0 - 0.65 * life) * (0.72 - 0.40 * q.y);
+        // OPD-style rainbow: thickness sets the travelling base hue, the view
+        // angle (1-N.z) adds the concentric interference rings
+        float opd = thickness * 3.2 + (1.0 - N.z) * 2.0;
+        vec3 film = iqPal(opd, vec3(0.0, 0.33, 0.67));
         float F = schlick(N.z, 0.04);
-        col = mix(col, col * 0.9 + film * 0.16, smoothstep(1.0, 0.94, r2));
-        col += film * F * 0.95 * smoothstep(1.0, 0.78, r2);
-        col += vec3(1.0) * pow(max(dot(N, normalize(vec3(0.4, 0.6, 0.6))), 0.0), 24.0) * 0.5;
+        // fade in/out at the ends of life so bubbles don't pop in/out
+        float fade = smoothstep(0.0, 0.07, life) * smoothstep(1.0, 0.85, life);
+        col = mix(col, col * 0.9 + film * 0.16, smoothstep(1.0, 0.94, r2) * fade);
+        col += film * F * 1.0 * smoothstep(1.0, 0.78, r2) * fade;
+        col += vec3(1.0) * pow(max(dot(N, normalize(vec3(0.4, 0.6, 0.6))), 0.0), 24.0) * 0.5 * fade;
     }
     return col;
 }
@@ -164,31 +178,31 @@ vec3 tChampagne(vec2 p, float t) {
     return col;
 }
 
-// 5 · guinness reverse cascade: tiny nitrogen motes — rising in the heart,
-// sinking at the walls, on a CONTINUOUS circulation profile (the v1 side
-// flip was abrupt — Louis 2026-06-12) with a lateral roll-over drift.
+// 5 · guinness × pointillism: vibrant fizz dots carried on the smooth two-cell
+// circulation — rising in the heart, sinking at the walls, crossing as the
+// cells roll over (Louis 2026-06-14: mix 5 with 12).
 vec3 tGuinness(vec2 p, float t) {
-    vec3 col = mix(vec3(0.02, 0.013, 0.008), vec3(0.07, 0.045, 0.025),
-                   smoothstep(-0.6, 0.8, p.y));
-    // smooth two-cell circulation: vy = cos profile (up centre, down walls,
-    // zero-crossing soft), vx rolls over at the top and under at the bottom
+    vec3 col = vec3(0.02, 0.03, 0.06);
+    // smooth two-cell circulation: vy = cos profile (up centre, down walls),
+    // vx rolls over at the top and under at the bottom
     float xN = clamp(p.x / 0.85, -1.0, 1.0);
     float vy = cos(xN * 3.14159);
     float vx = 0.45 * sin(xN * 3.14159) * sin(clamp(p.y / 0.55, -1.0, 1.0) * 1.5708);
-    for (int o = 0; o < 2; o++) {
-        float scale = (o == 0) ? 26.0 : 44.0;
-        float spd = 0.05 * ((o == 0) ? 1.0 : 0.6);
+    for (int o = 0; o < 3; o++) {
+        float fo = float(o);
+        float scale = 20.0 + fo * 14.0;
+        float spd = 0.06 * (1.0 - 0.22 * fo);
         vec2 sPos = p - vec2(vx, vy) * t * spd;
         vec2 cell = floor(sPos * scale);
-        vec2 fp = fract(sPos * scale);
-        float h = hash21(cell + float(o) * 31.7);
+        vec2 ff = fract(sPos * scale);
+        float h = hash21(cell + fo * 13.1);
         if (h > 0.30) continue;
-        vec2 jit = hash22(cell * 2.3) * 0.6 + 0.2;
-        float d = length(fp - jit);
-        col += vec3(0.92, 0.88, 0.80) * exp(-d * d * 55.0) * 0.30;
+        vec2 jit = hash22(cell * 2.3) * 0.7 + 0.15;
+        float d = length(ff - jit);
+        vec3 hue = iqPal(h * 3.0 + fo * 0.33, vec3(0.0, 0.33, 0.67));
+        float tw = 0.6 + 0.4 * sin(t * (2.0 + h * 4.0) + h * 40.0);
+        col += hue * exp(-d * d * 46.0) * 0.42 * tw;
     }
-    float head = smoothstep(0.55, 0.72, p.y);
-    col = mix(col, vec3(0.88, 0.82, 0.70), head * 0.85);
     return col;
 }
 
@@ -218,15 +232,23 @@ vec3 tFoam(vec2 p, float t) {
     return col;
 }
 
-// 7 · metaballs: inverse-square field — bubbles merge into peanuts, split.
+// 7 · metaballs: bubbles RISE and cross paths, merging into peanuts and
+// splitting as they pass — general drift upward, chaos kept (Louis 2026-06-14).
 vec3 tMetaballs(vec2 p, float t) {
     float field = 0.0;
     vec2 grad = vec2(0.0);
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 8; i++) {
         float fi = float(i);
-        vec2 c = vec2(0.55 * sin(t * (0.21 + 0.05 * fi) + fi * 2.1),
-                      0.40 * sin(t * (0.17 + 0.04 * fi) + fi * 4.7));
-        float R = 0.05 + 0.035 * fract(fi * 0.618);
+        float seed = hash21(vec2(fi, 3.1));
+        float spd = 0.10 + 0.12 * seed;                   // each its own rise rate
+        float life = fract(seed + t * spd);
+        float y = life * 1.75 - 0.88;                     // bottom -> top, wraps
+        float x = (seed - 0.5) * 1.45
+                + 0.24 * sin(t * (0.5 + 0.7 * seed) + fi * 2.1);  // wander -> crossings
+        vec2 c = vec2(x, y);
+        // grow in at the bottom, shrink out at the top so the wrap never pops
+        float R = (0.05 + 0.035 * fract(fi * 0.618))
+                * smoothstep(0.0, 0.12, life) * smoothstep(1.0, 0.85, life);
         vec2 d = p - c;
         float r2 = max(dot(d, d), 1e-4);
         field += R * R / r2;
@@ -332,13 +354,12 @@ vec3 tTargets(vec2 p, float t) {
     return col;
 }
 
-// 12 · pointillist effervescence: no bubble at all — a field of dots whose
-// density and shimmer rise like fizz. WHITE by default; the colors bloom
-// in and out on a slow "hope" breath (Louis 2026-06-12: in the piece, white
-// until hope enters the narrative, then the beautiful colors arrive).
+// 12 · pointillist effervescence: no bubble at all — a field of pure-hue
+// dots whose density and shimmer rise like fizz. (The white/hope variant
+// lives in the PIECE; the lab keeps the original vibrant version — Louis
+// 2026-06-14: this was better, more vibrant.)
 vec3 tPointillism(vec2 p, float t) {
     vec3 col = vec3(0.04, 0.06, 0.10);
-    float hope = smoothstep(0.25, 0.9, 0.5 + 0.5 * sin(t * 0.22));
     for (int o = 0; o < 3; o++) {
         float fo = float(o);
         float scale = 18.0 + fo * 14.0;
@@ -351,10 +372,9 @@ vec3 tPointillism(vec2 p, float t) {
         if (h > 0.25 + 0.35 * wave) continue;
         vec2 jit = hash22(cell * 1.9) * 0.7 + 0.15;
         float d = length(ff - jit);
-        vec3 white = vec3(0.90, 0.95, 1.00);
         vec3 hue = iqPal(h * 3.0 + fo * 0.33, vec3(0.0, 0.33, 0.67));
         float tw = 0.6 + 0.4 * sin(t * (2.0 + h * 4.0) + h * 40.0);
-        col += mix(white, hue, hope) * exp(-d * d * 42.0) * 0.45 * tw;
+        col += hue * exp(-d * d * 42.0) * 0.45 * tw;
     }
     return col;
 }
