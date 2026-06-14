@@ -159,48 +159,43 @@ void main() {
     // sunlight is filtered by the water column it crossed
     col *= extinction(dep * 0.8);
 
-    // ---- The diver: a scaphandrier against the light --------------------
-    // Hard-hat suit lowered upright on the line — helmet, boxy torso,
-    // arms, legs with weighted boots; limbs sway on slow incommensurate
-    // clocks. (v1's plain capsule read as a pill — too cheap for her.)
-    float dFade = diverFade(u_time);
+    // ---- The diver: an abstract falling light ---------------------------
+    // Not a figure (Louis 2026-06-15: it will never look right as a body —
+    // keep her abstract, the main point of attention). A luminous spark
+    // descending: an intense core, a soft halo, and a faint wake rising to
+    // where she came from. Warm-white — her life-light, foreshadowing the
+    // sun she will "find under the water". It flickers as her trace is lost
+    // (95-99s), then fades into the dissolution the deep-life layer takes up.
+    float t = u_time;
+    float dFade = diverFade(t);
     if (dFade > 0.001) {
-        vec2 dp = diverPos(u_time);
+        vec2 dp = diverPos(t);
         vec2 lp = p - dp;
-        float swayA = sin(u_time * 0.61);
-        float swayL = sin(u_time * 0.47);
+        // erratic flicker while the signal degrades, steady before and after
+        float lost = smoothstep(95.0, 97.0, t) * (1.0 - smoothstep(99.0, 101.5, t));
+        float flick = 1.0 - lost * 0.55 * (0.5 + 0.5 * sin(t * 31.0) * sin(t * 17.3));
+        float pulseL = (0.85 + 0.15 * sin(t * 2.3)) * flick;
 
-        float sd = length(lp - vec2(0.0, 0.054)) - 0.020;                  // helmet
-        sd = min(sd, sdSegment(lp * vec2(0.80, 1.0),
-                               vec2(0.0, 0.030), vec2(0.0, -0.022)) - 0.0245); // torso
-        vec2 handR = vec2( 0.036 + 0.004 * swayA, -0.016 + 0.003 * swayA);
-        vec2 handL = vec2(-0.036 - 0.004 * swayA, -0.020 - 0.003 * swayA);
-        sd = min(sd, sdSegment(lp, vec2( 0.020, 0.024), handR) - 0.0085);  // arms
-        sd = min(sd, sdSegment(lp, vec2(-0.020, 0.024), handL) - 0.0085);
-        vec2 bootR = vec2( 0.015 + 0.005 * swayL, -0.074);
-        vec2 bootL = vec2(-0.013 - 0.005 * swayL, -0.072);
-        sd = min(sd, sdSegment(lp, vec2( 0.011, -0.026), bootR) - 0.0095); // legs
-        sd = min(sd, sdSegment(lp, vec2(-0.011, -0.026), bootL) - 0.0095);
-        sd = min(sd, length(lp - bootR - vec2( 0.004, -0.004)) - 0.009);   // boots
-        sd = min(sd, length(lp - bootL - vec2(-0.004, -0.004)) - 0.009);
+        float core = exp(-dot(lp, lp) / 0.00035);          // intense heart
+        float halo = exp(-dot(lp, lp) / 0.020) * 0.55;     // soft glow
+        // wake: a faint streak ABOVE the spark (it is falling) that tapers up
+        vec2 tp = lp; tp.y = max(tp.y, 0.0);
+        float wake = exp(-(tp.x * tp.x) / 0.0007 - tp.y / 0.11) * 0.32
+                   * smoothstep(0.20, 0.02, tp.y);
 
-        float occl = mix(1.0, smoothstep(0.001, 0.010, sd), dFade);
-        col *= occl;
-        // scattered-blue edge fringe so she reads against the dark too
-        float rim = smoothstep(0.020, 0.006, abs(sd - 0.010));
-        col += vec3(0.22, 0.50, 0.85) * rim * 0.30 * dFade * (1.0 - dep * 0.6);
-        // one glint on the helmet glass
-        vec2 vis = lp - vec2(0.006, 0.056);
-        col += vec3(0.75, 0.90, 1.00) * exp(-dot(vis, vis) * 12000.0) * 0.5 * dFade;
+        float bright = dFade * pulseL * (1.0 - dep * 0.4);
+        vec3 lifeCol = vec3(1.00, 0.95, 0.82);
+        vec3 haloCol = vec3(0.55, 0.80, 1.00);
+        col += lifeCol * (core + wake) * bright;
+        col += haloCol * halo * bright;
     }
 
     // ---- Radio thread: her voice as a line of light ---------------------
     // appears with "elle nous parlait par radio" (93.6), frays from 95.5,
     // severs at 97.0 ("on a perdu sa trace"), gone by 98.4.
-    float t = u_time;
     if (t > 93.6 && t < 98.4 && dFade > 0.001) {
         vec2 top = SNELL_C;
-        vec2 bot = diverPos(t) + vec2(0.0, 0.076);   // the line meets the helmet
+        vec2 bot = diverPos(t) + vec2(0.0, 0.02);   // the line meets the falling light
         float fray = smoothstep(95.5, 97.0, t);
         float sev  = smoothstep(97.0, 98.2, t);
 

@@ -80,10 +80,12 @@ Palette anchors (lit, not printed; Reinhard at composite):
 2. **caustics-veil** (screen) — voronoi-filament caustics; gain fades with
    depth; axis rotates with u_bar_phase; doubles as A-stage surface glitter.
    Cursor: local agitation brightens filaments.
-3. **light-shaft** (add) — Snell disc + god rays + the scaphandrier (hard-hat
-   suit SDF: helmet/torso/arms/boots, limbs on slow clocks, helmet glint) +
-   radio-thread meeting the helmet. Rays bend toward cursor. Dims with depth,
-   dies in B4; steps back when sunPresence rises.
+3. **light-shaft** (add) — Snell disc + god rays + **the falling light** (the
+   diver kept ABSTRACT, not a figure: a luminous warm-white spark descending —
+   intense core, soft halo, a wake rising to where she came from; flickers as
+   her trace is lost ~95-99s; the main point of attention) + radio-thread
+   meeting the spark. Dims with depth, dies in B4; steps back when
+   sunPresence rises.
 4. **sun-bloom** (add) — the warm radial glow below: saturated gold body with
    a tiny white-hot heart. Faint star B1/B2, nearer B3, floods C3 (with
    upward rays), sinks through D. Held-key sum feeds gain (+limit). Bypasses
@@ -91,12 +93,17 @@ Palette anchors (lit, not printed; Reinhard at composite):
 5. **narcosis** (screen) — chorus-2 only: the five-fold interference dream,
    deep-blue troughs / pale-gold crest seams, breathing with the band stem,
    bending around the cursor.
-6. **bubbles** (normal, reads u_below) — GLASS: each bubble refracts the
-   composite beneath it (lens bend, fresnel rim, mirrored glint); perfect
-   circles; emission gated by **u_audio_vocals_stem** (her voice = bubbles)
-   from B2 on, arriving in per-column trains; keyboard = bubble burst at key
-   x (white aqua / black violet); cursor deflects columns; gold rims on
-   choruses 2/3; slow large orbs in the dream; wheels around the sun in C3.
+6. **bubbles** (screen, reads u_below) — her voice rising, rendered in three
+   vocabularies chosen by the music moment (from the bubbles lab):
+   - **pointillist fizz** (#12) for the literal rising-bubbles moments
+     (descent / reversal / remembrance / outro): white sparks gated by
+     **u_audio_vocals_stem**, coloured only by the hope curve; keeps keyboard
+     vents + her breath-plume above the falling light.
+   - **soap-film iridescence** (#2) for the B3 narcosis dream: parallax pearls
+     with per-bubble film character + a light-following glint; the sun glimmer
+     bends through them (u_below coupling).
+   - **merging metaballs** (#7) for the C3 sun bloom: vibrant blobs wheeling
+     around the sun, colours mixing where they fuse.
 7. **deep-life** (screen) — marine snow (direction flips at C1 reversal,
    streaking vertically there — the rising rush), dinoflagellate sparkle
    around cursor motion (in B4: touch is the only light), lure-light at B4,

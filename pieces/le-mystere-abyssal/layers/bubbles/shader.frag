@@ -1,8 +1,8 @@
 #version 300 es
-// ABOUTME: Bubbles layer for le-mystere-abyssal — rising bubble columns with
-// ABOUTME: wobble, rim + glint rendering. Emission follows the vocal stem from
-// ABOUTME: the dive on (her voice = the bubbles). Keyboard keys vent bursts at
-// ABOUTME: their column; the cursor deflects bubbles around itself.
+// ABOUTME: Bubbles layer for le-mystere-abyssal — her voice rising, rendered
+// ABOUTME: in three vocabularies chosen by the music moment (from the bubbles
+// ABOUTME: lab): pointillist fizz for the literal rising bubbles, soap-film
+// ABOUTME: iridescence for the narcosis dream, merging metaballs for the sun.
 precision highp float;
 
 #include "math.glsl"
@@ -58,7 +58,7 @@ float sunPresence(int stage, float sp) {
 }
 // ==================================================== end NARRATIVE ====
 
-// iq cosine palette — the "beautiful colors" the hope curve brings in.
+// iq cosine palette — the "beautiful colors" hope brings in.
 vec3 iqPal(float t, vec3 phase) {
     return 0.5 + 0.5 * cos(6.28318 * (t + phase));
 }
@@ -88,79 +88,38 @@ float emissionBase(int stage, float sp, float t, float voc) {
         // "les seuls signes de vie..." (98.9)
         return t < 98.9 ? 0.0 : 0.25 + 0.55 * voc;
     }
-    if (stage == 5) return 0.20 + 0.50 * voc;
-    if (stage == 6) return 0.12 + 0.35 * voc;
+    if (stage == 6) return 0.10 + 0.30 * voc;
     if (stage == 7) return 0.15;
     if (stage == 8) return t < 189.2 ? 0.10 : 0.30 + 0.50 * voc;
-    if (stage == 9) return 0.25 + 0.45 * voc;
     return 0.20 * (1.0 - sp * 0.7);
 }
 
-void main() {
-    float aspect = u_resolution.x / u_resolution.y;
-    vec2 uv = gl_FragCoord.xy / u_resolution;
-    vec2 p  = (uv - 0.5) * vec2(aspect, 1.0);
+// =========================================================== treatments ==
 
-    bool mouseIdle = u_mouse.x < 1.0 && u_mouse.y < 1.0;
-    vec2 mp = (u_mouse / u_resolution - 0.5) * vec2(aspect, 1.0);
-
-    int stage; float sp, dep;
-    narrative(u_time, stage, sp, dep);
-    float t = u_time;
-
-    if (aerialAmount(stage, sp) > 0.6) { fragColor = vec4(0.0); return; }
-
-    float voc = mix(0.40 + 0.30 * sin(t * 0.47), u_audio_vocals_stem, u_audio_playing);
+// #12 POINTILLIST FIZZ — her voice as rising white sparks; the only sign of
+// life. White until hope colours them. Used for the literal rising-bubbles
+// moments (descent, reversal, remembrance, outro). Keeps keyboard vents and
+// her breath plume above the falling light.
+vec3 voiceFizz(vec2 p, float aspect, float t, int stage, float sp,
+               float dep, float voc, float hope) {
     float emission = emissionBase(stage, sp, t, voc);
-
-    // The hope curve: her fizz is WHITE — the beautiful colors arrive only
-    // when the narrative offers hope (the star, the dream, the sun), and
-    // they leave with it (Louis 2026-06-12, from the bubbles lab).
-    float hope = sunPresence(stage, sp);
-    if (stage == 3) hope = max(hope, 0.30 * smoothstep(68.0, 72.0, t));
-    if (stage == 5) hope = max(hope, 0.55);
-    if (stage == 8 && t > 189.2) hope = max(hope, 0.30);
-
-    // Cursor deflection deactivated (Louis 2026-06-11: mouse warps add
-    // nothing meaningful for now). Flip to re-enable.
-    const bool MOUSE_WARP = false;
-    vec2 defl = vec2(0.0);
-    if (MOUSE_WARP && !mouseIdle) {
-        vec2 away = p - mp;
-        defl = normalize(away + 1e-4) * exp(-dot(away, away) * 9.0) * 0.07;
-    }
-    vec2 ps = p - defl;
-
-    // Chorus 3: everything wheels slowly around the risen sun.
-    if (stage == 9) {
-        vec2 C = vec2(0.0, -0.15);
-        ps = C + rot2d((t - 195.2) * 0.045) * (ps - C);
-    }
-    // Chorus 2 (the narcosis dream): bubbles become slow, large gold orbs.
-    float dream = (stage == 5) ? 1.0 : 0.0;
-
-    const float STRIP = 0.075;   // column spacing in p-space x
-    vec3 col = vec3(0.0);
-
-    // her breath: a focused stream above the diver while she's visible
     float diverPlume = (t > 90.0 && t < 143.0) ? 1.0 : 0.0;
     vec2 dvr = diverPos(t);
+    const float STRIP = 0.075;
+    vec3 col = vec3(0.0);
 
     for (int s = -1; s <= 1; s++) {
-        float strip = floor(ps.x / STRIP) + float(s);
+        float strip = floor(p.x / STRIP) + float(s);
         float h = hash21(vec2(strip, 13.7));
         float xCol = (strip + 0.5 + (h - 0.5) * 0.55) * STRIP;
 
-        // density: center-weighted plume where she went, plus key vents
+        // density: centre-weighted plume where she went, plus key vents
         float wCenter = mix(1.0, 1.0 + 2.5 * exp(-xCol * xCol * 7.0),
                             (stage >= 4 && stage <= 6) ? 1.0 : 0.0);
-        // bubbles arrive in trains, not as constant wallpaper — each column
-        // breathes on its own slow clock
         float train = 0.35 + 0.65 * smoothstep(0.25, 0.85,
                           0.5 + 0.5 * sin(t * 0.35 + h * 6.2831));
         float alive = step(1.0 - clamp(emission * wCenter * train, 0.0, 0.92), h);
 
-        // keyboard vent: a pressed key force-activates its column
         float vent = 0.0;
         bool ventBlack = false;
         for (int k = 0; k < 15; k++) {
@@ -173,74 +132,147 @@ void main() {
         }
         alive = max(alive, step(0.05, vent));
 
-        // diver breath column
         float breath = diverPlume * step(abs(xCol - dvr.x), STRIP * 0.8);
         alive = max(alive, breath);
         if (alive < 0.5) continue;
 
-        float speed   = (0.085 + 0.10 * hash21(vec2(strip, 3.1))) * (1.0 + vent * 0.9)
-                      * mix(1.0, 0.45, dream);
-        float colWob  = sin(ps.y * (7.0 + 4.0 * h) + h * 6.2831 + t * mix(2.0, 0.7, dream))
-                      * mix(0.010, 0.022, dream);
+        float speed = (0.085 + 0.10 * hash21(vec2(strip, 3.1))) * (1.0 + vent * 0.9);
+        float colWob = sin(p.y * (7.0 + 4.0 * h) + h * 6.2831 + t * 2.0) * 0.010;
         float xJit = xCol + colWob;
 
-        // ---- pointillist fizz: her voice as a stream of white sparks ----
-        // (the bubbles-lab winner: no bubble at all — dots whose density
-        // breathes; white until hope colours them)
         float spacing = 0.045 + 0.030 * hash21(vec2(strip, 5.9));
-        float yFlow = ps.y + 0.55 - t * speed;
-        float cell = floor(yFlow / spacing);
+        float cell = floor((p.y + 0.55 - t * speed) / spacing);
         float hb = hash21(vec2(strip * 7.7, cell));
         float yC = (cell + 0.5) * spacing - 0.55 + t * speed;
         bool breathOk = !(breath > 0.5 && vent < 0.05 && yC < dvr.y);
-        if (hb > mix(0.45, 0.10, clamp(vent + breath, 0.0, 1.0)) || !breathOk) {
-            // no dot in this slot
-        } else {
-            vec2 dotP = vec2(xJit + (hb - 0.5) * 0.024,
-                             fract((yC + 0.55) / 1.1) * 1.1 - 0.55);
-            float dd = dot(ps - dotP, ps - dotP);
-            float r = 0.0035 + 0.0045 * hb;
-            float tw = 0.55 + 0.45 * sin(t * (2.2 + hb * 3.0) + hb * 40.0);
-            vec3 white = vec3(0.90, 0.95, 1.00) * max(extinction(dep * 0.7), vec3(0.22));
-            vec3 hue = iqPal(hb * 0.9 + t * 0.01 + 0.05, vec3(0.0, 0.33, 0.67));
-            vec3 dotCol = mix(white, hue, hope * smoothstep(0.05, 0.65, hb));
-            if (ventBlack && vent > 0.05) dotCol = mix(dotCol, vec3(0.55, 0.40, 1.00), 0.5);
-            col += dotCol * exp(-dd / (r * r)) * (0.50 + 0.40 * voc) * tw;
-        }
+        if (hb > mix(0.45, 0.10, clamp(vent + breath, 0.0, 1.0)) || !breathOk) continue;
 
-        // ---- rare soap-film accents: small iridescent bubbles ----------
-        // (lab treatment 2, "if small" — larger and slower inside the dream)
-        if (hash21(vec2(strip, 77.7)) < mix(0.10, 0.30, dream) && stage >= 4 && stage <= 9) {
-            float fSpacing = 0.55;
-            float fFlow = ps.y + 0.55 - t * speed * 0.6;
-            float fCell = floor(fFlow / fSpacing);
-            float fh = hash21(vec2(strip * 3.3, fCell));
-            float fyC = (fCell + 0.5) * fSpacing - 0.55 + t * speed * 0.6;
-            vec2 fPos = vec2(xJit, fract((fyC + 0.55) / 1.1) * 1.1 - 0.55);
-            float R = (0.016 + 0.018 * fh) * mix(1.0, 1.25, dream);
-            vec2 q = (ps - fPos) / R;
-            float r2 = dot(q, q);
-            if (r2 < 1.0) {
-                vec3 N = vec3(q, sqrt(max(1.0 - r2, 0.0)));
-                // the film shows the scene through itself (keeps the
-                // u_below coupling) with a thin-film iridescent rim
-                vec3 through = texture(u_below, uv).rgb;
-                if (dot(through, vec3(1.0)) < 0.01) through = vec3(0.015, 0.045, 0.10);
-                float F = 0.04 + 0.96 * pow(1.0 - N.z, 5.0);
-                vec3 film = iqPal((1.0 - N.z) * 1.3 + fh + t * 0.02,
-                                  vec3(0.0, 0.33, 0.67));
-                film = mix(vec3(0.85, 0.92, 1.00), film, clamp(hope + 0.25, 0.0, 1.0));
-                // rim-dominant: the interior stays transparent (the scene
-                // through the film), the iridescence lives on the edge —
-                // body-mixed films read as muddy smudges at dream scale
-                vec3 bub = mix(through, film, clamp(F * 1.5, 0.0, 0.9)
-                                            * smoothstep(0.35, 0.95, r2));
-                bub += vec3(1.0, 0.98, 0.92)
-                     * exp(-dot(q - vec2(0.3, 0.45), q - vec2(0.3, 0.45)) * 18.0) * 0.4;
-                float inside = smoothstep(1.0, 0.88, r2);
-                col = mix(col, max(col, bub), inside);
-            }
-        }
+        vec2 dotP = vec2(xJit + (hb - 0.5) * 0.024,
+                         fract((yC + 0.55) / 1.1) * 1.1 - 0.55);
+        float dd = dot(p - dotP, p - dotP);
+        float r = 0.0035 + 0.0045 * hb;
+        float tw = 0.55 + 0.45 * sin(t * (2.2 + hb * 3.0) + hb * 40.0);
+        vec3 white = vec3(0.90, 0.95, 1.00) * max(extinction(dep * 0.7), vec3(0.22));
+        vec3 hue = iqPal(hb * 0.9 + t * 0.01 + 0.05, vec3(0.0, 0.33, 0.67));
+        vec3 dotCol = mix(white, hue, hope * smoothstep(0.05, 0.65, hb));
+        if (ventBlack && vent > 0.05) dotCol = mix(dotCol, vec3(0.55, 0.40, 1.00), 0.5);
+        col += dotCol * exp(-dd / (r * r)) * (0.50 + 0.40 * voc) * tw;
+    }
+    return col;
+}
+
+// #2 SOAP-FILM IRIDESCENCE — l'ivresse des profondeurs. Parallax depth (near
+// = bigger/faster/brighter), per-bubble film character so the dominant colour
+// varies, iridescence + glint steered toward a slow-moving light. Coupling:
+// the brightest thing below (the sun glimmer) bends through each bubble.
+vec3 dreamBubbles(vec2 p, vec2 uv, float aspect, float t, float voc) {
+    vec3 col = vec3(0.0);
+    vec3 lightDir = normalize(vec3(0.4 * cos(t * 0.2), 0.45 + 0.20 * sin(t * 0.15), 0.85));
+    for (int i = 0; i < 22; i++) {
+        float fi = float(i);
+        float seed  = hash21(vec2(fi, 1.7));
+        float seed2 = hash21(vec2(fi, 9.3));
+        float z     = hash21(vec2(fi, 4.2));   // depth: 0 far, 1 near
+        float chr   = hash21(vec2(fi, 7.9));   // film character
+        float rate = mix(0.025, 0.065, z);
+        float life = fract(t * rate + seed);
+        float yr = life * 1.5 - 0.75;
+        float xr = (seed - 0.5) * 1.7
+                 + mix(0.03, 0.08, z) * sin(yr * 7.0 + seed * 40.0 + t * (0.6 + seed));
+        vec2 c = vec2(xr, yr);
+        float R = mix(0.026, 0.075, z);
+        vec2 q = (p - c) / R;
+        float r2 = dot(q, q);
+        if (r2 > 1.0) continue;
+        vec3 N = vec3(q, sqrt(max(1.0 - r2, 0.0)));
+        float cosL = max(dot(N, lightDir), 0.0);
+        float ringFreq = mix(1.6, 4.2, chr);
+        float thickness = (1.0 - 0.6 * life) * (0.72 - 0.40 * q.y);
+        float opd = seed2 + thickness * ringFreq + (1.0 - N.z) * 1.6 + (1.0 - cosL) * 1.4;
+        vec3 film = iqPal(opd, vec3(0.0, 0.33, 0.67));
+        float F = 0.04 + 0.96 * pow(1.0 - N.z, 5.0);
+        float fade = smoothstep(0.0, 0.07, life) * smoothstep(1.0, 0.85, life)
+                   * mix(0.55, 1.0, z);
+        // emissive iridescent skin across the whole disc, rim-weighted, so the
+        // pearl reads vibrant under screen blend (not just a faint rim)
+        vec3 bub = film * (0.55 + 0.85 * F);
+        // coupling: only the bright things below (the sun) bend through
+        vec2 lensUV = uv - (q * R / vec2(aspect, 1.0)) * 0.45 * (1.0 - N.z);
+        vec3 seen = texture(u_below, lensUV).rgb;
+        float seenBright = max(seen.r, max(seen.g, seen.b));
+        bub += seen * smoothstep(0.45, 1.0, seenBright) * 0.7 * smoothstep(1.0, 0.4, r2);
+        // glint tracks the light
+        bub += vec3(1.0) * pow(cosL, 40.0) * 0.7 * smoothstep(1.0, 0.9, r2);
+        float cover = smoothstep(1.0, 0.80, r2) * fade * (0.75 + 0.35 * voc);
+        col = max(col, bub * cover);
+    }
+    return col;
+}
+
+// #7 MERGING METABALLS — the colours of hope. Vibrant blobs wheel slowly
+// around the risen sun, merging into peanuts; the interior is a pull-weighted
+// blend of each ball's hue, so the colours MIX where two fuse (Ocean Gravity).
+vec3 joyBubbles(vec2 p, float t, float sp, float voc) {
+    vec2 C = vec2(0.0, -0.10);
+    float field = 0.0; vec2 grad = vec2(0.0); vec3 fieldCol = vec3(0.0);
+    for (int i = 0; i < 12; i++) {
+        float fi = float(i);
+        float seed = hash21(vec2(fi, 3.1));
+        float ang = (t - 195.2) * (0.09 + 0.05 * seed) + fi * 0.52;
+        float rad = 0.20 + 0.46 * seed;
+        vec2 c = C + rad * vec2(cos(ang), sin(ang) * 0.8);
+        float R = (0.040 + 0.030 * fract(fi * 0.618)) * (0.6 + 0.6 * voc);
+        vec2 d = p - c;
+        float r2 = max(dot(d, d), 1e-4);
+        float w = R * R / r2;
+        field += w;
+        grad += -2.0 * R * R * d / (r2 * r2);
+        vec3 hue = iqPal(seed * 1.7 + fi * 0.13, vec3(0.0, 0.33, 0.67));
+        fieldCol += hue * w;
+    }
+    fieldCol /= max(field, 1e-3);
+    float surfD = field - 1.0;
+    float blob = smoothstep(0.0, 0.30, surfD);
+    vec3 N = normalize(vec3(grad, 2.2));
+    float F = 0.04 + 0.96 * pow(1.0 - N.z, 5.0);
+    vec3 sheen = iqPal((1.0 - N.z) * 1.6 + 0.3, vec3(0.0, 0.33, 0.67));
+    vec3 body = fieldCol * (0.45 + 0.55 * N.z) + sheen * F * 0.5;
+    vec3 col = body * blob;
+    col += fieldCol * smoothstep(0.12, 0.0, abs(surfD)) * 0.6;   // fusion seam
+    return col * smoothstep(0.0, 0.22, sp);                       // fade in
+}
+
+// ================================================================= main ==
+
+void main() {
+    float aspect = u_resolution.x / u_resolution.y;
+    vec2 uv = gl_FragCoord.xy / u_resolution;
+    vec2 p  = (uv - 0.5) * vec2(aspect, 1.0);
+
+    int stage; float sp, dep;
+    narrative(u_time, stage, sp, dep);
+    float t = u_time;
+
+    if (aerialAmount(stage, sp) > 0.6) { fragColor = vec4(0.0); return; }
+
+    float voc = mix(0.40 + 0.30 * sin(t * 0.47), u_audio_vocals_stem, u_audio_playing);
+
+    // hope curve: the colours arrive only when the narrative offers hope
+    float hope = sunPresence(stage, sp);
+    if (stage == 3) hope = max(hope, 0.30 * smoothstep(68.0, 72.0, t));
+    if (stage == 8 && t > 189.2) hope = max(hope, 0.30);
+
+    // The bubble vocabulary lands with the music moment:
+    //   B3 narcosis dream   -> soap-film iridescence (the rapture)
+    //   C3 sun bloom        -> merging metaballs (the colours of hope)
+    //   everything else     -> pointillist fizz (the literal rising bubbles)
+    vec3 col;
+    if (stage == 5) {
+        col = dreamBubbles(p, uv, aspect, t, voc);
+    } else if (stage == 9) {
+        col = joyBubbles(p, t, sp, voc);
+    } else {
+        col = voiceFizz(p, aspect, t, stage, sp, dep, voc, hope);
     }
 
     float a = clamp(max(col.r, max(col.g, col.b)), 0.0, 1.0);
