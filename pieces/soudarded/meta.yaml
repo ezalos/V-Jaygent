@@ -1,0 +1,68 @@
+title: Soudarded
+slug: soudarded
+created: 2026-06-14T08:00:00.000Z
+architecture: C
+cursor: true
+keyboard_synth: true
+audio: audio.mp3
+time_source: audio
+audio_features:
+  - beat
+  - sections
+  - stems
+  - key
+duration: 203
+render_scale: 0.75
+published_at: null
+notes: |
+  Track: "Ar soudarded zo gwisket e ruz" ("The soldiers are dressed in
+  red") — traditional Breton chain-dance song, 161.5 BPM, C minor.
+
+  Thesis: a field of coupled phase oscillators (Kuramoto-Sakaguchi on a
+  2D toroidal lattice) self-organizing into spiral waves and
+  synchronization domains — the communal lock-in of a Breton circle
+  dance / kan-ha-diskan rendered as the literal mathematics of
+  synchronization. Many voices becoming one. NOT soldiers, NOT red
+  uniforms; "dressed in red" earns only the red-dominant warm palette.
+
+  Architecture C (ping-pong, sibling: ferment). State = the unit vector
+  (cosθ,sinθ) of each oscillator's phase in .rg, natural frequency ω in
+  .b. The simulate pass integrates the Sakaguchi coupling
+  dθ/dt = ω + K·Σ sin(θj-θi-α) over an 8-neighbour stencil; the display
+  pass renders phase→cyclic warm palette with coherence-gated brightness
+  (defect cores = dark eye-landing points) and a central communal-sync
+  bloom from the global order parameter r.
+
+  Arc: quiet intro = turbulent desync (α≈π/2, K low). Verses = chimera
+  spiral domains. Peak (≈90-127s) = α drops, K rises → large coherent
+  domains + blazing centre (the crowd locks in). Pre-section breath via
+  u_to_section_change. Outro = breakup.
+
+  Audio bindings (four stems, four distinct roles):
+    - bass stem  → coupling K (low-end pulse pulls the field to sync)
+    - vocals stem→ coupling K (the lead voice / kaner growing coherence)
+    - other stem → ω gain (the melody speeds the medium's rotation)
+    - drums stem → downbeat ring amplitude
+    - u_downbeat → an expanding ring of phase advance (the communal step)
+    - u_energy   → master brightness + α (the desync↔sync regime)
+  Mouse: a pacemaker — a faster-rotating site that emits target waves;
+  drag = a moving wave source (recomposes which region synchronizes).
+  Keys (15): pacemakers at 15 fixed positions around a circle (each key a
+  distinct wave source). Palette: near-black/wine/blood/ember/amber/cream,
+  cyclic, luminance contrast only. Ends as the field breaks apart.
+passes:
+  - name: simulate
+    shader: sim.frag
+    target:
+      format: rgba16f
+      ping_pong: true
+      scale: 0.2
+    inputs:
+      u_state: simulate
+    iterations: 2
+  - name: display
+    shader: shader.frag
+    target: screen
+    inputs:
+      u_state: simulate
+rendered_at: '2026-06-14T09:38:03.032Z'
