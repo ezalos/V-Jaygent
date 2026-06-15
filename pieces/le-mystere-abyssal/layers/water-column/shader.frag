@@ -233,15 +233,22 @@ vec3 underwaterColor(vec2 p, vec2 uv, float t, int stage, float sp, float dep,
     // Bass swell — the low end breathes light into the upper water.
     col += vec3(0.0, 0.04, 0.09) * bassDrive * smoothstep(0.3, 1.0, uv.y) * (1.0 - dep);
 
-    // Milky hydrogen-sulfide stratum: rises through the frame as we sink
-    // past it across the break entry, edges warped so it reads as a fluid
-    // boundary. Faint glow bleeds upward before it arrives.
-    if (t > 141.0 && t < 155.0) {
-        float yBand = mix(-0.40, 1.45, clamp((t - 142.5) / 9.5, 0.0, 1.0));
-        float yLocal = uv.y + 0.06 * fbmRot(vec2(p.x * 2.6, t * 0.07));
-        float band = exp(-pow((yLocal - yBand) / 0.09, 2.0));
-        float bloom = exp(-max(yLocal - yBand, 0.0) * 4.5) * 0.30;
-        col = mix(col, MILKY * 0.95, clamp(band * 0.75 + bloom, 0.0, 1.0));
+    // Milky hydrogen-sulfide veil: a dim, WISPY stratum we sink through into
+    // the black — ominous, not a flat bright grey bar (Louis 2026-06-15: the
+    // grey screen was bad). Cool blue-grey, torn by vertical filtering
+    // streaks, and it darkens the water as it passes (the point of no return).
+    if (t > 141.0 && t < 156.0) {
+        float yBand = mix(-0.45, 1.5, clamp((t - 142.5) / 10.0, 0.0, 1.0));
+        float wisp = fbmRot(vec2(p.x * 3.2, uv.y * 5.0 - t * 0.14));
+        float yLocal = uv.y + 0.12 * (wisp - 0.5);
+        float band = exp(-pow((yLocal - yBand) / 0.16, 2.0));
+        // vertical light-filtering streaks break the flatness
+        float streak = 0.45 + 0.55 * fbmRot(vec2(p.x * 10.0, t * 0.08));
+        vec3 veilCol = vec3(0.18, 0.24, 0.30);            // dim, cool blue-grey
+        col = mix(col, veilCol * streak, band * 0.7);
+        // everything the veil has already passed is sinking toward black
+        float passed = smoothstep(0.0, 0.25, yBand - yLocal);
+        col *= 1.0 - 0.45 * passed * smoothstep(141.0, 147.0, t);
     }
 
     // Eyes adjusting: the first seconds under the surface are darker, the

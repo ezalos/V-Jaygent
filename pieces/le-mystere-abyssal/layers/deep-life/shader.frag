@@ -96,13 +96,6 @@ void main() {
 
     if (aerialAmount(stage, sp) > 0.6) { fragColor = vec4(0.0); return; }
 
-    // Chorus 3: the snow wheels slowly around the risen sun, with the
-    // bubbles — the whole deep reorganises around the myth.
-    if (stage == 9) {
-        vec2 C = vec2(0.0, -0.15);
-        p = C + rot2d((t - 195.2) * 0.045) * (p - C);
-    }
-
     vec3 col = vec3(0.0);
 
     // ---- Marine snow ----------------------------------------------------
@@ -137,6 +130,40 @@ void main() {
                 col += vec3(0.70, 0.82, 0.90) * mote * tw * snowGain
                      * ((o == 0) ? 0.42 : 0.26) * (1.0 + 0.6 * rev);
             }
+        }
+    }
+
+    // ---- Reversal: stack life onto the rising rush (stage 7) -----------
+    // the streak-rain alone wasn't mesmerizing enough (Louis 2026-06-15) —
+    // add swirling bioluminescent plankton we rush past + bright comet-motes
+    // streaking up, so the ascent feels alive and fast.
+    if (stage == 7) {
+        // bioluminescent plankton on a curl-ish flow, twinkling
+        for (int o = 0; o < 2; o++) {
+            float fo = float(o);
+            float sc = 26.0 + fo * 20.0;
+            float swirl = fbmRot(p * 1.5 + vec2(0.0, t * 0.2)) * 6.2831;
+            vec2 flow = vec2(cos(swirl), sin(swirl)) * 0.04;
+            vec2 sp2 = (p + flow) * sc + vec2(0.0, t * (0.7 + 0.3 * fo));
+            vec2 cell = floor(sp2); vec2 ff = fract(sp2);
+            float h = hash21(cell + fo * 19.0);
+            if (h > 0.16) continue;
+            vec2 jit = hash22(cell * 2.1) * 0.7 + 0.15;
+            float d = length(ff - jit);
+            float blink = 0.5 + 0.5 * sin(t * (3.0 + h * 5.0) + h * 40.0);
+            col += vec3(0.25, 0.85, 0.70) * exp(-d * d * 50.0) * blink * 0.5;
+        }
+        // bright comet-motes streaking upward with short trails
+        for (int i = 0; i < 6; i++) {
+            float fi = float(i);
+            float seed = hash21(vec2(fi, 5.5));
+            float life = fract(seed + (t - 154.6) * (0.18 + 0.10 * seed));
+            vec2 cm = vec2((seed - 0.5) * 1.6 + 0.05 * sin(t + fi), -0.75 + life * 1.55);
+            vec2 rel = p - cm;
+            float head = exp(-dot(rel, rel) * 1600.0);
+            float trail = exp(-(rel.x * rel.x) / 0.00035 - max(-rel.y, 0.0) / 0.13);
+            float gone = smoothstep(0.92, 1.0, life);
+            col += vec3(0.85, 0.92, 1.0) * (head + trail * 0.4) * 0.7 * (1.0 - gone);
         }
     }
 

@@ -234,19 +234,24 @@ vec3 dreamBubbles(vec2 p, vec2 uv, float aspect, float t, float voc, float dream
     return col;
 }
 
-// #7 MERGING METABALLS — the colours of hope. Vibrant blobs wheel slowly
-// around the risen sun, merging into peanuts; the interior is a pull-weighted
-// blend of each ball's hue, so the colours MIX where two fuse (Ocean Gravity).
+// #7 MERGING METABALLS — the colours of hope. MANY vibrant blobs RISE and
+// cross paths, colliding and merging into peanuts as they pass (the lab look,
+// Louis 2026-06-15); the interior is a pull-weighted blend of each ball's hue,
+// so the colours MIX where two fuse.
 vec3 joyBubbles(vec2 p, float t, float sp, float voc) {
-    vec2 C = vec2(0.0, -0.10);
+    float tt = t - 195.2;
     float field = 0.0; vec2 grad = vec2(0.0); vec3 fieldCol = vec3(0.0);
-    for (int i = 0; i < 12; i++) {
+    for (int i = 0; i < 26; i++) {
         float fi = float(i);
         float seed = hash21(vec2(fi, 3.1));
-        float ang = (t - 195.2) * (0.09 + 0.05 * seed) + fi * 0.52;
-        float rad = 0.20 + 0.46 * seed;
-        vec2 c = C + rad * vec2(cos(ang), sin(ang) * 0.8);
-        float R = (0.040 + 0.030 * fract(fi * 0.618)) * (0.6 + 0.6 * voc);
+        float spd = 0.09 + 0.12 * seed;
+        float life = fract(seed + tt * spd);
+        float y = life * 1.8 - 0.9;                          // rises, wraps
+        float x = (seed - 0.5) * 1.6
+                + 0.26 * sin(tt * (0.5 + 0.7 * seed) + fi * 2.1);  // wander -> crossings
+        vec2 c = vec2(x, y);
+        float R = (0.040 + 0.028 * fract(fi * 0.618)) * (0.7 + 0.5 * voc)
+                * smoothstep(0.0, 0.12, life) * smoothstep(1.0, 0.85, life);
         vec2 d = p - c;
         float r2 = max(dot(d, d), 1e-4);
         float w = R * R / r2;
@@ -263,7 +268,7 @@ vec3 joyBubbles(vec2 p, float t, float sp, float voc) {
     vec3 sheen = iqPal((1.0 - N.z) * 1.6 + 0.3, vec3(0.0, 0.33, 0.67));
     vec3 body = fieldCol * (0.45 + 0.55 * N.z) + sheen * F * 0.5;
     vec3 col = body * blob;
-    col += fieldCol * smoothstep(0.12, 0.0, abs(surfD)) * 0.6;   // fusion seam
+    col += fieldCol * smoothstep(0.12, 0.0, abs(surfD)) * 0.6;   // fusion seam glows
     return col * smoothstep(0.0, 0.22, sp);                       // fade in
 }
 
