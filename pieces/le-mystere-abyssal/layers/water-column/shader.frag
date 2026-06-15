@@ -184,6 +184,22 @@ vec3 aerialColor(vec2 p, vec2 uv, float t, int stage, float sp,
         float rWob = (wave - 0.5) * 0.16 * R + (cloud - 0.5) * 0.07 * R;
         float r = length(q) + rWob;
 
+        // The legend: concentric ripples radiate outward from the hole — the
+        // rumour spreading across the water (Louis 2026-06-15 flagged "the
+        // ripples"). Three staggered crests with a faint inner trough so they
+        // read as real expanding water rings, not a single faint echo.
+        if (stage == 1) {
+            for (int k = 0; k < 3; k++) {
+                float tt = mod(t - 23.1 - float(k) * 2.7, 8.1);
+                float ringR = R + tt * 0.16;
+                float crest  = smoothstep(0.020, 0.0, abs(r - ringR));
+                float trough = smoothstep(0.026, 0.0, abs(r - ringR + 0.028));
+                float env = exp(-tt * 0.5);
+                sea += vec3(0.16, 0.36, 0.34) * crest * env * 0.85;
+                sea -= vec3(0.05, 0.11, 0.11) * trough * env * 0.5;
+            }
+        }
+
         float rim = smoothstep(R * 1.30, R * 1.04, r) * smoothstep(R * 0.98, R * 1.06, r);
         sea = mix(sea, LAGOON_NEAR * (1.04 + 0.18 * wave + 0.50 * front),
                   rim * 0.8 * gHole);
@@ -192,13 +208,21 @@ vec3 aerialColor(vec2 p, vec2 uv, float t, int stage, float sp,
         // surface texture continues over the edge and drowns toward centre
         float edgeTex = smoothstep(R * 0.30, R * 0.95, r);
         hole *= 1.0 + (0.20 * wave - 0.10) * edgeTex * gWave;
-        // outro: she kept the sun — a faint warm ember deep in the hole
-        if (stage >= 10) {
-            hole += vec3(0.60, 0.32, 0.10)
-                  * exp(-pow(length(q) / max(R * 0.45, 1e-3), 2.0)) * 0.40;
-        }
+        // (the warm ember in the hole is gone — the brown read badly; the sun
+        // has left the water and become the star, Louis 2026-06-15)
         float inside = smoothstep(R * 1.015, R * 0.985, r);
         sea = mix(sea, hole, inside * gHole);
+    }
+
+    // Outro: the star reflects on the calm sea — a shimmering glimmer path
+    // on the water directly under it (the sun has risen into the sky).
+    if (stage == 10) {
+        float starX = 0.06 * sin(t * 0.10);
+        float e = smoothstep(0.10, 0.85, sp);
+        float reflMask = smoothstep(0.08, 0.0, abs(p.x - starX))
+                       * smoothstep(H, 0.0, uv.y);
+        float shimmer = 0.5 + 0.5 * sin(uv.y * 42.0 - t * 3.0) * (0.4 + 0.6 * wave);
+        sea += vec3(0.95, 0.90, 0.68) * reflMask * shimmer * 0.55 * e;
     }
 
     // Horizon line — a quiet bright seam (the Sugimoto bookend).

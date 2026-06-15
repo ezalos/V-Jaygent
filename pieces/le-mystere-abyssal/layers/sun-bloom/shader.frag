@@ -76,10 +76,15 @@ void sunParams(int stage, float sp, float t, out vec2 c, out float r, out float 
         c.y = mix(-0.55, -0.10, e);
         r = mix(0.16, 0.42, e);
         g = mix(0.25, 0.90, smoothstep(0.0, 0.5, sp));
-    } else if (stage == 10) {               // she keeps it; it sinks gently
-        c.y = mix(-0.10, -0.40, sp);
-        r = mix(0.42, 0.30, sp);
-        g = mix(0.60, 0.12, sp);
+    } else if (stage == 10) {               // she rises OUT of the water and
+        // becomes a star in the sky — L'Étoile (Louis 2026-06-15). Up through
+        // the surface, condensing into a bright star point.
+        float e = smoothstep(0.0, 0.85, sp);
+        // ends high in the sky band (p.y ~0.40 = uv.y 0.90) — visible, not
+        // off the top of the frame
+        c = vec2(0.06 * sin(t * 0.10), mix(-0.28, 0.40, e));
+        r = mix(0.34, 0.05, e);
+        g = mix(0.62, 1.0, e);
     }
 }
 
@@ -128,6 +133,16 @@ void main() {
         float upMask = smoothstep(-0.1, 0.4, q.y / max(len, 1e-4));
         float radial = exp(-len * 1.6) * smoothstep(sunR * 0.5, sunR * 1.2, len);
         col += SUN_GOLD * (f1 + f2) * upMask * radial * gain * 0.55;
+    }
+
+    // outro: as the sun becomes a star, give it diffraction spikes + twinkle
+    if (stage == 10) {
+        float e = smoothstep(0.0, 0.85, sp);
+        float a2 = atan(q.y, q.x);
+        float spikes = pow(abs(cos(a2 * 2.0)), 8.0) + pow(abs(sin(a2 * 2.0)), 8.0);
+        float spike = exp(-length(q) * 7.0) * spikes;
+        float twinkle = 0.7 + 0.3 * sin(t * 4.0);
+        col += vec3(1.0, 0.97, 0.85) * spike * e * gain * twinkle * 0.8;
     }
 
     // NO extinction here — the myth ignores physics. That is the point.
