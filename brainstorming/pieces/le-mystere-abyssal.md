@@ -42,7 +42,7 @@ identically into every layer):
 | C1 REVERSAL | 154.6–174.5 | "le temps a repris son cours" | 1.0→0.25 | Viola reversal: snow drifts upward, we rise; palette returns but changed |
 | C2 REMEMBRANCE | 174.5–195.2 | "quand l'un de nous décroche"; bulles @189.2 | ~0.15 hover | just under the surface; occasional friend-light slips below the waterline; bubble trains arrive from the dark |
 | C3 SUN BLOOM | 195.2–215.0 | **Chorus 3** | ~0.18 | the gold sun rises and the water/window step back (darkness carved so gold reads); bubbles + snow wheel slowly around it (Néry's *Ocean Gravity*) |
-| D OUTRO | 215.0–228.5 | ooho fade | →0.02 | RESURFACING: breaking the surface through a pale light bloom; the horizon bookend returns; the hole recedes to a small coin with a warm ember inside — she kept the sun |
+| D OUTRO | 215.0–228.5 | ooho fade | →0.02 | RESURFACING: the sun RISES out of the water, breaks the surface in a burst of rays, and becomes a STAR in the sky (L'Étoile), reflecting on the calm sea; the hole remains a small dark coin below — the portal she went through, the star she became |
 
 Key one-shot events: dice double-flash (6-fold) @83.61 · thread sever @97.0 ·
 milky wipe @142.88 · chorus rings @64.04 / 124.66 / 195.25.
