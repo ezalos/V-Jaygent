@@ -63,6 +63,24 @@ vec3 iqPal(float t, vec3 phase) {
     return 0.5 + 0.5 * cos(6.28318 * (t + phase));
 }
 
+// Curated cyclic palette for the sun-bloom bubbles — harmonised warm hope
+// tones (gold / coral / rose / soft violet / a teal accent) instead of the
+// random full rainbow (Louis 2026-06-15: rethink the colour palette).
+vec3 hopePal(float x) {
+    x = fract(x);
+    vec3 c0 = vec3(1.00, 0.82, 0.38);  // warm gold
+    vec3 c1 = vec3(1.00, 0.52, 0.42);  // coral
+    vec3 c2 = vec3(0.96, 0.46, 0.66);  // rose
+    vec3 c3 = vec3(0.66, 0.48, 0.92);  // soft violet
+    vec3 c4 = vec3(0.42, 0.82, 0.86);  // teal accent
+    float f = x * 5.0;
+    int i = int(f);
+    float fr = smoothstep(0.0, 1.0, fract(f));
+    vec3 a = i == 0 ? c0 : i == 1 ? c1 : i == 2 ? c2 : i == 3 ? c3 : c4;
+    vec3 b = i == 0 ? c1 : i == 1 ? c2 : i == 2 ? c3 : i == 3 ? c4 : c0;
+    return mix(a, b, fr);
+}
+
 // Diver path — kept in sync with light-shaft's diverPos.
 vec2 diverPos(float t) {
     float pr = smoothstep(88.7, 124.7, t);
@@ -96,67 +114,44 @@ float emissionBase(int stage, float sp, float t, float voc) {
 
 // =========================================================== treatments ==
 
-// #12 POINTILLIST FIZZ — her voice as rising white sparks; the only sign of
-// life. White until hope colours them. Used for the literal rising-bubbles
-// moments (descent, reversal, remembrance, outro). Keeps keyboard vents and
-// her breath plume above the falling light.
+// #12 POINTILLIST FIZZ — her voice as a CRAZY COLOURFUL field of sparks
+// rising from the bottom and filling the screen (Louis 2026-06-15: the
+// mesmerizing colourful effect). Three parallax sheets scroll continuously
+// upward (no mid-screen pop), density rises with the vocal stem, keyboard
+// vents brighten and densify their column.
 vec3 voiceFizz(vec2 p, float aspect, float t, int stage, float sp,
-               float dep, float voc, float hope) {
+               float dep, float voc) {
     float emission = emissionBase(stage, sp, t, voc);
-    float diverPlume = (t > 90.0 && t < 106.0) ? 1.0 : 0.0;  // she is gone by ~105
-    vec2 dvr = diverPos(t);
-    const float STRIP = 0.075;
+    // keyboard vents: a bright column at each pressed key
+    float vent = 0.0;
+    for (int k = 0; k < 15; k++) {
+        float env = u_keys[k];
+        if (env < 0.01) continue;
+        float dx = p.x - keyX(k, aspect);
+        vent = max(vent, exp(-dx * dx / 0.004) * env);
+    }
     vec3 col = vec3(0.0);
-
-    for (int s = -1; s <= 1; s++) {
-        float strip = floor(p.x / STRIP) + float(s);
-        float h = hash21(vec2(strip, 13.7));
-        float xCol = (strip + 0.5 + (h - 0.5) * 0.55) * STRIP;
-
-        // density: centre-weighted plume where she went, plus key vents
-        float wCenter = mix(1.0, 1.0 + 2.5 * exp(-xCol * xCol * 7.0),
-                            (stage >= 4 && stage <= 6) ? 1.0 : 0.0);
-        float train = 0.35 + 0.65 * smoothstep(0.25, 0.85,
-                          0.5 + 0.5 * sin(t * 0.35 + h * 6.2831));
-        float alive = step(1.0 - clamp(emission * wCenter * train, 0.0, 0.92), h);
-
-        float vent = 0.0;
-        bool ventBlack = false;
-        for (int k = 0; k < 15; k++) {
-            float env = u_keys[k];
-            if (env < 0.01) continue;
-            if (abs(keyX(k, aspect) - xCol) < STRIP * 0.75) {
-                vent = max(vent, env);
-                ventBlack = ventBlack || (k >= 9);
-            }
-        }
-        alive = max(alive, step(0.05, vent));
-
-        float breath = diverPlume * step(abs(xCol - dvr.x), STRIP * 0.8);
-        alive = max(alive, breath);
-        if (alive < 0.5) continue;
-
-        float speed = (0.085 + 0.10 * hash21(vec2(strip, 3.1))) * (1.0 + vent * 0.9);
-        float colWob = sin(p.y * (7.0 + 4.0 * h) + h * 6.2831 + t * 2.0) * 0.010;
-        float xJit = xCol + colWob;
-
-        float spacing = 0.045 + 0.030 * hash21(vec2(strip, 5.9));
-        float cell = floor((p.y + 0.55 - t * speed) / spacing);
-        float hb = hash21(vec2(strip * 7.7, cell));
-        float yC = (cell + 0.5) * spacing - 0.55 + t * speed;
-        bool breathOk = !(breath > 0.5 && vent < 0.05 && yC < dvr.y);
-        if (hb > mix(0.45, 0.10, clamp(vent + breath, 0.0, 1.0)) || !breathOk) continue;
-
-        vec2 dotP = vec2(xJit + (hb - 0.5) * 0.024,
-                         fract((yC + 0.55) / 1.1) * 1.1 - 0.55);
-        float dd = dot(p - dotP, p - dotP);
-        float r = 0.0035 + 0.0045 * hb;
-        float tw = 0.55 + 0.45 * sin(t * (2.2 + hb * 3.0) + hb * 40.0);
-        vec3 white = vec3(0.90, 0.95, 1.00) * max(extinction(dep * 0.7), vec3(0.22));
-        vec3 hue = iqPal(hb * 0.9 + t * 0.01 + 0.05, vec3(0.0, 0.33, 0.67));
-        vec3 dotCol = mix(white, hue, hope * smoothstep(0.05, 0.65, hb));
-        if (ventBlack && vent > 0.05) dotCol = mix(dotCol, vec3(0.55, 0.40, 1.00), 0.5);
-        col += dotCol * exp(-dd / (r * r)) * (0.50 + 0.40 * voc) * tw;
+    for (int o = 0; o < 3; o++) {
+        float fo = float(o);
+        float scale = 16.0 + fo * 12.0;
+        float speed = 0.11 + 0.04 * fo;
+        vec2 sPos = p + vec2(0.0, -t * speed);   // continuous rise, no pop
+        vec2 cell = floor(sPos * scale);
+        vec2 ff = fract(sPos * scale);
+        // wrap the scrolled axis for HASHING ONLY — keeps hash inputs bounded
+        // so the field never degenerates to a grid at large t (precision)
+        vec2 hcell = vec2(cell.x, mod(cell.y, 512.0));
+        float h = hash21(hcell + fo * 13.1);
+        float wave = 0.5 + 0.5 * sin(p.y * 3.0 - t * 0.8 + fo * 2.0);
+        float dens = clamp(emission * (0.55 + 0.45 * wave) + vent * 0.6, 0.0, 0.95);
+        if (h > dens) continue;
+        vec2 jit = hash22(hcell * 1.9) * 0.7 + 0.15;
+        float d = length(ff - jit);
+        float r = 0.16 + 0.10 * h;
+        float tw = 0.6 + 0.4 * sin(t * (2.0 + h * 4.0) + h * 40.0);
+        vec3 hue = iqPal(h * 1.3 + fo * 0.3 + t * 0.02, vec3(0.0, 0.33, 0.67));
+        vec3 dotCol = hue * max(extinction(dep * 0.55), vec3(0.34));
+        col += dotCol * exp(-d * d / (r * r)) * (0.55 + 0.45 * voc) * (tw + vent * 0.9);
     }
     return col;
 }
@@ -169,66 +164,79 @@ vec3 voiceFizz(vec2 p, float aspect, float t, int stage, float sp,
 vec3 dreamBubbles(vec2 p, vec2 uv, float aspect, float t, float voc, float dream) {
     vec3 col = vec3(0.0);
     // the light moves, so the prism rays sweep as it crosses the field
-    vec2 lightP = vec2(0.42 * sin(t * 0.22), -0.26 + 0.24 * sin(t * 0.17));
+    vec2 lightP = vec2(0.42 * sin(t * 0.22), -0.18 + 0.26 * sin(t * 0.17));
     vec3 lightDir = normalize(vec3(lightP * 0.7, 0.85));
-    for (int i = 0; i < 40; i++) {
+    for (int i = 0; i < 44; i++) {
         float fi = float(i);
         float seed  = hash21(vec2(fi, 1.7));
         float seed2 = hash21(vec2(fi, 9.3));
         float z     = hash21(vec2(fi, 4.2));   // depth: 0 far, 1 near
-        float chr   = hash21(vec2(fi, 7.9));   // film character
-        float rate = mix(0.025, 0.07, z);
+        float chr   = hash21(vec2(fi, 7.9));   // film character / curve
+        // bottom-to-top life: each bubble ENTERS below the bottom and EXITS
+        // above the top, fully visible between — fading only at the very
+        // edges, so none pop in/out mid-screen (Louis 2026-06-15).
+        float rate = mix(0.04, 0.10, z);
         float life = fract(t * rate + seed);
-        float yr = life * 1.5 - 0.75;
-        float xr = (seed - 0.5) * 1.85
-                 + mix(0.03, 0.09, z) * sin(yr * 7.0 + seed * 40.0 + t * (0.6 + seed));
-        vec2 c = vec2(xr, yr);
-        float fade = smoothstep(0.0, 0.07, life) * smoothstep(1.0, 0.85, life)
-                   * mix(0.55, 1.0, z);
-        // skip half the field in the descent (it carries fewer, larger pearls)
-        if (dream < 0.5 && seed2 > 0.55) continue;
+        float y = mix(-0.72, 0.72, life);
+        float x = (seed - 0.5) * 1.85
+                + mix(0.03, 0.09, z) * sin(y * 6.0 + seed * 40.0 + t * (0.6 + seed));
+        vec2 c = vec2(x, y);
+        float edgeFade = smoothstep(-0.66, -0.50, y) * smoothstep(0.66, 0.50, y)
+                       * mix(0.55, 1.0, z);
+        if (dream < 0.5 && seed2 > 0.5) continue;   // descent carries fewer
 
-        // PRISM RAY: the moving light refracts through the bubble into a
-        // spectrally-spread beam pointing away from the light, brightest when
-        // the bubble sits near it. Many of these = a sweeping rainbow fan.
+        // PRISM RAY from THIS bubble: a soft, CURVED rainbow streak pointing
+        // away from the moving light, brightest AT the bubble and tapering to
+        // nothing — and its length GROWS gradually as the bubble rises in (so
+        // the light appears from nothing -> short -> full, never instant).
         if (dream > 0.01) {
-            vec2 rd = normalize(c - lightP + 1e-4);
+            vec2 toL = c - lightP;
+            vec2 rd = normalize(toL + 1e-4);
+            vec2 pd = vec2(-rd.y, rd.x);
+            float bend = (chr - 0.5) * 2.2;              // per-bubble curve
+            float fullLen = mix(0.10, 0.26, seed);       // per-bubble length
+            float grow = smoothstep(0.0, 0.22, life) * smoothstep(1.0, 0.82, life);
+            float rayLen = fullLen * grow;
             vec2 rel = p - c;
             float along = dot(rel, rd);
-            float perp = dot(rel, vec2(-rd.y, rd.x));
-            float beam = exp(-perp * perp / 0.00022) * exp(-max(along, 0.0) * 4.5)
-                       * step(-0.01, along);
-            float spec = fract(along * 5.0 + chr * 3.0 + t * 0.35);
+            float perp  = dot(rel, pd);
+            float curveOff = bend * along * along;        // soft parabolic curve
+            float dist = abs(perp - curveOff);
+            float width = 0.003 + 0.020 * (max(along, 0.0) / max(fullLen, 1e-3));
+            float core = exp(-dist * dist / max(width * width, 1e-6));
+            float lenProf = smoothstep(-0.006, 0.012, along)                    // soft start at bubble
+                          * exp(-max(along, 0.0) / max(rayLen * 0.5, 1e-3))     // brightest at bubble
+                          * smoothstep(rayLen * 1.25, rayLen * 0.7, along);     // soft far cap
+            float spec = fract(along * 4.0 / max(fullLen, 1e-3) + chr * 3.0 + t * 0.3);
             vec3 rayCol = iqPal(spec, vec3(0.0, 0.33, 0.67));
-            float nearSun = exp(-dot(c - lightP, c - lightP) * 2.0);
-            col += rayCol * beam * nearSun * dream * fade * 1.7 * (0.6 + 0.5 * voc);
+            float nearSun = exp(-dot(toL, toL) * 1.4);
+            col += rayCol * core * lenProf * nearSun * dream * edgeFade
+                 * 2.0 * (0.6 + 0.5 * voc);
         }
 
-        // the bubble: medium pearls in the descent, tiny in the dream
-        float R = mix(mix(0.026, 0.062, z), mix(0.006, 0.015, z), dream);
+        // the bubble itself: ~4x smaller pearls (descent) / tiny (dream)
+        float R = mix(mix(0.007, 0.016, z), mix(0.005, 0.012, z), dream);
         vec2 q = (p - c) / R;
         float r2 = dot(q, q);
         if (r2 > 1.0) continue;
         vec3 N = vec3(q, sqrt(max(1.0 - r2, 0.0)));
         float cosL = max(dot(N, lightDir), 0.0);
         float ringFreq = mix(1.6, 4.2, chr);
-        float thickness = (1.0 - 0.6 * life) * (0.72 - 0.40 * q.y);
-        // animated: each film evolves on its OWN clock so the iridescence is
-        // never static and every bubble shows a different dominant colour
+        // animated film — never static, every bubble a different dominant hue
+        float thickness = (0.55 + 0.45 * sin(life * 6.2831 + seed * 6.2831))
+                        * (0.72 - 0.40 * q.y);
         float opd = seed2 * 3.0 + thickness * ringFreq + (1.0 - N.z) * 1.6
                   + (1.0 - cosL) * 1.4 + t * (0.15 + 0.5 * chr);
         vec3 film = iqPal(opd, vec3(0.0, 0.33, 0.67));
         float F = 0.04 + 0.96 * pow(1.0 - N.z, 5.0);
         vec3 bub = film * (0.55 + 0.85 * F);
-        // coupling (descent pearls only — tiny dream bubbles refract via rays)
+        // keep one u_below sample alive (descent pearls catch the scene tint)
         if (dream < 0.5) {
-            vec2 lensUV = uv - (q * R / vec2(aspect, 1.0)) * 0.45 * (1.0 - N.z);
-            vec3 seen = texture(u_below, lensUV).rgb;
-            float seenBright = max(seen.r, max(seen.g, seen.b));
-            bub += seen * smoothstep(0.45, 1.0, seenBright) * 0.7 * smoothstep(1.0, 0.4, r2);
+            vec3 seen = texture(u_below, uv).rgb;
+            bub += seen * 0.25 * smoothstep(1.0, 0.4, r2);
         }
         bub += vec3(1.0) * pow(cosL, 40.0) * 0.7 * smoothstep(1.0, 0.9, r2);
-        float cover = smoothstep(1.0, 0.80, r2) * fade * (0.75 + 0.35 * voc);
+        float cover = smoothstep(1.0, 0.80, r2) * edgeFade * (0.75 + 0.35 * voc);
         col = max(col, bub * cover);
     }
     return col;
@@ -257,7 +265,7 @@ vec3 joyBubbles(vec2 p, float t, float sp, float voc) {
         float w = R * R / r2;
         field += w;
         grad += -2.0 * R * R * d / (r2 * r2);
-        vec3 hue = iqPal(seed * 1.7 + fi * 0.13, vec3(0.0, 0.33, 0.67));
+        vec3 hue = hopePal(seed * 1.3 + fi * 0.09);
         fieldCol += hue * w;
     }
     fieldCol /= max(field, 1e-3);
@@ -265,7 +273,7 @@ vec3 joyBubbles(vec2 p, float t, float sp, float voc) {
     float blob = smoothstep(0.0, 0.30, surfD);
     vec3 N = normalize(vec3(grad, 2.2));
     float F = 0.04 + 0.96 * pow(1.0 - N.z, 5.0);
-    vec3 sheen = iqPal((1.0 - N.z) * 1.6 + 0.3, vec3(0.0, 0.33, 0.67));
+    vec3 sheen = hopePal((1.0 - N.z) * 0.5 + 0.1);
     vec3 body = fieldCol * (0.45 + 0.55 * N.z) + sheen * F * 0.5;
     vec3 col = body * blob;
     col += fieldCol * smoothstep(0.12, 0.0, abs(surfD)) * 0.6;   // fusion seam glows
@@ -287,30 +295,26 @@ void main() {
 
     float voc = mix(0.40 + 0.30 * sin(t * 0.47), u_audio_vocals_stem, u_audio_playing);
 
-    // hope curve: the colours arrive only when the narrative offers hope
-    float hope = sunPresence(stage, sp);
-    if (stage == 3) hope = max(hope, 0.30 * smoothstep(68.0, 72.0, t));
-    if (stage == 8 && t > 189.2) hope = max(hope, 0.30);
+    // The bubble vocabulary lands with the music moment, CROSSFADED on soft
+    // time-windows so nothing snaps on/off mid-movement (Louis 2026-06-15):
+    //   descent fizz (vibrant)  : 98.9 -> ~114
+    //   descent soap pearls     : ~113 -> ~125
+    //   narcosis prism dream    : ~124 -> ~145  (tail past the 142.9 boundary
+    //                                            so the bubbles rise off-screen)
+    //   sun-bloom metaballs     : stage 9
+    //   reversal/remembrance/outro fizz : the remainder
+    float gPearl = smoothstep(111.0, 114.0, t) * (1.0 - smoothstep(123.0, 125.5, t));
+    float gDream = smoothstep(123.5, 126.0, t) * (1.0 - smoothstep(141.0, 145.0, t));
+    float gJoy   = (stage == 9)
+                 ? smoothstep(0.0, 0.18, sp) * (1.0 - smoothstep(0.88, 1.0, sp))
+                 : 0.0;
+    float gFizz  = clamp(1.0 - gPearl - gDream - gJoy, 0.0, 1.0);
 
-    // The bubble vocabulary lands with the music moment:
-    //   B2 descent (after trace lost ~103) -> fizz, then soap-film pearls,
-    //                                          alternating across the long
-    //                                          "only bubbles" stretch
-    //   B3 narcosis dream                  -> tiny prismatic soap films
-    //   C3 sun bloom                       -> merging metaballs
-    //   everything else                    -> pointillist fizz
-    vec3 col;
-    if (stage == 5) {
-        col = dreamBubbles(p, uv, aspect, t, voc, 1.0);
-    } else if (stage == 9) {
-        col = joyBubbles(p, t, sp, voc);
-    } else if (stage == 4 && t > 113.0) {
-        // second half of the descent: the pearls take over (a calm build
-        // into the dream that follows at 124.7)
-        col = dreamBubbles(p, uv, aspect, t, voc, 0.0);
-    } else {
-        col = voiceFizz(p, aspect, t, stage, sp, dep, voc, hope);
-    }
+    vec3 col = vec3(0.0);
+    if (gFizz  > 0.001) col += voiceFizz(p, aspect, t, stage, sp, dep, voc) * gFizz;
+    if (gPearl > 0.001) col += dreamBubbles(p, uv, aspect, t, voc, 0.0) * gPearl;
+    if (gDream > 0.001) col += dreamBubbles(p, uv, aspect, t, voc, 1.0) * gDream;
+    if (gJoy   > 0.001) col += joyBubbles(p, t, sp, voc) * gJoy;
 
     float a = clamp(max(col.r, max(col.g, col.b)), 0.0, 1.0);
     fragColor = vec4(col, a);

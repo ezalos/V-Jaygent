@@ -98,6 +98,15 @@ void main() {
 
     vec3 col = vec3(0.0);
 
+    // Reversal fills in from the TOP — the first drops appear high, then the
+    // curtain descends to fill the screen (Louis 2026-06-15: no instant pop,
+    // and no mask cutting the bottom droplets). 1 everywhere once filled.
+    float revFill = 1.0;
+    if (stage == 7) {
+        float fillEdge = mix(1.3, -0.35, smoothstep(154.6, 160.0, t));
+        revFill = smoothstep(fillEdge - 0.18, fillEdge + 0.04, uv.y);
+    }
+
     // ---- Marine snow ----------------------------------------------------
     float snowGain = smoothstep(0.20, 0.55, dep);
     if (stage == 7) snowGain = max(snowGain, 0.8 * (1.0 - sp)); // visible while rising
@@ -128,7 +137,8 @@ void main() {
                 float mote = exp(-d * d * mix(42.0, 28.0, rev));
                 float tw = 0.75 + 0.25 * sin(t * 1.4 + h * 40.0);
                 col += vec3(0.70, 0.82, 0.90) * mote * tw * snowGain
-                     * ((o == 0) ? 0.42 : 0.26) * (1.0 + 0.6 * rev);
+                     * ((o == 0) ? 0.42 : 0.26) * (1.0 + 0.6 * rev)
+                     * mix(1.0, revFill, rev);   // reversal fills from the top
             }
         }
     }
@@ -151,7 +161,7 @@ void main() {
             vec2 jit = hash22(cell * 2.1) * 0.7 + 0.15;
             float d = length(ff - jit);
             float blink = 0.5 + 0.5 * sin(t * (3.0 + h * 5.0) + h * 40.0);
-            col += vec3(0.25, 0.85, 0.70) * exp(-d * d * 50.0) * blink * 0.5;
+            col += vec3(0.25, 0.85, 0.70) * exp(-d * d * 50.0) * blink * 0.5 * revFill;
         }
         // bright comet-motes streaking upward with short trails
         for (int i = 0; i < 6; i++) {
@@ -163,7 +173,7 @@ void main() {
             float head = exp(-dot(rel, rel) * 1600.0);
             float trail = exp(-(rel.x * rel.x) / 0.00035 - max(-rel.y, 0.0) / 0.13);
             float gone = smoothstep(0.92, 1.0, life);
-            col += vec3(0.85, 0.92, 1.0) * (head + trail * 0.4) * 0.7 * (1.0 - gone);
+            col += vec3(0.85, 0.92, 1.0) * (head + trail * 0.4) * 0.7 * (1.0 - gone) * revFill;
         }
     }
 

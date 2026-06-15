@@ -261,8 +261,8 @@ vec3 underwaterColor(vec2 p, vec2 uv, float t, int stage, float sp, float dep,
     // the black — ominous, not a flat bright grey bar (Louis 2026-06-15: the
     // grey screen was bad). Cool blue-grey, torn by vertical filtering
     // streaks, and it darkens the water as it passes (the point of no return).
-    if (t > 141.0 && t < 156.0) {
-        float yBand = mix(-0.45, 1.5, clamp((t - 142.5) / 10.0, 0.0, 1.0));
+    if (t > 141.0 && t < 153.5) {   // ends before the reversal rain (no overlap)
+        float yBand = mix(-0.45, 1.5, clamp((t - 142.5) / 9.0, 0.0, 1.0));
         float wisp = fbmRot(vec2(p.x * 3.2, uv.y * 5.0 - t * 0.14));
         float yLocal = uv.y + 0.12 * (wisp - 0.5);
         float band = exp(-pow((yLocal - yBand) / 0.16, 2.0));
