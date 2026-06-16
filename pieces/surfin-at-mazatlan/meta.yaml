@@ -6,18 +6,25 @@ cursor: true
 keyboard_synth: true
 notes: |
   Rhythm Rockers — *Surfin' at Mazatlan*. 172 BPM, E major, surf-rock.
-  Thesis: a ripple tank lit at golden hour. Discrete point sources throw
-  expanding circular wavefronts; where they overlap you get the classic
-  interference net of hyperbolic nodal lines, shifting and breathing.
-  Recolored as low sun glinting off disturbed water — warm only.
+  Thesis: a DESCENT. The song deepens over the same bassline, so the
+  image sinks with it — from a golden-hour ripple-tank surface down into
+  the cool deep. Circular wavefront interference throughout, but the
+  wavelength grows + slows as we sink and the dominant grammar PROGRESSES
+  (never cycles): surface fine NET -> rolling BANDS -> vast deep RINGS.
+  PALETTE (deliberate per-piece override of the warm-only rule, per
+  Louis): graduates golden -> amber -> wine -> twilight VIOLET as we
+  descend, but keeps a WARM ANCHOR — the last light stays caught on the
+  wave crests + glint while the bed/troughs cool. The sun reddens and
+  SETS by mid-song (the dramatic pivot / surface-break).
   Press Shift+H for the controls panel.
 
   Layer stack (bottom -> top):
 
-  1. horizon    warm sunset bed (near-black/wine low -> ember -> amber)
-                with a slowly DRIFTING sun hot-zone (the macro brightness
-                envelope). Sun pulses with audio level + downbeat; song
-                progress warms the whole bed.
+  1. horizon    the water bed + sun. Bed graduates golden surface ->
+                twilight violet as we descend; a DRIFTING sun hot-zone
+                (macro light) reddens and SETS by mid-song, then faint
+                cold light filters from the surface far above. Sun pulses
+                with audio level + downbeat.
   2. wavefield  INVISIBLE data layer (alpha 0). Sums every circular wave
                 source ONCE and publishes `wave` = encoded (grad-dir,
                 height-level, slope). Sources:
@@ -45,10 +52,15 @@ notes: |
   4. glint      consumes `wave`; Blinn-Phong sun sparkle off the surface
                 normal, clumped onto steep crests, twinkling at the
                 tremolo rate. Cursor brightens nearby sparkle; high band
-                drives density.
-  5. filmgrain  finish: reinhard tonemap, fine grain, warm vignette, and
-                a warm bloom over the first ~10% of every section (the
-                wet-reverb splash on the cut).
+                drives density. (Warm anchor; fades as the sun sets.)
+  5. motes      rising suspended particles drifting UP as we descend (the
+                "I'm sinking" cue) — three parallax bands, sparse at the
+                surface, a drifting field in the deep. Warm last-light near
+                the surface -> cool pale-violet glint deep. Cursor brightens
+                nearby motes; a held key stirs up more.
+  6. filmgrain  finish: reinhard tonemap, fine grain, vignette (deepening
+                in the dark), and a warm bloom over the first ~10% of every
+                section (the wet-reverb splash on the cut).
 
   Three input channels (each visibly changes the field):
     cursor   -> wavefield source + water wake + glint boost
@@ -59,11 +71,13 @@ notes: |
 
   Polyrhythmic clocks: u_time (ambient phase, tremolo, sun drift),
   bar clock bpm/60/4 (central expanding ring), u_downbeat (ring pulse
-  + sun puff), u_energy_smooth + u_audio_bass (wavelength), section
-  progress (bloom on cuts), u_song_progress (bed warmth).
+  + sun puff), u_energy_smooth + u_audio_bass (surface wavelength),
+  section progress (bloom on cuts), u_song_progress = DESCENT (drives
+  the warm->violet palette, sun set, ripple scale growth, mode
+  progression net->bands->rings, and mote emergence).
 
   Idle: ambient arc keeps oscillating, the central source emits a slow
-  ring, sparkle twinkles, the sun hot-zone drifts. Never freezes.
+  ring, sparkle twinkles, the sun drifts, motes rise. Never freezes.
 duration: 157
 render_scale: 0.6
 audio: audio.mp3
@@ -89,6 +103,8 @@ layers:
     blend: add
     consumes:
       u_wave: wave
+  - layer: motes
+    blend: add
   - layer: filmgrain
     blend: replace
-rendered_at: '2026-06-16T21:22:27.666Z'
+rendered_at: '2026-06-16T22:03:37.846Z'

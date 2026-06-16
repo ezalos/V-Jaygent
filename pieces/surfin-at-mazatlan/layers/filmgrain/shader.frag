@@ -12,6 +12,7 @@ uniform float u_time;
 uniform int   u_frame;
 uniform sampler2D u_below;
 uniform float u_section_progress;
+uniform float u_song_progress;
 uniform float u_audio_level;
 uniform float u_audio_playing;
 
@@ -36,9 +37,10 @@ void main() {
     float g = hash21(gl_FragCoord.xy + float(u_frame) * 1.7) - 0.5;
     col += g * 0.045;
 
-    // warm vignette
+    // vignette — deepens into an enclosure as we descend
+    float descent = clamp(u_song_progress, 0.0, 1.0);
     float v = length((uv - 0.5) * vec2(aspect, 1.0));
-    col *= mix(1.0, 0.62, smoothstep(0.55, 1.15, v));
+    col *= mix(1.0, mix(0.62, 0.40, descent), smoothstep(mix(0.55, 0.40, descent), 1.15, v));
 
     fragColor = vec4(max(col, 0.0), 1.0);
 }

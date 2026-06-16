@@ -1,0 +1,6 @@
+name: motes
+identity: "rising suspended particles (descent depth)"
+default_blend: add
+
+publishes: []
+consumes: []

@@ -34,7 +34,7 @@ void addSource(vec2 p, vec2 s, float A, float kk, float om, float ph,
                float t, inout float h, inout vec2 g) {
     vec2  d = p - s;
     float r = max(length(d), 1e-3);
-    float fall = 1.0 / (1.0 + 1.1 * r);
+    float fall = 1.0 / (1.0 + 0.8 * r);          // gentle -> wavefronts reach further (extended)
     float arg = kk * r - om * t + ph;
     h += A * sin(arg) * fall;
     // dominant crest-normal term: A*kk*cos(arg)*dir*fall
@@ -62,21 +62,18 @@ void main() {
     float bass = mix(0.30 + 0.20 * sin(t * 0.43 + 1.0), u_audio_bass, playing);
     float mid  = mix(0.30 + 0.20 * sin(t * 0.91 + 2.0), u_audio_mid, playing);
 
-    // global wavelength: calm -> broad swells, peak -> dense chop
+    float descent = clamp(u_song_progress, 0.0, 1.0);   // 0 = sunlit surface, 1 = the deep
+
+    // wavelength: surface bass-chop -> vast slow deep swell. Ripples grow
+    // LARGER and SLOWER as we sink (Louis: "make them larger / more extended").
     float dense = clamp(bass + 0.45 * u_energy_smooth, 0.0, 1.0);
-    // body sub-phasing: a slow swing of the density vocabulary over the song
-    // (net <-> chop) so the long body isn't one texture re-shaded -> long arc
-    dense = clamp(dense + 0.24 * sin(u_song_progress * TAU * 2.0), 0.0, 1.0);
-    // pre-tension: in the ~2.5s before a section cut, tighten the wavelength
-    // and swell amplitude so a BUILD is felt, then the filmgrain bloom releases
+    // pre-tension: in the ~2.5s before a section cut, tighten + swell -> a build
     float preT = smoothstep(2.5, 0.0, u_to_section_change) * step(0.001, u_to_section_change);
     dense = clamp(dense + 0.40 * preT, 0.0, 1.0);
-    // ending arc: the last ~18% broadens to glassy calm swells (recap of the
-    // calm intro) and the whole field fades -> a designed ending, not a cut
-    float arc = smoothstep(0.82, 1.0, u_song_progress);
-    float lambda = mix(mix(0.55, 0.22, dense), 0.72, arc);
+    float surfaceLambda = mix(0.50, 0.22, dense);
+    float lambda = mix(surfaceLambda, 0.95, smoothstep(0.0, 0.95, descent));
     float k = TAU / lambda;
-    float c = 0.80;          // wave speed
+    float c = mix(0.80, 0.42, descent);   // deep water moves slower
     float om = k * c;
     // tremolo / spring-reverb shimmer ~10 Hz, always on (sub-beat liveness)
     float trem = 0.78 + 0.22 * sin(t * 62.0);
@@ -84,22 +81,15 @@ void main() {
     float bpm = u_bpm > 1.0 ? u_bpm : 172.0;
     float barClock = t * (bpm / 60.0) / 4.0;         // rings per second = bars per second
 
-    // --- vocabulary mode: rotate the DOMINANT event grammar over the song
-    //     (net <-> bands <-> rings) so a 20s window shows a categorically
-    //     different kind of motion, not the same interference rule re-scaled.
-    //     u_section_id offsets the phase so each section cut hands off to a
-    //     new vocabulary; the cosine lobes overlap so transitions cross-fade.
-    float modePh = u_song_progress * TAU + u_section_id * 1.25;
-    float netLobe  = 0.5 + 0.5 * cos(modePh);
-    float bandLobe = 0.5 + 0.5 * cos(modePh - TAU / 3.0);
-    float ringLobe = 0.5 + 0.5 * cos(modePh - 2.0 * TAU / 3.0);
-    // Sharp pulses, not overlapping cosines: each grammar DISSOLVES back to the
-    // calm net substrate before the next EMERGES (a ~lull between modes), so
-    // transitions read as dissolution+emergence rather than two grammars
-    // colliding at the crossover. Net keeps a floor so no frame goes dead.
-    float netW  = 0.30 + 0.70 * pow(smoothstep(0.42, 1.0, netLobe),  1.5);
-    float bandW =        pow(smoothstep(0.50, 1.0, bandLobe), 1.5);
-    float ringW =        pow(smoothstep(0.50, 1.0, ringLobe), 1.5);
+    // --- vocabulary PROGRESSION (one-way DESCENT, not a cycle): the image
+    //     sinks with the song. surface = fine glinty NET -> mid = rolling
+    //     BANDS -> deep = vast concentric RINGS. Net stays a low substrate;
+    //     the modes hand off monotonically (no collision) as we go down.
+    float netW  = 0.25 + 0.75 * (1.0 - smoothstep(0.08, 0.45, descent));
+    float bandW = smoothstep(0.22, 0.46, descent) * (1.0 - smoothstep(0.52, 0.74, descent));
+    float ringW = smoothstep(0.55, 0.86, descent);
+    // deepest point settles toward a vast slow glassy swell + fades
+    float arc = smoothstep(0.88, 1.0, descent);
 
     float h = 0.0;
     vec2  g = vec2(0.0);

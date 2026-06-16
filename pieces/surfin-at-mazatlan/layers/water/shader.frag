@@ -13,6 +13,7 @@ uniform sampler2D u_below;
 uniform sampler2D u_wave;       // consumed: rg=grad dir, b=height level, a=slope
 uniform float u_audio_high;
 uniform float u_audio_playing;
+uniform float u_song_progress;
 uniform float u_keys[15];
 
 out vec4 fragColor;
@@ -38,11 +39,13 @@ void main() {
     vec3 amber = vec3(0.930, 0.560, 0.215);
     vec3 cream = vec3(1.000, 0.930, 0.780);
 
+    float descent = clamp(u_song_progress, 0.0, 1.0);
     float lc = clamp(level * 1.55, -1.0, 1.0);        // expand height contrast
-    // troughs sink toward near-black; crests lift to amber then cream
+    // troughs sink toward near-black (the bed's colour -> violet in the deep);
+    // crests lift to amber/cream — the warm ANCHOR, eased to "last light" deep
     col *= mix(1.0, 0.16, smoothstep(0.0, -0.55, lc));
-    col = mix(col, amber, smoothstep(0.0, 0.60, lc) * 0.60);
-    col += cream * smoothstep(0.45, 0.92, lc) * 0.35;
+    col = mix(col, amber, smoothstep(0.0, 0.60, lc) * mix(0.60, 0.46, descent));
+    col += cream * smoothstep(0.45, 0.92, lc) * mix(0.35, 0.20, descent);
     // bright lip on the steepest crest faces (body of the glint; sparkle is glint layer)
     col += amber * smoothstep(0.30, 0.75, slope) * smoothstep(0.05, 0.60, lc) * (0.4 + 0.6 * u_audio_high);
 
