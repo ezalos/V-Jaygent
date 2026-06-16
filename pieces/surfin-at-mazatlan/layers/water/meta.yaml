@@ -1,0 +1,10 @@
+name: water
+identity: "relights u_below from wave field"
+default_blend: replace
+
+reads:
+  - u_below
+
+publishes: []
+consumes:
+  u_wave: { type: vec4 }

@@ -1,0 +1,51 @@
+{
+ "slug": "surfin-at-mazatlan",
+ "captured_at_audio_t": 31.6,
+ "time_source": "audio",
+ "clock_frozen": true,
+ "state_accumulates": true,
+ "stills_comparable": "frozen-clock-state-advances",
+ "matrix_secs": 30,
+ "cursor_orbit": "centre (0.5,0.5), radius 0.3 of canvas, ~2.6 s/rev, 20 Hz pointermove",
+ "captures": [
+  "drift-0.png",
+  "drift-1.png",
+  "cursor-a.png",
+  "cursor-b.png",
+  "cursor-c.png",
+  "cursor-active.png",
+  "cursor-idle.png",
+  "cursor-aba-0.png",
+  "cursor-aba-1.png",
+  "cursor-a2.png",
+  "latency.mp4",
+  "solo-horizon.png",
+  "solo-wavefield.png",
+  "solo-water.png",
+  "solo-glint.png",
+  "solo-filmgrain.png",
+  "matrix-both.mp4",
+  "matrix-music.mp4",
+  "matrix-cursor.mp4",
+  "matrix-neither.mp4",
+  "matrix-hold.mp4",
+  "build-cursor.mp4"
+ ],
+ "latency": {
+  "jump_at_ms": 500,
+  "burst_start_ms": 400,
+  "burst_fps": 60,
+  "jump_frame_index": 6
+ },
+ "layers": [
+  "horizon",
+  "wavefield",
+  "water",
+  "glint",
+  "filmgrain"
+ ],
+ "build": {
+  "start_t": 20.4,
+  "dur_s": 12
+ }
+}

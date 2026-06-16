@@ -1,0 +1,443 @@
+{
+ "stills": {
+  "music-00-t3.3-intro.png": {
+   "rms_contrast": {
+    "value": 0.0668,
+    "pass": true
+   },
+   "squint_macro": {
+    "value": 0.0879,
+    "pass": true
+   },
+   "no_blowout": {
+    "value": {
+     "mean_l": 0.208,
+     "ch_range": 0.217
+    },
+    "pass": true
+   },
+   "empty_zones": {
+    "value": 0.0,
+    "pass": false
+   },
+   "one_over_f": {
+    "value": -2.767,
+    "pass": true
+   },
+   "depth_octaves": {
+    "value": 3,
+    "pass": true
+   },
+   "warm_arc": {
+    "value": 1.0,
+    "pass": true
+   },
+   "lum_not_hue": {
+    "value": {
+     "l_range": 0.326,
+     "hue_std": 3.4
+    },
+    "pass": true
+   },
+   "dominant_hues": {
+    "value": 1,
+    "pass": true
+   }
+  },
+  "music-01-t31.8-verse.png": {
+   "rms_contrast": {
+    "value": 0.0592,
+    "pass": true
+   },
+   "squint_macro": {
+    "value": 0.0625,
+    "pass": true
+   },
+   "no_blowout": {
+    "value": {
+     "mean_l": 0.214,
+     "ch_range": 0.22
+    },
+    "pass": true
+   },
+   "empty_zones": {
+    "value": 0.0,
+    "pass": false
+   },
+   "one_over_f": {
+    "value": -2.646,
+    "pass": true
+   },
+   "depth_octaves": {
+    "value": 3,
+    "pass": true
+   },
+   "warm_arc": {
+    "value": 1.0,
+    "pass": true
+   },
+   "lum_not_hue": {
+    "value": {
+     "l_range": 0.307,
+     "hue_std": 3.0
+    },
+    "pass": true
+   },
+   "dominant_hues": {
+    "value": 1,
+    "pass": true
+   }
+  },
+  "music-02-t26.9-pre-peak.png": {
+   "rms_contrast": {
+    "value": 0.0482,
+    "pass": true
+   },
+   "squint_macro": {
+    "value": 0.0586,
+    "pass": true
+   },
+   "no_blowout": {
+    "value": {
+     "mean_l": 0.206,
+     "ch_range": 0.218
+    },
+    "pass": true
+   },
+   "empty_zones": {
+    "value": 0.0,
+    "pass": false
+   },
+   "one_over_f": {
+    "value": -1.752,
+    "pass": false
+   },
+   "depth_octaves": {
+    "value": 2,
+    "pass": false
+   },
+   "warm_arc": {
+    "value": 1.0,
+    "pass": true
+   },
+   "lum_not_hue": {
+    "value": {
+     "l_range": 0.287,
+     "hue_std": 2.4
+    },
+    "pass": true
+   },
+   "dominant_hues": {
+    "value": 1,
+    "pass": true
+   }
+  },
+  "music-03-t41.4-quiet.png": {
+   "rms_contrast": {
+    "value": 0.0527,
+    "pass": true
+   },
+   "squint_macro": {
+    "value": 0.1035,
+    "pass": true
+   },
+   "no_blowout": {
+    "value": {
+     "mean_l": 0.215,
+     "ch_range": 0.222
+    },
+    "pass": true
+   },
+   "empty_zones": {
+    "value": 0.0,
+    "pass": false
+   },
+   "one_over_f": {
+    "value": -2.182,
+    "pass": false
+   },
+   "depth_octaves": {
+    "value": 2,
+    "pass": false
+   },
+   "warm_arc": {
+    "value": 1.0,
+    "pass": true
+   },
+   "lum_not_hue": {
+    "value": {
+     "l_range": 0.262,
+     "hue_std": 2.5
+    },
+    "pass": true
+   },
+   "dominant_hues": {
+    "value": 1,
+    "pass": true
+   }
+  },
+  "music-04-t100.9-outro.png": {
+   "rms_contrast": {
+    "value": 0.0731,
+    "pass": true
+   },
+   "squint_macro": {
+    "value": 0.124,
+    "pass": true
+   },
+   "no_blowout": {
+    "value": {
+     "mean_l": 0.247,
+     "ch_range": 0.234
+    },
+    "pass": true
+   },
+   "empty_zones": {
+    "value": 0.001,
+    "pass": false
+   },
+   "one_over_f": {
+    "value": -2.912,
+    "pass": true
+   },
+   "depth_octaves": {
+    "value": 2,
+    "pass": false
+   },
+   "warm_arc": {
+    "value": 1.0,
+    "pass": true
+   },
+   "lum_not_hue": {
+    "value": {
+     "l_range": 0.368,
+     "hue_std": 3.8
+    },
+    "pass": true
+   },
+   "dominant_hues": {
+    "value": 1,
+    "pass": true
+   }
+  }
+ },
+ "piece": {
+  "arc": {
+   "value": 0.833,
+   "pass": false
+  },
+  "hue_drift_smooth": {
+   "value": [
+    0.9,
+    0.9,
+    1.1,
+    3.1
+   ],
+   "pass": true
+  },
+  "layout_varies": {
+   "value": 0.121,
+   "pass": true
+  }
+ },
+ "source": "inspect-music",
+ "aggregates": {
+  "rms_contrast": {
+   "pass": true,
+   "rule": ">=100% of core stills"
+  },
+  "squint_macro": {
+   "pass": true,
+   "rule": ">=75% of core stills"
+  },
+  "no_blowout": {
+   "pass": true,
+   "rule": ">=100% of core stills"
+  },
+  "empty_zones": {
+   "pass": false,
+   "rule": ">=100% of core stills"
+  },
+  "one_over_f": {
+   "pass": false,
+   "rule": ">=100% of core stills"
+  },
+  "depth_octaves": {
+   "pass": false,
+   "rule": ">=100% of core stills"
+  },
+  "warm_arc": {
+   "pass": true,
+   "rule": ">=100% of core stills"
+  },
+  "lum_not_hue": {
+   "pass": true,
+   "rule": ">=100% of core stills"
+  },
+  "dominant_hues": {
+   "pass": true,
+   "rule": ">=100% of core stills"
+  }
+ },
+ "clips": {
+  "clips": {
+   "clip-w0-t0.7-intro.mp4": {
+    "trackability": {
+     "value": {
+      "warp_err": 0.4043,
+      "speed_deg_s": 10.69
+     },
+     "pass": false
+    },
+    "never_frozen": {
+     "value": 3.5744,
+     "pass": true
+    },
+    "jerk_smooth": {
+     "value": 3.32,
+     "pass": false
+    }
+   },
+   "clip-w1-t11.4-verse.mp4": {
+    "trackability": {
+     "value": {
+      "warp_err": 0.4568,
+      "speed_deg_s": 9.84
+     },
+     "pass": false
+    },
+    "never_frozen": {
+     "value": 3.516,
+     "pass": true
+    },
+    "jerk_smooth": {
+     "value": 2.6996,
+     "pass": false
+    }
+   },
+   "clip-w2-t26.9-build.mp4": {
+    "trackability": {
+     "value": {
+      "warp_err": 0.4566,
+      "speed_deg_s": 13.8
+     },
+     "pass": false
+    },
+    "never_frozen": {
+     "value": 4.0471,
+     "pass": true
+    },
+    "jerk_smooth": {
+     "value": 3.5618,
+     "pass": false
+    }
+   },
+   "clip-w3-t31.6-peak.mp4": {
+    "trackability": {
+     "value": {
+      "warp_err": 0.4773,
+      "speed_deg_s": 18.26
+     },
+     "pass": false
+    },
+    "never_frozen": {
+     "value": 4.3045,
+     "pass": true
+    },
+    "jerk_smooth": {
+     "value": 3.5009,
+     "pass": false
+    }
+   },
+   "clip-w4-t100.9-outro.mp4": {
+    "trackability": {
+     "value": {
+      "warp_err": 0.5437,
+      "speed_deg_s": 9.14
+     },
+     "pass": false
+    },
+    "never_frozen": {
+     "value": 2.7097,
+     "pass": true
+    },
+    "jerk_smooth": {
+     "value": 1.8212,
+     "pass": false
+    }
+   }
+  },
+  "piece": {
+   "window_divergence": {
+    "value": {
+     "min_ncd": 1.0,
+     "min_flowhist": 0.027
+    },
+    "pass": true
+   },
+   "motion_dynamic_range": {
+    "value": 0.63,
+    "pass": false
+   },
+   "trackability_all": {
+    "pass": false
+   },
+   "never_frozen_all": {
+    "pass": true
+   },
+   "jerk_smooth_all": {
+    "pass": false
+   }
+  }
+ }
+}
+{
+ "stills_comparable": "frozen-clock-state-advances",
+ "clock_frozen": true,
+ "tests": {
+  "cursor_composition": {
+   "value": {
+    "min_corr": 0.492,
+    "delta": 0.508,
+    "needed": 0.1
+   },
+   "pass": true,
+   "note": "state-advancing sim: deltas corrected against the a-a2 drift baseline"
+  },
+  "cursor_reversibility": {
+   "value": 1.0,
+   "pass": true,
+   "note": "state-advancing sim: deltas corrected against the a-a2 drift baseline"
+  },
+  "cursor_bounded": {
+   "value": 0.31,
+   "pass": false,
+   "note": "live dominance: median per-frame delta, matrix-both vs matrix-music (recorder jitter adds music-misalignment noise)"
+  },
+  "cursor_latency": {
+   "value": {
+    "frames_at_60fps": 0
+   },
+   "pass": true
+  },
+  "layer_distinct": {
+   "value": 0.49,
+   "pass": true
+  },
+  "layer_interaction": {
+   "value": 1.149,
+   "pass": true
+  },
+  "idle_matrix_alive": {
+   "value": {
+    "both": 4.7711,
+    "music": 3.7799,
+    "cursor": 2.4056,
+    "neither": 0.0971
+   },
+   "pass": true
+  }
+ },
+ "drift_baseline": 0.0007,
+ "drift_source": "parked pair"
+}

@@ -1,0 +1,7 @@
+name: glint
+identity: "sun sparkle on wave crests"
+default_blend: add
+
+publishes: []
+consumes:
+  u_wave: { type: vec4 }

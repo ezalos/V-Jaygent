@@ -1,0 +1,9 @@
+name: filmgrain
+identity: "grain + vignette + section bloom"
+default_blend: replace
+
+reads:
+  - u_below
+
+publishes: []
+consumes: []

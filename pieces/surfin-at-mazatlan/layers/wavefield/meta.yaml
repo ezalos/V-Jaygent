@@ -1,0 +1,8 @@
+name: wavefield
+identity: "circular-wave interference field (data only)"
+default_blend: normal
+
+publishes:
+  wave: { type: vec4, persistent: false }
+
+consumes: []
