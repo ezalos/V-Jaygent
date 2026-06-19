@@ -61,6 +61,20 @@ body.active .overlay:not(.hidden) { opacity: 1; }
   color: var(--ink-dim);
 }
 
+/* The `source:` link — the only interactive bit of the otherwise
+   pointer-events:none overlay, so the anchor opts back in. Stays in the
+   warm ink family (no accent colour); brightens + underlines on hover. */
+#meta .source {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--ink-dim);
+  text-decoration: none;
+  margin-bottom: 2px;
+  pointer-events: auto;
+}
+#meta .source:hover { color: var(--ink); text-decoration: underline; }
+#meta .source[hidden] { display: none; }
+
 #hint {
   right: 20px;
   bottom: 16px;
@@ -275,6 +289,8 @@ body.hud-off .fps { display: none; }
 
 .card .t { font-size: 13px; color: var(--ink); margin-bottom: 4px; }
 .card .s { font-size: 10px; color: var(--ink-dim); }
+.card .src { display: inline-block; font-size: 10px; color: var(--ink-dim); text-decoration: none; margin-top: 6px; }
+.card .src:hover { color: var(--ink); text-decoration: underline; }
 
 /* ---------- critic grades ---------- */
 

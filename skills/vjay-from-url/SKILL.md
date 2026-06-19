@@ -84,14 +84,16 @@ The CLI is mechanical and self-contained. It:
 
 1. Resolves the slug (auto-derive from yt-dlp title or take `--slug`).
 2. Creates `pieces/<slug>/`.
-3. Downloads audio via `uvx yt-dlp -x --audio-format mp3` to
-   `pieces/<slug>/audio.mp3`.
+3. Downloads audio via `uvx yt-dlp -x --audio-format mp3
+   --embed-metadata` to `pieces/<slug>/audio.mp3` (the source URL is
+   embedded in the mp3's ID3 tags as a provenance fallback).
 4. Runs `node bin/analyze-audio.mjs pieces/<slug>/audio.mp3 [--stems]`
    to produce `audio.analysis.json` (BPM, beats, downbeats, sections,
    energy envelope, optional stems, key).
-5. Scaffolds `meta.yaml` with `audio_features:` declared and a
-   placeholder `layers:` stack ([solid-warm, wave-distort]) so the
-   piece renders something visible immediately.
+5. Scaffolds `meta.yaml` with `source:` set to the original URL (the
+   studio renders it as a link under the piece title), `audio_features:`
+   declared, and a placeholder `layers:` stack ([solid-warm,
+   wave-distort]) so the piece renders something visible immediately.
 6. Scaffolds a fallback `shader.frag` (used only if the layer engine
    fails to load).
 

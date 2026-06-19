@@ -1,0 +1,35 @@
+title: Throb
+slug: throb
+source: "https://soundcloud.com/alpha-tracks-official/april-audrey-danzas-percs"
+created: 2026-04-16T21:00:57.696Z
+cursor: true
+audio: audio.mp3
+time_source: audio
+duration: 375
+render_scale: 0.7
+uniforms: []
+notes: |
+  True VJ — percussion-driven, not RMS-driven. Between beats the piece
+  is nearly black. On every kick / snare / cymbal transient a distinct
+  geometry fires: an expanding ring from centre (kick), a rotating
+  cross (snare), angular rim sparks (cymbal). Each decays in ~0.3s
+  before the next hit paints over it. The track's rhythmic skeleton
+  becomes the piece's visible skeleton.
+
+  Transient detection runs on the CPU (studio/runtime.mjs). Per FFT
+  band, a fast "short envelope" tracks the last ~50ms peak; a slow
+  "long envelope" is the moving baseline. When short > long·threshold
+  + floor, fire the pulse (latches to 1, decays fast). This is what
+  VJs mean by beat-locked — the geometry arrives ON THE HIT, not on
+  a smoothed RMS curve. New uniforms: u_audio_kick / _snare /
+  _cymbal / _flash.
+
+  Set to April (Audrey Danza's Percs Remix) — the same track as
+  Chamber, revisited with a purely reactive instead of
+  composed-chamber treatment. Different piece, same raw material.
+
+  Uses lib: noise.glsl (fbm, vnoise), tonemap.glsl (reinhard).
+  Library extension: transient detection + four new u_audio_* uniforms
+  available to any piece that declares them.
+published_at: null
+rendered_at: '2026-04-16T21:12:06.763Z'

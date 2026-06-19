@@ -1,5 +1,6 @@
 title: "Luminous Verse"
 slug: luminous-verse
+source: "https://www.youtube.com/watch?v=6p6PcFFUm5I"
 created: 2026-06-11T17:56:47.463Z
 # architecture: C — HDR scene + bloom pyramid (passes chain).
 architecture: C

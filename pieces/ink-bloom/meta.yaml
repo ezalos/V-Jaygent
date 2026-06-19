@@ -1,5 +1,6 @@
 title: "Ink Bloom"
 slug: ink-bloom
+source: "https://www.youtube.com/watch?v=dIwwjy4slI8"
 created: 2026-06-11T08:33:44.000Z
 # architecture: C — ping-pong feedback (pigment state field + display pass).
 architecture: C

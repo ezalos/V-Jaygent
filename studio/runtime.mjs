@@ -2167,6 +2167,18 @@ function renderCatalog() {
     notes.className = 'n';
     notes.textContent = (p.notes ?? '').split('\n')[0].slice(0, 140);
     card.append(title, sub, notes);
+    if (p.source) {
+      const source = document.createElement('a');
+      source.className = 'src';
+      source.href = p.source;
+      source.target = '_blank';
+      source.rel = 'noopener';
+      source.textContent = `♪ ${sourceHostLabel(p.source)} ↗`;
+      // The card itself is a click-to-switch button; let the link open the
+      // source without also switching pieces.
+      source.addEventListener('click', (e) => e.stopPropagation());
+      card.appendChild(source);
+    }
     const present = CAP_BADGES.filter((b) => caps[b.key]);
     if (present.length) {
       const badges = document.createElement('div');
@@ -3185,14 +3197,45 @@ function formatTime(s) {
 // ---------- overlays ----------
 
 function setMetaOverlay(meta) {
+  const sourceEl = metaEl.querySelector('.source');
   if (!meta) {
     metaEl.querySelector('.title').textContent = '';
     metaEl.querySelector('.sub').textContent = '';
+    setSourceLink(sourceEl, null);
     return;
   }
   metaEl.querySelector('.title').textContent = meta.title ?? meta.slug ?? '';
+  setSourceLink(sourceEl, meta.source);
   const when = meta.created ? formatDate(meta.created) : '';
   metaEl.querySelector('.sub').textContent = [meta.slug, when].filter(Boolean).join(' · ');
+}
+
+// A piece's `source:` is the URL its audio came from (set by the
+// vjay-from-url scaffold). Render it as a small "listen to the original"
+// link tagged with the host; hide the element entirely when absent.
+function setSourceLink(el, url) {
+  if (!el) return;
+  if (!url) {
+    el.hidden = true;
+    el.removeAttribute('href');
+    el.textContent = '';
+    return;
+  }
+  el.href = url;
+  el.textContent = `♪ ${sourceHostLabel(url)} ↗`;
+  el.hidden = false;
+}
+
+function sourceHostLabel(url) {
+  let host;
+  try { host = new URL(url).hostname.replace(/^www\./, ''); }
+  catch { return 'source'; }
+  if (host === 'youtu.be' || host.endsWith('youtube.com')) return 'youtube';
+  if (host.endsWith('soundcloud.com')) return 'soundcloud';
+  if (host.endsWith('spotify.com')) return 'spotify';
+  if (host.endsWith('bandcamp.com')) return 'bandcamp';
+  if (host.endsWith('vimeo.com')) return 'vimeo';
+  return host;
 }
 
 function formatDate(iso) {

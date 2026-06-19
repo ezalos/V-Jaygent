@@ -89,6 +89,9 @@ async function ytDlpDownload(url, outTemplate) {
     await runOrThrow('uvx', [
         'yt-dlp',
         '-x', '--audio-format', 'mp3', '--audio-quality', '2',
+        // Embed source URL + title/artist into the mp3 (ID3 `purl`/comment)
+        // so a piece's provenance survives even if meta.yaml is lost.
+        '--embed-metadata',
         '-o', outTemplate,
         url,
     ]);
@@ -105,7 +108,7 @@ async function ensureUniqueSlug(base) {
     return slug;
 }
 
-function metaYamlContent({ slug, title, durationSec, withAnalysis }) {
+function metaYamlContent({ slug, title, durationSec, withAnalysis, source }) {
     const features = withAnalysis ? '[beat, sections, key]' : '[]';
     const layers = withAnalysis
         ? `
@@ -130,6 +133,7 @@ notes: |
   below is a placeholder — replace it with the actual artistic decisions
   via /vjay-new-piece (or hand-edit) before iterating.
 duration: ${Math.round(durationSec)}
+source: "${source}"
 audio: audio.mp3
 ${withAnalysis ? `audio_features: ${features}` : ''}${layers}
 `;
@@ -222,7 +226,7 @@ async function main() {
     const metaPath = join(pieceDir, 'meta.yaml');
     const fragPath = join(pieceDir, 'shader.frag');
     if (!existsSync(metaPath)) {
-        await writeFile(metaPath, metaYamlContent({ slug, title, durationSec, withAnalysis }));
+        await writeFile(metaPath, metaYamlContent({ slug, title, durationSec, withAnalysis, source: args.url }));
     }
     if (!existsSync(fragPath)) {
         await writeFile(fragPath, FALLBACK_SHADER);
