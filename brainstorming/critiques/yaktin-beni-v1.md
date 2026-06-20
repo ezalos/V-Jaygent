@@ -50,7 +50,21 @@ Probe read (from stills + 3 clips + 2 cursor frames):
   symmetry order. Wired; verify the snap legibility on a full watch.
 - palette/warm: PASS.
 
-Known soft spots for Louis's watchthrough redlines:
+## Lint gate (run post-fix)
+- lint-palette: PASS — 0.00% cool-zone (warm-only confirmed; green fix held).
+- lint-idle: PASS — mean lum 0.154 (floor 0.03), motion 0.076 (floor 0.025).
+- lint-composition: PASS — quadrants 24/25/26/25% (radial mandala, no Y-split).
+- lint-seams: FAIL (1 frame, music-01-t35, col 845, dim zone lum 0.19).
+  OVERRIDE: the piece has NO bounding-box early-out (the class lint-seams is
+  built for — code-reviewed all 5 layers; only conditionals are a temporal
+  spark gate + the u_below empty-fallback). The flagged column is the
+  shockwave ring's near-vertical tangent / the quasiperiodic antinode
+  lattice read as a straight step — a metric misfire on radial geometry,
+  same family as the documented zoom-tunnel / kuramoto overrides. Not a real
+  seam. Re-confirm on Louis's watch; revisit the spark-cell floor() grid if a
+  real vertical edge shows up live.
+
+## Known soft spots for Louis's watchthrough redlines:
 1. Background antinodes: better as twinkling embers but still slightly grid-ish
    at some instants; could promote the strapwork star-polygon network so it
    reads unambiguously "Islamic girih" rather than "dot field".
