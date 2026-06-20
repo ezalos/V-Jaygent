@@ -38,6 +38,39 @@ float girihField(vec2 p, float freq, int n, float phase) {
     return v / float(n);   // ~[-1, 1]
 }
 
+// Nested kaleidoscope: fold into bigK triangular wedges, then mirror subN
+// times inside each wedge — a "kaleidoscope inside each triangle" (Louis
+// redline). The extra sub-mirror seams subdivide every sector.
+vec2 kaleidoFold(vec2 q, float bigK, float subN) {
+    float rr = length(q);
+    float a  = atan(q.y, q.x);
+    float seg = TAU / bigK;
+    a = mod(a, seg);
+    a = abs(a - seg * 0.5);              // the triangle (wedge mirror)
+    float sseg = seg / subN;
+    a = mod(a, sseg);
+    a = abs(a - sseg * 0.5);             // nested sub-mirror inside the triangle
+    return vec2(cos(a), sin(a)) * rr;
+}
+
+// Round soft ember-light on a wandering jittered lattice — circular glows,
+// no angular corners (Louis redline: the blinking lights had weird corners).
+float roundEmbers(vec2 q, float tt) {
+    vec2 g = q * 3.2;
+    vec2 cell = floor(g);
+    float e = 0.0;
+    for (int oy = -1; oy <= 1; oy++)
+    for (int ox = -1; ox <= 1; ox++) {
+        vec2 cc = cell + vec2(float(ox), float(oy));
+        vec2 h = hash22(cc);
+        vec2 epos = cc + 0.5 + 0.38 * sin(h * TAU + tt * 0.6);
+        float d = length(g - epos);
+        float tw = 0.45 + 0.55 * sin(tt * 2.4 + h.x * TAU);   // blink
+        e = max(e, exp(-d * d * 6.0) * tw);
+    }
+    return e;
+}
+
 void main() {
     vec2 res = u_resolution;
     vec2 p   = (gl_FragCoord.xy - 0.5 * res) / min(res.x, res.y) * 2.0;
@@ -85,16 +118,21 @@ void main() {
     float freq  = 7.0 + 3.0 * prog + 1.5 * other + 0.6 * keyEnergy;
     float phase = u_time * 0.20 + 1.2 * other;
 
-    float q = girihField(pc, freq, waves, phase);
+    // nested kaleidoscope: mirror inside each triangular wedge. The sub-fold
+    // count breathes with the vocal so the mirrors shimmer.
+    float subN = 2.0 + step(0.5, vocals);
+    vec2 pk = kaleidoFold(pc, float(2 * waves), subN);
 
-    // --- antinode stars + strapwork lines --------------------------------
-    float resonance = 8.0 + 16.0 * smoothstep(0.0, 1.0, vocals);   // tighter on the vocal
-    float stars = pow(saturate(q * 0.5 + 0.5), resonance);
-    // break the uniform antinode lattice into irregular twinkling embers
-    // (burning air) instead of a static digital grid.
-    stars *= 0.30 + 0.85 * vnoise(pc * 2.6 + vec2(0.0, u_time * 0.30));
-    float lines = smoothstep(0.05, 0.0, abs(q)) * 0.9;             // zero-contour strapwork
-    float intensity = max(stars, lines);
+    float q = girihField(pk, freq, waves, phase);
+
+    // --- round ember lights + strapwork lines ----------------------------
+    // Round embers on the UNFOLDED coords as PURE round lights — do NOT
+    // multiply by the angular folded field (that carved the round blobs into
+    // angular fragments = Louis's "weird corners"). Only the smooth radial env
+    // (applied below) shapes them. Strapwork stays on the kaleidoscope coords.
+    float embers = roundEmbers(pc, u_time);
+    float lines = smoothstep(0.045, 0.0, abs(q)) * 0.9;           // zero-contour strapwork
+    float intensity = max(embers, lines);
 
     // focal radial envelope — bright always-on core (lead silhouette), edges
     // fall toward near-black so it reads as a mandala, not a wall-to-wall grid.
@@ -109,9 +147,15 @@ void main() {
     bright += 0.6 * keyEnergy * smoothstep(0.4, 0.0, r);          // key petal flash
     bright += 0.35 * vjCursorHeat(p, mw, 0.4) * intensity;        // cursor brighten
 
-    // colour: strapwork in ember/wine, antinodes flare to cream.
-    vec3 col = warmCycle(0.83 + 0.12 * stars + 0.05 * prog) * bright * 1.2;
-    col += vec3(1.0, 0.86, 0.62) * pow(stars, 2.0) * starGain * 0.8;   // cream antinode cores
+    // colour: strapwork in ember/wine, ember-lights flare to cream.
+    vec3 col = warmCycle(0.83 + 0.12 * embers + 0.05 * prog) * bright * 1.2;
+    col += vec3(1.0, 0.86, 0.62) * pow(embers, 2.0) * starGain * 0.8;   // cream ember cores
+
+    // at the drop, recede so the filament's hyperspace tunnel dominates (the
+    // mandala stays present as the kaleidoscope walls, just dimmer).
+    float drop = ((sid == 3 || sid == 5) ? 1.0 : (sid == 2 ? 0.5 : 0.0))
+               * saturate(0.5 + 0.8 * u_audio_level);
+    col *= 1.0 - 0.45 * drop;
 
     // cool the outro to near-black (the embers die at the cierre).
     col *= 1.0 - 0.7 * smoothstep(0.93, 1.0, prog);

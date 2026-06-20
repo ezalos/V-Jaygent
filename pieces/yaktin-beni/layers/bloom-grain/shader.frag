@@ -38,20 +38,23 @@ void main() {
 
     vec3 below = texture(u_below, uv).rgb;
 
-    // --- HDR bloom: ring of taps, keep only the bright residual ------------
+    // --- HDR bloom: golden-angle spiral of taps → ISOTROPIC (round) kernel.
+    // (Louis redline: the lights had weird corners — an 8-tap ring blooms
+    // octagonal. Golden-angle + aspect-correction makes the bloom a round halo.)
     vec3 bloom = vec3(0.0);
-    float thr = 0.55;
-    for (int i = 0; i < 8; i++) {
-        float a = float(i) / 8.0 * TAU;
-        vec2 dir = vec2(cos(a), sin(a));
-        for (int s = 0; s < 2; s++) {
-            float rr = (float(s) + 1.0) * 0.012;
-            vec3 t = texture(u_below, uv + dir * rr).rgb;
-            bloom += max(t - thr, 0.0);
-        }
+    float thr = 0.5;
+    float wsum = 0.0;
+    vec2 agg = vec2(res.y / res.x, 1.0);          // round on screen, not elliptical
+    for (int i = 0; i < 24; i++) {
+        float fi = float(i);
+        float a  = fi * 2.39996323;               // golden angle — no axis bias
+        float rr = 0.004 + 0.0012 * fi;           // spiral outward
+        float w  = 1.0 - fi / 30.0;               // gaussian-ish falloff
+        bloom += max(texture(u_below, uv + vec2(cos(a), sin(a)) * rr * agg).rgb - thr, 0.0) * w;
+        wsum += w;
     }
-    bloom /= 16.0;
-    vec3 col = below + bloom * 1.7;
+    bloom /= wsum;
+    vec3 col = below + bloom * 2.4;
 
     // --- kick shockwave: a ring expanding once per beat, lit by the kick ---
     float r = length(p);

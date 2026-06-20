@@ -60,27 +60,69 @@ void main() {
     float fa = mod(ang, sector);
     fa = abs(fa - sector * 0.5);             // dihedral fold → mirrored petals
 
-    // 303 writhe: amplitude on the bass, slide via fbm; faster in breakdown.
+    // --- DROP: peak-1 and the long-peak become a chaotic flythrough tunnel --
+    // (Louis redline: the tentacles must get CRAZY at the drop — a highway you
+    // are projected into, more than lightning, unpredictable, NOT beat-locked.)
+    float drop = 0.0;
+    if (sid == 3) drop = 1.0;                 // peak-1
+    else if (sid == 5) drop = 1.0;            // the big 95s long-peak
+    else if (sid == 2) drop = 0.55;           // rise — building toward it
+    drop = saturate(drop * (0.45 + 0.9 * bass));
+
+    // tunnel depth: 1/r vanishing point streaming outward — you fly INTO it.
+    float tz = 1.0 / (rad + 0.07) + u_time * (0.8 + 3.4 * drop);
+
+    // 303 writhe (calm sections): folded radial ridge on the bass.
     float amp = (0.10 + 0.42 * bass) * (sid == 4 ? 2.2 : 1.0);
     float waveF = 5.0 + 4.0 * prog;
     float writhe = amp * sin(rad * waveF - u_time * 2.2
                              + 3.0 * fbmRot(vec2(rad * 1.6, u_time * 0.35)));
-    float aSerp = sector * 0.25 + writhe;
 
-    // angular distance → approx spatial thickness; resonance tightens the glow.
-    float dSpace = abs(fa - aSerp) * (rad + 0.15);
+    // chaotic tunnel writhe (drop): multi-octave turbulence in (depth, angle),
+    // driven by fbm of depth+time — NOT the beat — so it is unpredictable.
+    float turb = fbmRot(vec2(tz * 0.7, fa * 4.0))
+               + 0.6 * fbmRot(vec2(tz * 1.9 - u_time * 0.6, fa * 2.0 + 3.0));
+    float chaos = (turb - 0.8) * (2.6 * drop);
+    float aSerp = sector * 0.25 + writhe + chaos;
+
     float resonance01 = saturate(bass * 1.3 + 0.2 * high);
-    float width = mix(0.085, 0.022, resonance01);
-    float glow = exp(-(dSpace * dSpace) / (width * width));
+    float width = mix(0.085, 0.020, resonance01);
 
-    // radial envelope — fade the centre singularity and the far field.
-    float renv = smoothstep(0.04, 0.22, rad) * exp(-rad * rad * 0.55);
-    glow *= renv;
+    // radial envelope: calm = focal; drop = reach the frame edges (the highway
+    // rushing past, over the edge).
+    float renv = mix(smoothstep(0.04, 0.22, rad) * exp(-rad * rad * 0.55),
+                     smoothstep(0.015, 0.10, rad),
+                     drop);
+
+    float dSpace = abs(fa - aSerp) * (rad + 0.15);
+    float glow = exp(-(dSpace * dSpace) / (width * width)) * renv;
+
+    // branching fork tentacle (drop) — lightning-like splits off the spine.
+    float fork = fbmRot(vec2(tz * 3.3 + 4.0, fa * 6.0 - u_time * 0.8));
+    float aFork = sector * 0.5 + (fork - 0.5) * 2.6 * drop;
+    float dFork = abs(fa - aFork) * (rad + 0.15);
+    glow = max(glow, exp(-(dFork * dFork) / (width * width)) * renv * drop * 0.9);
+
+    // --- HYPERSPACE TUNNEL (drop): thin radial streaks rushing outward from
+    // the central vanishing point, chaotically bent — you are projected INTO a
+    // highway. Uses the UNFOLDED angle (full-circle streaks), bent by fbm of
+    // depth+time (not the beat → unpredictable), brightness rushing along tz.
+    float lineCount = floor(kfold) * 1.5 + 7.0;
+    float wob = ang + (0.7 + 1.4 * drop)
+              * (fbmRot(vec2(tz * 0.6, ang * 2.0 + u_time * 0.25)) - 0.5);
+    float spokes = pow(0.5 + 0.5 * sin(wob * lineCount), 9.0);     // many thin radial lines
+    float rush = 0.45 + 0.55 * sin(tz * 7.0 - u_time * (6.0 + 11.0 * drop)); // streaming out
+    float tunnel = spokes * rush * smoothstep(0.02, 0.14, rad) * drop;
+    glow = max(glow, tunnel * 1.3);
+
+    // tunnel streaking on the spine too: bright bands rushing outward.
+    float streak = 0.55 + 0.45 * sin(tz * 5.0 - u_time * (3.0 + 7.0 * drop));
+    glow *= mix(1.0, streak, drop * 0.7);
 
     // travelling accent "head" along the serpent (the 303 accent step).
     float headRad = 0.25 + 0.6 * fract(barPh);
     float head = exp(-pow((rad - headRad) * 6.0, 2.0)) * exp(-(dSpace * dSpace) / (width * width));
-    glow += head * (0.6 + 0.8 * bass);
+    glow += head * (0.6 + 0.8 * bass) * (1.0 - 0.5 * drop);
 
     // keyboard pluck: held keys energise the serpent, events flash a ring.
     float keyHold = 0.0, keyEv = 0.0;
@@ -88,7 +130,7 @@ void main() {
     glow *= 1.0 + 0.5 * saturate(keyHold);
     glow += keyEv * 0.5 * exp(-pow((rad - 0.4) * 5.0, 2.0));
 
-    glow *= (0.55 + 1.5 * bass);
+    glow *= (0.55 + 1.5 * bass) * (1.0 + 0.8 * drop);   // crank brightness at the drop
 
     // colour: ember-red body climbing toward amber over the song (it is fire,
     // not tan — a yellow-tan body reads olive at low glow over the wine ground),
