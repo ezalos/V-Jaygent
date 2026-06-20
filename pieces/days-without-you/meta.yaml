@@ -1,0 +1,101 @@
+title: Days Without You
+slug: days-without-you
+created: 2026-06-20T21:56:41.641Z
+duration: 401
+source: https://open.spotify.com/track/4FBfibrcrzJ2aqeNMbPYGu
+audio: audio.mp3
+time_source: audio
+audio_features:
+  - beat
+  - sections
+  - stems.bass
+  - stems.drums
+  - stems.other
+  - stems.vocals
+  - key
+cursor: true
+keyboard_synth: true
+render_scale: 0.8
+architecture: C
+published_at: null
+passes:
+  - name: junction
+    shader: junction.frag
+    target:
+      format: rgba16f
+      ping_pong: true
+      scale: 0.05
+    inputs:
+      u_state: junction
+    iterations: 1
+  - name: display
+    shader: shader.frag
+    target: screen
+    inputs:
+      u_state: junction
+notes: |
+  Track: Days Without You — Satori feat. Miou Amadee (organic/deep house,
+  80.7 BPM, C minor, 401s). Audio sourced from the KROOKS Records YouTube
+  upload (duration-matched 2015 album version, not the Crussen Remix).
+
+  Thesis: a Bose-Einstein condensate in a DOUBLE-WELL potential — a bosonic
+  Josephson junction. The nonlinear Schrodinger (Gross-Pitaevskii) equation.
+  The condensate tunnels between the two wells (being together); when the
+  barrier rises or the self-interaction dominates it undergoes MACROSCOPIC
+  QUANTUM SELF-TRAPPING — stuck on one side, unable to cross. That is the
+  literal physics of "days without you". The empty well sits visibly dim:
+  the absence is on screen.
+
+  Algorithm: the two-mode reduction of the Gross-Pitaevskii double well
+  (Smerzi/Raghavan bosonic Josephson junction). A 2-variable ODE for the
+  population imbalance z = (N_L - N_R)/N and relative phase phi:
+      z'   = -2K sqrt(1-z^2) sin(phi)
+      phi' =  2K*Lambda*z + 2K*z*cos(phi)/sqrt(1-z^2) + bias
+  integrated in junction.frag (RK2, sub-stepped) and broadcast to every pixel.
+  The full time-dependent Schrodinger PDE was the first attempt but is explicit-
+  integration-bound (dt ~ dx^2 -> dynamics far too slow at any fringe-crisp grid
+  resolution); the two-mode model is the realtime-fit form and gives exact
+  control of the tunneling/self-trapping transition. Macroscopic self-trapping
+  appears when Lambda exceeds the critical value -> z locks on one side.
+
+  Display renders the two-mode wavefunction analytically (full resolution, no
+  grid limit): psi = c_L*g_L*e^{i k x} + c_R*g_R*e^{-i k x + i phi}, where
+  c_L = sqrt((1+z)/2), c_R = sqrt((1-z)/2) and g_L,g_R are the well gaussians.
+  |psi|^2 carries the interference BRIDGE between the wells (the cross term, with
+  de Broglie fringes) — bright + fringed when together, gone when self-trapped.
+
+  Audio (motion, not glow), routed into the ODE couplings (when playing):
+    - vocals_stem -> K (tunnel coupling): vocals couple the wells -> faster
+        tunneling, brighter bridge. The thesis-load-bearing binding.
+    - other_stem  -> Lambda (nonlinearity): pushes toward self-trapping.
+    - drums/kick  -> bias impulse, alternating per bar -> sloshing pump.
+    - section_id  -> Lambda baseline regime map (intro alone / verse tunnel /
+        drop self-trap slam / vocal full-beating / build slosh / climax turbulent /
+        outro settle / fade decohere).
+    - bass        -> exposure / core amplitude.
+    - downbeat/bar_phase -> an expanding ring (visible phase-lock).
+  Well SEPARATION tracks |z|: the wells visibly DRIFT APART as the condensate
+  self-traps (the absence widens) and close when coupled (the bridge forms).
+
+  Idle (no audio): the junction is driven by slow incommensurate oscillations of
+  K, Lambda, bias off an internal clock (tau, advances per frame independent of
+  the audio clock), so Lambda crosses the self-trapping threshold both ways and
+  the trajectory never repeats. Stays alive and unpredictable with no input.
+
+  Mouse: drag horizontally to push the condensate between wells (bias); raise the
+  cursor to strengthen the coupling. The cursor steers the whole junction.
+
+  Keyboard synth: each key plucks the junction with a bias + phase impulse — low
+  keys shove the condensate left, high keys shove it right.
+
+  Palette: near-black -> wine -> ember -> amber -> cream. Luminance contrast,
+  no cool intrusions (the warm reading of "quantum", deliberately not the
+  clinical blue-on-black physics-demo look).
+
+  Arc: starts localized in the left well, alone. Verse couples the wells and the
+  interference bridge forms. Drop self-traps (one well, the bridge breaks, the
+  wells drift apart). Vocal centerpiece: strongest coupling, the condensate
+  sloshes fully back and forth, brightest bridge (together). Build: wide gentle
+  slosh. Climax: kicked, turbulent. Outro: settles back toward one well and
+  decoheres. Fade: damped to a single dim lobe, then to near-black.
+rendered_at: '2026-06-20T23:32:54.772Z'

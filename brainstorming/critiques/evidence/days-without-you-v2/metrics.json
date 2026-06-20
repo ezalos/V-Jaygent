@@ -1,0 +1,328 @@
+{
+ "stills": {
+  "music-00-t1.0-intro.png": {
+   "rms_contrast": {
+    "value": 0.0885,
+    "pass": true
+   },
+   "squint_macro": {
+    "value": 0.0303,
+    "pass": true
+   },
+   "no_blowout": {
+    "value": {
+     "mean_l": 0.048,
+     "ch_range": 0.046
+    },
+    "pass": true
+   },
+   "empty_zones": {
+    "value": 0.853,
+    "pass": true
+   },
+   "one_over_f": {
+    "value": -2.228,
+    "pass": true
+   },
+   "depth_octaves": {
+    "value": 2,
+    "pass": false
+   },
+   "warm_arc": {
+    "value": 1.0,
+    "pass": true
+   },
+   "lum_not_hue": {
+    "value": {
+     "l_range": 0.513,
+     "hue_std": 13.5
+    },
+    "pass": true
+   },
+   "dominant_hues": {
+    "value": 1,
+    "pass": true
+   }
+  },
+  "music-01-t185.4-verse.png": {
+   "rms_contrast": {
+    "value": 0.1006,
+    "pass": true
+   },
+   "squint_macro": {
+    "value": 0.0439,
+    "pass": true
+   },
+   "no_blowout": {
+    "value": {
+     "mean_l": 0.046,
+     "ch_range": 0.04
+    },
+    "pass": true
+   },
+   "empty_zones": {
+    "value": 0.909,
+    "pass": true
+   },
+   "one_over_f": {
+    "value": -1.556,
+    "pass": false
+   },
+   "depth_octaves": {
+    "value": 1,
+    "pass": false
+   },
+   "warm_arc": {
+    "value": 1.0,
+    "pass": true
+   },
+   "lum_not_hue": {
+    "value": {
+     "l_range": 0.591,
+     "hue_std": 13.6
+    },
+    "pass": true
+   },
+   "dominant_hues": {
+    "value": 1,
+    "pass": true
+   }
+  },
+  "music-02-t124.6-pre-peak.png": {
+   "rms_contrast": {
+    "value": 0.0927,
+    "pass": true
+   },
+   "squint_macro": {
+    "value": 0.0381,
+    "pass": true
+   },
+   "no_blowout": {
+    "value": {
+     "mean_l": 0.049,
+     "ch_range": 0.047
+    },
+    "pass": true
+   },
+   "empty_zones": {
+    "value": 0.857,
+    "pass": true
+   },
+   "one_over_f": {
+    "value": -2.419,
+    "pass": true
+   },
+   "depth_octaves": {
+    "value": 2,
+    "pass": false
+   },
+   "warm_arc": {
+    "value": 1.0,
+    "pass": true
+   },
+   "lum_not_hue": {
+    "value": {
+     "l_range": 0.537,
+     "hue_std": 13.6
+    },
+    "pass": true
+   },
+   "dominant_hues": {
+    "value": 1,
+    "pass": true
+   }
+  },
+  "music-03-t136.7-peak.png": {
+   "rms_contrast": {
+    "value": 0.0965,
+    "pass": true
+   },
+   "squint_macro": {
+    "value": 0.043,
+    "pass": true
+   },
+   "no_blowout": {
+    "value": {
+     "mean_l": 0.047,
+     "ch_range": 0.042
+    },
+    "pass": true
+   },
+   "empty_zones": {
+    "value": 0.882,
+    "pass": true
+   },
+   "one_over_f": {
+    "value": -2.054,
+    "pass": false
+   },
+   "depth_octaves": {
+    "value": 2,
+    "pass": false
+   },
+   "warm_arc": {
+    "value": 1.0,
+    "pass": true
+   },
+   "lum_not_hue": {
+    "value": {
+     "l_range": 0.57,
+     "hue_std": 14.7
+    },
+    "pass": true
+   },
+   "dominant_hues": {
+    "value": 1,
+    "pass": true
+   }
+  },
+  "music-04-t354.6-quiet.png": {
+   "rms_contrast": {
+    "value": 0.0971,
+    "pass": true
+   },
+   "squint_macro": {
+    "value": 0.0381,
+    "pass": true
+   },
+   "no_blowout": {
+    "value": {
+     "mean_l": 0.051,
+     "ch_range": 0.046
+    },
+    "pass": true
+   },
+   "empty_zones": {
+    "value": 0.858,
+    "pass": true
+   },
+   "one_over_f": {
+    "value": -2.809,
+    "pass": true
+   },
+   "depth_octaves": {
+    "value": 2,
+    "pass": false
+   },
+   "warm_arc": {
+    "value": 1.0,
+    "pass": true
+   },
+   "lum_not_hue": {
+    "value": {
+     "l_range": 0.516,
+     "hue_std": 14.4
+    },
+    "pass": true
+   },
+   "dominant_hues": {
+    "value": 1,
+    "pass": true
+   }
+  },
+  "music-05-t389.9-outro.png": {
+   "rms_contrast": {
+    "value": 0.0929,
+    "pass": true
+   },
+   "squint_macro": {
+    "value": 0.04,
+    "pass": true
+   },
+   "no_blowout": {
+    "value": {
+     "mean_l": 0.045,
+     "ch_range": 0.041
+    },
+    "pass": true
+   },
+   "empty_zones": {
+    "value": 0.876,
+    "pass": true
+   },
+   "one_over_f": {
+    "value": -1.925,
+    "pass": false
+   },
+   "depth_octaves": {
+    "value": 2,
+    "pass": false
+   },
+   "warm_arc": {
+    "value": 1.0,
+    "pass": true
+   },
+   "lum_not_hue": {
+    "value": {
+     "l_range": 0.552,
+     "hue_std": 14.7
+    },
+    "pass": true
+   },
+   "dominant_hues": {
+    "value": 1,
+    "pass": true
+   }
+  }
+ },
+ "piece": {
+  "arc": {
+   "value": 0.878,
+   "pass": false
+  },
+  "hue_drift_smooth": {
+   "value": [
+    0.0,
+    0.1,
+    0.7,
+    3.7,
+    4.8
+   ],
+   "pass": true
+  },
+  "layout_varies": {
+   "value": 0.346,
+   "pass": true
+  }
+ },
+ "source": "inspect-music",
+ "aggregates": {
+  "rms_contrast": {
+   "pass": true,
+   "rule": ">=100% of core stills"
+  },
+  "squint_macro": {
+   "pass": true,
+   "rule": ">=75% of core stills"
+  },
+  "no_blowout": {
+   "pass": true,
+   "rule": ">=100% of core stills"
+  },
+  "empty_zones": {
+   "pass": true,
+   "rule": ">=100% of core stills"
+  },
+  "one_over_f": {
+   "pass": false,
+   "rule": ">=100% of core stills"
+  },
+  "depth_octaves": {
+   "pass": false,
+   "rule": ">=100% of core stills"
+  },
+  "warm_arc": {
+   "pass": true,
+   "rule": ">=100% of core stills"
+  },
+  "lum_not_hue": {
+   "pass": true,
+   "rule": ">=100% of core stills"
+  },
+  "dominant_hues": {
+   "pass": true,
+   "rule": ">=100% of core stills"
+  }
+ },
+ "clips": null
+}
