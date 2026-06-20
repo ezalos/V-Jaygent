@@ -147,6 +147,20 @@ interaction criteria as harness gaps. Read the stills yourself — you
 want to know what the critic is seeing, and captures change each
 iteration as the shader changes.
 
+**State-bearing pieces (a `passes:` sim whose state depends on
+section/audio time — RD, fluid, a Josephson/ODE field, accumulation):
+ALSO run `node bin/inspect.mjs <slug> 12 33` (or any frames×interval ≥
+duration) and feed THOSE frames to the critic for the song-level family.**
+`inspect-music` SEEKS audio time but the per-frame sim does not
+fast-forward, so its section stills are state-desynced — the critic will
+(correctly but uselessly) fail `section_readability` / `long_arc` /
+`recapitulation` / `has_arc` as harness gaps and can inflate the verdict to
+`structural-rethink` on a sound piece. `bin/inspect.mjs` clicks `#stage` to
+unlock+play audio from t=0 and lets the sim evolve continuously in
+wall-clock, so a full-span run is the authoritative section-arc capture.
+Don't skip it for speed (days-without-you, 2026-06-20). See
+`~/.claude/projects/-home-ezalos-42-V-Jaygent/memory/feedback_accumulation_pieces_wallclock_eval.md`.
+
 **Capture the metrics JSON.** Save the `piece` and `interaction`
 output (and the gate result) — step 2b pastes them verbatim into the
 critic prompt, and the full JSON goes into the evidence snapshot as
