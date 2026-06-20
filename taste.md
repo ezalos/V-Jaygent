@@ -940,7 +940,15 @@ and the full JSON goes into the evidence snapshot.
   `squint_macro`'s mask level 0.6 is a guess pending a sweep;
   `empty_zones` is demoted to descriptive; `warm_arc` needs the
   `palette_exception:` meta flag for sanctioned non-warm pieces (it
-  has it — use it).
+  has it — use it). **`window_divergence` (NCD) misfires HIGH on
+  thin-filament / sparse / near-black-ground fields** — it rates the
+  pixel-shuffle of a frozen-station figure as "divergent"
+  (fiebre-de-amor v2: 0.984 on a layout that didn't move). For such
+  pieces grade `prediction_divergence` by macro-layout migration across
+  the section stills (the eye + `layout_varies`), not NCD; same misfire
+  class as the thin-moving-filament trackability/jerk aperture problem
+  and the zoom-tunnel 1/r singularity. A re-fit trigger for the NCD
+  threshold.
 
 ## Pseudo-science blacklist
 
