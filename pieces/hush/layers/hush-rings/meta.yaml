@@ -1,0 +1,6 @@
+name: hush-rings
+identity: "downbeat-fired concentric rings from the eye"
+default_blend: max
+reads: []
+publishes: []
+consumes: []

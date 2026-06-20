@@ -1,0 +1,7 @@
+name: post-haze
+identity: "tonemap + grain + vignette grade"
+default_blend: replace
+reads:
+  - u_below
+publishes: []
+consumes: []

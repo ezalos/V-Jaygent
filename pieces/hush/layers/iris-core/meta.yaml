@@ -1,0 +1,7 @@
+name: iris-core
+identity: "breathing eye — pupil + rim that shuts in the hush"
+default_blend: normal
+reads:
+  - u_below
+publishes: []
+consumes: []

@@ -1,0 +1,7 @@
+name: hush-bed
+identity: "warm radial ground + breathing ember halo"
+default_blend: normal
+reads:
+  - u_history
+publishes: []
+consumes: []

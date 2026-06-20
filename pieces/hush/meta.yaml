@@ -1,0 +1,79 @@
+title: hush
+slug: hush
+created: 2026-06-20T21:51:01.960Z
+source: https://open.spotify.com/track/0kYO7Hzb9S67suF3JgK8e1
+duration: 188
+render_scale: 0.6
+architecture: E
+cursor: true
+keyboard_synth: true
+audio: audio.mp3
+time_source: audio
+audio_features:
+  - beat
+  - sections
+  - key
+published_at: null
+notes: |
+  "Hush" — Atric & Frida Darko (Tipping Point, 2025; indie-dance / nu-disco
+  with an organic-house lineage). 123 BPM, D minor.
+
+  Thesis: a slow-turning warm EYE that breathes with the song. A single
+  Lamb-Oseen vortex of embered dust — v_th = (G/2pi r)(1 - exp(-r^2/rc^2)) —
+  sustained and rotating, that the music opens and closes. It spins up and
+  brightens through the grooves; during the central HUSH (88-120s) the
+  circulation G drains to zero, the core rc collapses, and the iris shuts to a
+  near-black point — a held breath — then Act II reignites it brighter, warmer,
+  tighter-wound; the outro unwinds the spiral and lets the dust drift out.
+
+  Distinct from `plume` (same curl-noise-advected ember algorithm) by making the
+  analytic vortex/eye the SUBJECT (dust is texture on it) + the composed closing
+  breath plume lacks. The dust is per-frame backward semi-Lagrangian pathline —
+  NOT u_history feedback — so no banding/washout.
+
+  Layer stack (bottom -> top):
+    1. hush-bed    near-black warm ground + central ember halo that breathes
+                   (radius+brightness <- u_energy_smooth). Carries dark space.
+    2. eye-vortex  THE SUBJECT. Lamb-Oseen field winds a log-spiral dust field;
+                   density via 6-step backward pathline. G/rc/spin/twist breathe;
+                   cursor injects a 2nd vortex (stir); keys throw ember motes.
+                   screen-blend over the bed.
+    3. iris-core   focal eye: SDF rim + dark pupil; alpha mask occludes dust to a
+                   real pupil hole. Openness <- u_energy_smooth (shuts in hush).
+                   Lead-band rim = max(silhouette*0.30, accent). Keys tint rim.
+    4. hush-rings  concentric warm rings fired on each downbeat (u_bar_phase
+                   expands, u_downbeat brightens); quiet in the hush. Phase-lock.
+    5. post-haze   reinhardPartial tonemap + film grain + vignette to near-black.
+
+  Inputs:
+    audio    -> u_energy_smooth: breath (G, rc, openness, glow). u_bar_phase:
+                rotation + rings. u_downbeat: ring brightness + circulation kick.
+                u_audio_bass/mid: dust turbulence/brightness. u_section_id: vocab
+                (intro sparse / Act I full / deep-hush shut / Act II fuller).
+                u_song_progress: ember(Act I) -> cream(Act II) palette ramp.
+    cursor   -> secondary Lamb-Oseen vortex stirring the dust + eye-centre nudge
+                + local heat. Cursor as instrument.
+    keyboard -> ember-mote bursts caught in the circulation + rim tint (white
+                keys amber, black keys wine). Press Shift+H for controls.
+
+  Three liveness timescales: section vocab switch (chaos), per-bar rotation +
+  downbeat ring (mid), always-on >2 Hz dust shimmer (sub-beat).
+
+  Idle: the eye self-breathes via sin(u_time) — opens/closes, dust turns, glow
+  pulses, rings tick at ~0.4 Hz. Never an empty frame.
+
+  Palette: near-black, wine, terracotta-rust, amber, cream. No cool intrusions.
+  Arc: opens from a half-lit half-turn, fills through Act I, shuts in the hush,
+  reblooms fuller in Act II, unwinds and fades to black.
+layers:
+  - layer: hush-bed
+    blend: normal
+  - layer: eye-vortex
+    blend: screen
+  - layer: iris-core
+    blend: normal
+  - layer: hush-rings
+    blend: max
+  - layer: post-haze
+    blend: replace
+rendered_at: '2026-06-20T22:12:04.245Z'
