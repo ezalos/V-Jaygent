@@ -258,10 +258,17 @@ CLIP_THRESH = {
     "flow_scale": (256, 144),     # decode size for flow (speed/quality tradeoff)
     "frame_step": 2,              # use every 2nd frame (≈30 fps effective)
     "px_per_deg": 36.6 * (256 / 1280.0),  # 1280 px ≅ 35° full-screen assumption, rescaled
-    # Corpus-fitted 2026-06-12 (positive-tier clips, n=25 clips / 4 pieces —
-    # PROVISIONAL until more multi-window-clip pieces exist):
+    # Corpus-fitted 2026-06-12; warp_err re-fit 2026-06-20 on n=53 clips /
+    # 9 positive pieces (kinetic-energy-v5 filed trigger). The old 0.12 was
+    # fitted on n=25/4 before any always-on sub-beat-shimmer piece entered the
+    # corpus; it false-failed 6 of 9 current positives (warp_err to 0.54 on
+    # surfin-at-mazatlan, a ship-it). warp_err is the COARSE "catastrophic
+    # noise" guard (pure frame-to-frame noise → normalized warp ≈ 1.0); the
+    # fine trackability signal is jerk_smooth (0.30) + pursuit speed (30 deg/s).
+    # Set to corpus max 0.5437 + ~10% margin so legitimate shimmer/fast motion
+    # passes while incoherent noise still fails.
     "pursuit_deg_s_max": 30.0,    # 16 — pursuit ceiling (Meyer 1985); corpus speeds sit far below
-    "warp_err_max": 0.12,         # 16 — positives p90 = 0.08
+    "warp_err_max": 0.60,         # 16 — positives span to 0.54 (p50 0.065, p90 0.23, max 0.54)
     "frozen_floor": 0.0005,       # 19 — positives' quiet windows reach 0.0008; sub-beat shimmer
                                   #      is below flow resolution at 256px — catches true freezes only
     "jerk_max": 0.30,             # 17 — re-fit 2026-06-12 per kinetic-energy-v3 filed trigger:
@@ -397,7 +404,8 @@ def piece_clip_metrics(slug):
 INTER_THRESH = {
     "triptych_corr_max": 0.90,   # 31 — some cursor-position pair must differ structurally
     "reversibility_corr_min": 0.92,  # 32 — a→b→a returns the frame (stateful pieces legitimately fail → n/a-stateful via meta)
-    "dominance_delta_max": 0.30,     # 33 — with/without-cursor energy delta ≤ 30%
+    "dominance_delta_max": 0.30,     # 33 — with/without-cursor energy delta ≤ 30% (uncalibrated fallback)
+    "dominance_null_factor": 2.0,    # 33 — calibrated: hold-vs-music delta ≤ 2x the music-vs-music chaos floor
     "solo_corr_max": 0.80,           # 44 — every pair of layer solos must be distinct
     "additive_residual_min": 0.10,   # 43 — composite must differ from the additive sum of solos
 }
@@ -468,36 +476,53 @@ def interaction_metrics(slug):
             "note": legacy_note or state_note,
         }
 
-    # Dominance is judged in LIVE conditions: mean frame of matrix-both vs
-    # matrix-music (music playing, cursor orbiting vs parked). The paused
-    # stills pair is a fallback — its near-black denominator wildly inflates
-    # the ratio for any piece whose cursor carries its own light.
-    # Prefer the held-cursor cell when present: orbit measures stirring
-    # (maximal gesture), dominance asks about presence.
-    mb = d / "matrix-hold.mp4" if (d / "matrix-hold.mp4").exists() else d / "matrix-both.mp4"
-    mm = d / "matrix-music.mp4"
-    if mb.exists() and mm.exists():
-        def mean_frame(p):
-            fr = decode_clip(p, max_frames=120)
-            return np.mean([f.astype(np.float64) / 255.0 for f in fr], axis=0) if fr else None
-        fa = decode_clip(mb, max_frames=120)
-        fb = decode_clip(mm, max_frames=120)
-        if len(fa) > 20 and len(fb) > 20:
-            # Instantaneous footprint, median over time-aligned frames (both
-            # cells seek the same audio anchor). A 30 s MEAN frame smears the
-            # orbiting wake into a giant annulus and overstates dominance.
-            n = min(len(fa), len(fb))
-            ratios = []
-            for i in range(n):
-                A = fa[i].astype(np.float64) / 255.0
-                B = fb[i].astype(np.float64) / 255.0
-                ratios.append(float(np.abs(A - B).mean() / max((A.mean() + B.mean()) / 2, 1e-3)))
-            delta = float(np.median(ratios))
-            out["tests"]["cursor_bounded"] = {
-                "value": round(delta, 3),
-                "pass": delta <= INTER_THRESH["dominance_delta_max"],
-                "note": "live dominance: median per-frame delta, matrix-both vs matrix-music (recorder jitter adds music-misalignment noise)",
-            }
+    # Dominance is judged in LIVE conditions: held cursor (matrix-hold) vs
+    # music-only (matrix-music). Two independent runs of a chaotic state-
+    # bearing sim decorrelate frame-to-frame even with NO cursor, so the raw
+    # delta has a large chaos floor. The null pair (matrix-music vs a second
+    # music-only run, matrix-music-b) measures that floor directly; the cursor
+    # is bounded iff the signal delta stays within DOMINANCE_NULL_FACTOR x it.
+    # (v5 cursor_bounded re-fit — mirrors the stills' drift-pair baseline.)
+    def clip_delta_series(p1, p2):
+        fa, fb = decode_clip(p1, max_frames=120), decode_clip(p2, max_frames=120)
+        if len(fa) < 20 or len(fb) < 20:
+            return None
+        n = min(len(fa), len(fb))
+        out_ = []
+        for i in range(n):
+            A = fa[i].astype(np.float64) / 255.0
+            B = fb[i].astype(np.float64) / 255.0
+            out_.append(float(np.abs(A - B).mean() / max((A.mean() + B.mean()) / 2, 1e-3)))
+        return out_
+
+    mhold = d / "matrix-hold.mp4" if (d / "matrix-hold.mp4").exists() else d / "matrix-both.mp4"
+    mmusic = d / "matrix-music.mp4"
+    mnull = d / "matrix-music-b.mp4"
+    if mhold.exists() and mmusic.exists():
+        sig = clip_delta_series(mhold, mmusic)
+        if sig is not None:
+            signal = float(np.median(sig))
+            if mnull.exists():
+                nul = clip_delta_series(mmusic, mnull)
+                null_med = float(np.median(nul)) if nul else None
+            else:
+                null_med = None
+            if null_med is not None:
+                bar = INTER_THRESH["dominance_null_factor"] * null_med
+                out["tests"]["cursor_bounded"] = {
+                    "value": {"signal": round(signal, 3), "null": round(null_med, 3),
+                              "bar": round(bar, 3)},
+                    "pass": signal <= bar,
+                    "note": "null-pair calibrated: hold-vs-music delta vs 2x the music-vs-music chaos floor",
+                }
+            else:
+                # No null pair (older capture): fall back to the absolute bar,
+                # flagged as uncalibrated — inflated for light-carrying cursors.
+                out["tests"]["cursor_bounded"] = {
+                    "value": round(signal, 3),
+                    "pass": signal <= INTER_THRESH["dominance_delta_max"],
+                    "note": "uncalibrated (no matrix-music-b null pair); chaos floor not subtracted",
+                }
     elif all((d / f"cursor-{t}.png").exists() for t in ("active", "idle")):
         a, b = (np.asarray(Image.open(d / f"cursor-{t}.png").convert("L"), dtype=np.float64) / 255.0
                 for t in ("active", "idle"))

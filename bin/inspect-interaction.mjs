@@ -263,6 +263,16 @@ try {
   await recordClip('matrix-hold', matrixSecs * 1000, 4_000_000);
   await parkCursor();
 
+  // Null pair for dominance: a SECOND music-only run, cursor parked. Two
+  // independent runs of a chaotic state-bearing sim decorrelate frame-to-frame
+  // even with no cursor, so dominance is judged against this floor — the
+  // hold-vs-music delta must not exceed 2x the music-vs-music(null) delta.
+  // (v5 cursor_bounded re-fit — mirrors the stills' drift pair.)
+  await setAudio(true);
+  await parkCursor();
+  await page.waitForTimeout(300);
+  await recordClip('matrix-music-b', matrixSecs * 1000, 4_000_000);
+
   // ---- build-spanning capture: cursor orbit across the build into the peak
   // (authority_during_build — cursor must stay visibly responsive while the
   // music ramps). 12 s starting ~8 s before the peak section.

@@ -108,12 +108,17 @@ void main() {
     // dim ember wake, independent of particle speed and of the music — the
     // cursor is a second LIGHT SOURCE, not just a second force. The ping-pong
     // decay turns the moving halo into a fading comet tail automatically.
+    // v5 fix: the wake was one stop too dim through the display envelope's
+    // minima in silence (cursor_without_music was the critique's closest pass).
+    // Boost deposition when SILENT (floor-and-ceiling so the lit case doesn't
+    // double-brighten) — the same shape the silent particle drive uses.
+    float cursorDep = CURSOR_DEP * mix(1.8, 1.0, u_audio_playing);
     if (dot(u_mouse, u_mouse) > 1.0) {
         vec2 mp = u_mouse / u_resolution;
         vec2 d = uv - mp; d -= floor(d + 0.5);
         d *= vec2(aspect, 1.0);
         float g = exp(-dot(d, d) / (CURSOR_R * CURSOR_R));
-        col += heat(0.22) * g * CURSOR_DEP;
+        col += heat(0.22) * g * cursorDep;
     }
     for (int i = 0; i < 8; i++) {
         if (i >= u_touch_count) break;
@@ -123,7 +128,7 @@ void main() {
         vec2 d = uv - fp; d -= floor(d + 0.5);
         d *= vec2(aspect, 1.0);
         float g = exp(-dot(d, d) / (CURSOR_R * CURSOR_R));
-        col += heat(0.22) * g * CURSOR_DEP;
+        col += heat(0.22) * g * cursorDep;
     }
 
     fragColor = vec4(col, 1.0);
