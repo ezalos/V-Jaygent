@@ -8,6 +8,7 @@ precision highp float;
 
 uniform vec2  u_resolution;
 uniform float u_time;
+uniform int   u_frame;
 uniform float u_audio_playing;
 uniform float u_audio_high;
 uniform float u_bar_phase;
@@ -32,9 +33,12 @@ void main() {
     float playing = step(0.5, u_audio_playing);
 
     // clave phase in [0,1) over the 2-bar cycle. With analysis: bar parity +
-    // bar phase. Idle: synthesize on a 5.22 s cycle (2 bars @ 92 BPM).
+    // bar phase. Idle: synthesize on a 5.22 s cycle from the u_frame wall-clock
+    // (u_time freezes with no audio under time_source:audio, which would freeze
+    // the sweep — drive idle from u_frame so the clock keeps conducting).
+    float CK = (playing > 0.5) ? u_time : float(u_frame) * 0.01667;
     float live = (mod(u_bar_index, 2.0) + u_bar_phase) * 0.5;
-    float synth = fract(u_time / 5.22);
+    float synth = fract(CK / 5.22);
     float clavePhase = mix(synth, live, playing);
 
     // The clock is the CONDUCTOR, not the lead — a small metronome parked in

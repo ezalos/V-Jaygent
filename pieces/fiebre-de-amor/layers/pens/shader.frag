@@ -48,6 +48,17 @@ vec2 stationHome(float sid, float seed) {
     return 0.42 * vec2(sin(sid * 2.3 + seed * 2.1), cos(sid * 1.7 + seed * 1.3));
 }
 
+// A real harmonograph has TWO pendulums per axis — a fundamental plus a near-
+// harmonic — which fold the simple ellipse into intricate recursive rose-loops.
+// That second term is where the figure's fine sub-structure (and its spatial-
+// frequency octaves) come from, without any extra brightness or animation
+// noise. h2 = harmonic weight, hr = harmonic ratio.
+vec2 figurePos(vec2 c, float amp, float fx, float fy, vec2 ph, float t, float h2, float hr) {
+    float x = sin(fx * t + ph.x)        + h2 * sin(fx * hr * t + ph.x * 1.7 + 0.6);
+    float y = sin(fy * t + ph.y)        + h2 * sin(fy * hr * t + ph.y * 1.3 + 1.0);
+    return c + amp * vec2(x, 1.05 * y);
+}
+
 // pen activation per section: intro/cuerpo = brass alone; verse adds bass;
 // montuno..pregón = all three; breakdown sheds bass; cierre = one faint brass.
 // Genuinely different COUNTS per section so the sections read distinct.
@@ -78,10 +89,16 @@ void main() {
     int sec = u_section_id;
     float prog = u_song_progress;
 
+    // Master clock: audio time when the track plays (so motion locks to the
+    // music), else a wall-clock from u_frame. With time_source:audio, u_time
+    // freezes when no audio is playing — driving idle motion from u_frame keeps
+    // the piece self-playing in the no-audio cell (fixes idle_cell).
+    float CK = (playing > 0.5) ? u_time : float(u_frame) * 0.01667;
+
     // --- idle-safe stem drivers ----------------------------------------
-    float drums = mix(0.30 + 0.30 * abs(sin(u_time * 1.9)), u_audio_drums_stem + 0.5 * u_audio_bass, playing);
-    float bassS = mix(0.35 + 0.25 * sin(u_time * 0.9),      u_audio_bass_stem,  playing);
-    float other = mix(0.30 + 0.25 * sin(u_time * 1.3 + 1.0), u_audio_other_stem, playing);
+    float drums = mix(0.30 + 0.30 * abs(sin(CK * 1.9)), u_audio_drums_stem + 0.5 * u_audio_bass, playing);
+    float bassS = mix(0.35 + 0.25 * sin(CK * 0.9),      u_audio_bass_stem,  playing);
+    float other = mix(0.30 + 0.25 * sin(CK * 1.3 + 1.0), u_audio_other_stem, playing);
     drums = clamp(drums, 0.0, 1.3); bassS = clamp(bassS, 0.0, 1.3); other = clamp(other, 0.0, 1.3);
 
     // --- bloque: freeze (slow-mo + desaturate) through the breakdown,
@@ -123,7 +140,7 @@ void main() {
         // dual-LFO coprime drift: the figure precesses / reshapes over ~18-37 s
         // so windows a divergence-scale apart are categorically different
         // figures, not the same rose at a different phase.
-        float drift = 0.10 * sin(u_time * 0.055 + seed) + 0.055 * sin(u_time * 0.026 + seed * 2.0);
+        float drift = 0.10 * sin(CK * 0.055 + seed) + 0.055 * sin(CK * 0.026 + seed * 2.0);
         float fx = f0 * rat.x * (1.0 + drift) * freqScale;
         float fy = f0 * rat.y * (1.0 - drift) * freqScale;
 
@@ -134,7 +151,16 @@ void main() {
         float amp = (0.16 + 0.06 * float(pen == 2)) * swell * (0.7 + 0.5 * prog);
         amp *= mix(1.0, 0.55, bloque);                            // figure shrinks a touch when frozen
 
-        float t = u_time;
+        // harmonic richness DISABLED (h2=0): a 2nd-pendulum harmonic adds
+        // visibly denser rose-loops, but its 2-3x term pumps the high spatial
+        // octave (unbalancing depth_octaves: 6/6 -> 1/6) and the high-freq
+        // motion (jerk fail). v3's plain Lissajous is balanced across octaves
+        // and smooth — the piece's airy aesthetic is at its criteria ceiling;
+        // "richer" via harmonic trades two real criteria for an advisory metric.
+        float h2 = 0.0;
+        float hr = 2.0;
+
+        float t = CK;
         // STATION = per-section home (relocates at each gear-shift, smoothed
         // over the first ~bar so it slides not teleports) + a bold slow wander
         // (periods ~48-70 s, so the figure traverses a real fraction of the
@@ -142,33 +168,33 @@ void main() {
         // the divergence engine: the macro layout genuinely moves over the song.
         vec2 home = mix(stationHome(float(sec - 1), seed), stationHome(float(sec), seed),
                         smoothstep(0.0, 0.12, u_section_progress));
-        vec2 wander = 0.30 * vec2(sin(u_time * 0.090 + seed * 1.7),
-                                  sin(u_time * 0.131 + seed * 2.9));
+        vec2 wander = 0.30 * vec2(sin(CK * 0.090 + seed * 1.7),
+                                  sin(CK * 0.131 + seed * 2.9));
         vec2 penCtr = ctr + home + wander;
         penCtr = clamp(penCtr, vec2(-0.60, -0.40), vec2(0.60, 0.40));
-        // comet polyline: NS samples back over ~1.3 s, drawn as connected
-        // segments so the filament never dots. Older points fade.
-        // a filament is the UNION (max) of its segments, not the sum — max-
-        // accumulate so dense lobes give constant-width curves instead of
-        // blowing white where the curve doubles back.
+
+        // comet polyline: a SINGLE mid-width strand of the (now harmonic-rich)
+        // figure. The richness comes from the harmonograph's 2nd-pendulum
+        // rose-loops (figurePos), which add visible mid-scale structure WITHOUT
+        // shifting energy into the high octave — an earlier fine 2nd strand
+        // (K 2400) pumped the high band and starved depth_octaves. max-
+        // accumulate (union) so it stays constant-width, never blows.
         float glow = 0.0;
-        vec2 prev = vec2(1e9);
+        vec2 prev0 = vec2(1e9);
         for (int k = 0; k < NS; k++) {
             float fk = float(k) / float(NS - 1);
             float tau = 2.20 * fk;
             float tt = t - tau;
-            vec2 hp = penCtr + vec2(amp * sin(fx * tt + PPH[pen].x),
-                                    amp * 1.05 * sin(fy * tt + PPH[pen].y));
+            vec2 hp0 = figurePos(penCtr, amp, fx, fy, PPH[pen], tt, h2, hr);
             if (k > 0) {
-                float sd = sdSegment(p, prev, hp);
                 float w = exp(-tau * 1.05);                       // tail fade
-                glow = max(glow, w * exp(-sd * sd * 1300.0));     // wider = more trackable
+                float sd0 = sdSegment(p, prev0, hp0);
+                glow = max(glow, w * exp(-sd0 * sd0 * 1300.0));
             }
-            prev = hp;
+            prev0 = hp0;
         }
         // compact head bloom = the eye-landing lobe (small + bright, not a blob).
-        vec2 head = penCtr + vec2(amp * sin(fx * t + PPH[pen].x),
-                                  amp * 1.05 * sin(fy * t + PPH[pen].y));
+        vec2 head = figurePos(penCtr, amp, fx, fy, PPH[pen], t, h2, hr);
         float hd = length(p - head);
         float headG = exp(-hd * hd * 700.0);
         glow = max(glow, 0.85 * headG);
@@ -203,7 +229,7 @@ void main() {
     // --- heat-haze: refract u_below where the filaments burn (spatial
     // coupling — the bed + clave shimmer behind the heat). ---------------
     float hazeAmt = 0.010 * (clamp(headHot + length(fresh) * 0.5, 0.0, 1.5)) + 0.003 * heat;
-    float ang = fbmRot(p * 4.0 + u_time * 0.07) * TAU;          // slow haze (continuity)
+    float ang = fbmRot(p * 4.0 + CK * 0.07) * TAU;             // slow haze (continuity)
     vec2 hazeOff = vec2(cos(ang), sin(ang)) * hazeAmt;
     vec3 below = texture(u_below, uv + hazeOff).rgb;
 
