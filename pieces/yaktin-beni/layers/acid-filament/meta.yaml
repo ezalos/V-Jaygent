@@ -1,0 +1,11 @@
+name: acid-filament
+identity: "TB-303 ember serpent folded into k-fold petals"
+default_blend: max
+
+uniforms: []
+
+reads:
+  - u_below
+  - u_history
+publishes: []
+consumes: []

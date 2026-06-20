@@ -1,0 +1,10 @@
+name: bloom-grain
+identity: "bloom, kick shockwave, sparks, tonemap and grain"
+default_blend: normal
+
+uniforms: []
+
+reads:
+  - u_below
+publishes: []
+consumes: []

@@ -1,0 +1,102 @@
+title: "Yaktın Beni"
+slug: yaktin-beni
+created: 2026-06-20T21:54:17.857Z
+source: https://open.spotify.com/track/2crJtse92ZMD6C78jK5zGX
+architecture: E
+duration: 266
+render_scale: 0.7
+time_source: audio
+audio: audio.mp3
+audio_features:
+  - beat
+  - sections
+  - stems
+  - key
+cursor: true
+keyboard_synth: true
+notes: |
+  ## Thesis
+  Acid Arab feat. Edis — "Yaktın Beni (Beard2Beard Remix)". The TB-303 acid
+  line drawn as a glowing ember filament — a serpent of fire — writhing inside
+  a whirling GIRIH (Islamic 10-fold star) mandala. *Yaktın Beni* = "you burned
+  me"; Rumi's burning becomes the Mevlevi SEMA — rotational symmetry that never
+  resolves. The resonant filter sweep re-tiles the oriental geometry (the
+  quasicrystal plane-wave frequency IS the 303 cutoff); the BASS is the
+  serpent, the VOCAL lights the antinode stars, the KICK pulses the symmetry,
+  and the mandala's symmetry-order + a breakdown FRACTURE change per section so
+  it never reads as a static kaleidoscope. Warm fire palette only.
+
+  ## Architecture
+  E — layer stack. Core is closed-form per pixel (quasicrystal interference =
+  sum of N plane waves -> 2N-fold star field; segment-folded serpent ridge), so
+  no passes/ping-pong. u_history used only for the filament's comet light-trails
+  (layer-only, allowed). 5 piece-local layers, no publish/consume (each self-
+  computes the fold deterministically from shared uniforms).
+
+  ## Layers (bottom -> top)
+  - ember-ground (normal): near-black warm bed; drifting ember hot-zone (macro
+    brightness envelope). bass = pool breath; song_progress warms; cursor heat.
+  - girih-mandala (screen): the whirling quasicrystal Islamic-star field; sharp
+    antinode stars + zero-contour strapwork; ALWAYS-ON band (>=0.30). section ->
+    symmetry order {4 -> 8 -> 10 -> 10 -> collapse -> 12 -> 12}; vocals ->
+    antinode brightness; downbeat/bar -> snap notch + swell (phase-lock);
+    cursor -> tilt/pan + brighten; key -> petal flash + freq bump.
+  - heat-shimmer (replace): domain-warped fbmRot refraction of u_below; the
+    CHAOS layer that breaks the symmetry; re-seeds per section; other stem +
+    energy drive depth; shimmers hardest in the breakdown.
+  - acid-filament (max): the LEAD ember serpent; k-fold folded writhing ridge;
+    bass -> writhe amp + glow; resonance (bass) -> glow tightness; bar -> a
+    travelling accent head; u_history comet trails; cursor conducts the anchor;
+    keys pluck; BREAKDOWN unravels the fold to a single free serpent.
+  - bloom-grain (normal): HDR bloom of the bright antinodes/filament; kick ->
+    expanding shockwave ring (per-beat phase-lock); snare/cymbal -> ember
+    sparks; Reinhard tonemap + warm grain + vignette.
+
+  ## Audio bindings (stems = voice roles)
+  - bass stem    -> serpent writhe + glow; ground pool breath
+  - drums stem   -> kick shockwave ring + snare/cymbal ember sparks
+  - other stem   -> heat-shimmer warp depth + girih frequency/phase (oriental synth)
+  - vocals stem  -> girih antinode brightness (Edis lights the stars)
+  - downbeat/bar -> symmetry snap notch + per-bar swell; beat -> shockwave ring
+  - section_id   -> symmetry order + breakdown fracture (composition, not gain)
+  - song_progress-> palette warmth climb + overall brightness arc
+
+  ## Mouse
+  Conducts: tilts/pans the mandala fold centre and drags the serpent's anchor
+  (up to ~1/4 out), adds local ember heat. Floor-and-ceiling, never owns the
+  field.
+
+  ## Keyboard (play-along, 15-key synth)
+  Held keys energise the serpent; key events flash a petal ring on the mandala
+  and bump the girih frequency. Plays over the acid line.
+
+  ## Palette
+  Warm fire only (the song is literally "you burned me"): near-black / deep-wine
+  / ember / amber / cream. Luminance carries contrast — near-black bed, cream
+  antinode cores. No cool intrusion.
+
+  ## Arc / ending
+  born (intro, faint 4-fold star + a single forming serpent) -> crystallise on
+  the build (8-fold) -> spin up the sema on the rise (10-fold, vocal lights the
+  stars) -> full bloom at peak-1 (kick shockwaves) -> FRACTURE in the breakdown
+  (symmetry dissolves, serpent unravels free, heat-shimmer dominates) -> the
+  great 95s long-peak re-crystallises to 12-fold maximum whirl -> embers cool to
+  near-black at the outro as the mandala slows.
+
+  ## Idle behaviour
+  Fully self-plays: mandala whirls + cycles all 7 symmetry vocabularies on a
+  synthetic ~106s clock; serpent writhes on a synthetic bass sin; hot-zone
+  drifts on a slow Lissajous; shockwave rings run on a synthetic beat. Alive
+  with no audio and no cursor.
+layers:
+  - layer: ember-ground
+    blend: normal
+  - layer: girih-mandala
+    blend: screen
+  - layer: heat-shimmer
+    blend: replace
+  - layer: acid-filament
+    blend: max
+  - layer: bloom-grain
+    blend: normal
+published_at: null

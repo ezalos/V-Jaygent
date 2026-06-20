@@ -1,0 +1,9 @@
+name: ember-ground
+identity: "near-black warm bed with a drifting ember hot-zone"
+default_blend: normal
+
+uniforms: []
+
+reads: []
+publishes: []
+consumes: []
