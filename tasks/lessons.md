@@ -153,3 +153,18 @@ file is the human-readable index.
   radial-zoom 1/r singularity + headless fps — grade continuity by a
   0.1s temporal strip and document the override.
   (`feedback_zoom_tunnel_pieces.md`)
+- **Drops must escalate to chaos** — at the drop the lead transforms to a
+  wilder mode (flythrough/tunnel = radial 1/r streaks rushing out, over
+  the edge), not just brighter; "unpredictable, unlike music" = chaos
+  from fbm(depth,time), not the beat. taste.md intensity `drop_escalates`.
+  (yaktin-beni watchthrough redline #1 → `feedback_drops_escalate_to_chaos.md`)
+- **Point-lights must read round** — N-tap ring bloom = N-gon corona (use
+  golden-angle); `pow(angular field, n)` = diamond dots; round glow ×
+  angular field = carved corners. Render lights as round gaussians gated
+  by SMOOTH terms only. taste.md composition `glints_round`.
+  (yaktin-beni watchthrough redline #2 → `feedback_round_point_lights.md`)
+- **Nested mirror richness** — Louis likes a kaleidoscope inside each fold
+  wedge ("mirror stuff inside the triangle mirrors"); 2-level kaleidoFold
+  (KIFS), bigK matched to the pattern symmetry, subN 2-3; keep round
+  lights on the UNFOLDED coords.
+  (yaktin-beni watchthrough redline #3 → `feedback_nested_mirror_richness.md`)

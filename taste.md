@@ -721,6 +721,15 @@ should.
   automatable later via saliency centroids). Distinct from
   `layout_varies`: the layout can vary while the hot-spots stay
   parked.
+- **`glints_round`** — *Do discrete bright point-lights / glints /
+  sparks read as ROUND soft glows, free of polygonal corners?* Judgment
+  from stills. Three fail signatures, all seen on yaktin-beni v1
+  (Louis: "the blinking lights have weird corners"): an N-tap ring bloom
+  (an 8-tap ring blooms an octagonal corona — use a golden-angle spiral
+  for an isotropic halo); a light derived from an angular field via
+  `pow(field, n)` (diamond/square dots inherit the field's iso-contour
+  geometry); a round glow multiplied by an angular field (carves corners
+  back in). n/a for pieces with no discrete point-lights.
 
 ### motion
 
@@ -778,6 +787,17 @@ loud or always quiet; no breath.
   luminance > 0.7 AND channel range < 0.1)?* Measured: `no_blowout`.
   One of the two hard metric gates (14/14 positives at calibration).
   Peaks must compress, not bleach to white.
+- **`drop_escalates`** — *Does the highest-energy section (the drop)
+  introduce a qualitatively MORE CHAOTIC mode — a new wild event
+  vocabulary (a flythrough/tunnel, branching, turbulence, things going
+  over the edge) — rather than just a brighter/faster version of the
+  same motion?* Judgment from the peak/drop clip (graded from clips, not
+  stills). The "alive at the drop" bar: Louis's yaktin-beni redline
+  ("the tentacles must get CRAZY... a highway you are projected into,
+  over the edge, unpredictable, unlike music"). A drop that only raises
+  brightness or speed fails. Related to but distinct from the
+  unpredictability gate — this is specifically *the drop must be the
+  chaotic climax*. n/a for pieces with no drop/energetic-peak structure.
 
 ### depth
 
