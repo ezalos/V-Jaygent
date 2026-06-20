@@ -1,0 +1,8 @@
+name: clave-clock
+identity: "2-3 rumba clave necklace + sweep hand; phase-lock anchor"
+default_blend: screen
+uniforms: {}
+reads:
+  - u_below
+publishes: []
+consumes: []

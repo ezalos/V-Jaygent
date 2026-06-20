@@ -1,0 +1,9 @@
+name: brass-bloom
+identity: "focal HDR bloom; brass=gold wide, vocals=hot-pink halo; bloque slam"
+default_blend: screen
+uniforms: {}
+reads:
+  - u_below
+publishes: []
+consumes:
+  u_heat: vec2

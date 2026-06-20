@@ -1,0 +1,9 @@
+name: pens
+identity: "three coprime harmonograph comet-pens; the polyrhythm figure"
+default_blend: replace
+uniforms: {}
+reads:
+  - u_below
+publishes: []
+consumes:
+  u_heat: vec2

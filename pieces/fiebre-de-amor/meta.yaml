@@ -1,0 +1,108 @@
+title: Fiebre de Amor
+slug: fiebre-de-amor
+created: 2026-06-19T22:51:29.082Z
+source: https://youtu.be/SiY0Tzj7574
+architecture: E
+duration: 291
+render_scale: 0.55
+time_source: audio
+audio: audio.mp3
+audio_features:
+  - beat
+  - sections
+  - stems
+  - key
+cursor: true
+keyboard_synth: true
+notes: |
+  ## Thesis
+  Havana D'Primera — "Fiebre de Amor" (Cuban timba). The interlocking
+  cross-rhythms of timba drawn as glowing HARMONOGRAPH filaments over a
+  fever-bed that heats across the song. Three coprime pendulum-pens
+  (conga 2:3 / bass 3:5 / brass 5:7) trace damped-Lissajous comet curves
+  whose beat-frequencies ARE the polyrhythm; the 2-3 rumba CLAVE conducts
+  (a 16-site Toussaint necklace + sweep hand, one revolution per 2-bar
+  clave cycle = visible phase-lock); the GEARS switch the figure's
+  vocabulary per section ("arriba"); and the BLOQUE freezes the figure in
+  the bass-dropout breakdown, then SLAMS on the bass re-entry. The fever
+  is a warm-arc hue climb: gold -> tangerine -> ember-crimson -> hot-pink,
+  cooling to deep wine at the cierre. Warm throughout; no cyan.
+
+  ## Architecture
+  E — layer stack. Pens drawn by per-pixel GATHER (segment-distance comet
+  polyline) so no scatter/passes needed; light-trails ride u_history
+  (layer-only). 5 piece-local layers.
+
+  ## Layers (bottom -> top)
+  - heat-bed (normal): near-black fever ground; wandering hot-zone (macro
+    envelope); publishes `heat`. bass tumbao = SCALE of the hot pool.
+  - clave-clock (screen): 2-3 rumba clave necklace + sweep hand; phase-
+    lock anchor; independent clock.
+  - pens (replace): the lead — 3 coprime comet-pens; heat-haze refracts
+    u_below; u_history light-paints; consumes heat; gear-shift sections;
+    bloque freeze->slam. Cursor conducts the pen centre; keys re-energize
+    pens by zone.
+  - brass-bloom (screen): focal HDR bloom of the pen-heads — brass stem =
+    wide gold flare, vocals = tight hot-pink halo (distinct roles);
+    consumes heat; the bloque slam-flash.
+  - grain-tone (normal): Reinhard tonemap + warm grain shimmer + vignette
+    + gamma.
+
+  ## Audio bindings (stems = voice roles, not 4 modulators)
+  - bass stem   -> ground breath (hot-pool scale) + bass-pen radius
+  - drums stem  -> conga-pen amplitude (the kinetic figure)
+  - other stem  -> brass-pen amplitude + wide gold bloom (mambo horns)
+  - vocals stem -> tight hot-pink focal halo (the sonero's lane)
+  - downbeat / bar / clave -> clock sweep, per-bar pen swell, the slam
+  - section_id  -> pen count + ratio set + bloque (composition, not amplitude)
+  - song_progress -> the rising fever (palette warmth + brightness arc)
+
+  ## Mouse
+  Conducts: drags the shared pen centre (up to ~1/3 out) and the fever
+  hot-zone. The figure follows the hand. Floor-and-ceiling, never owns the
+  whole field.
+
+  ## Keyboard (play-along percussion, 3 zones)
+  low keys -> re-energize the bass pen; mid -> conga pen; high -> brass
+  pen. Different zones drive different pens (per-key distinctness).
+
+  ## Palette
+  Warm arc only (no exception needed): near-black / deep-wine / ember-
+  crimson / tangerine / amber-gold / hot-pink-cream. Luminance carries
+  contrast; peaks roll off via Reinhard.
+
+  ## Arc / ending
+  smoulder (intro, 1 brass pen) -> ignite on the verse (vocals) -> climb
+  through montuno/mambo (3 pens, denser ratios, hot-pink) -> density peak
+  (pregon) -> FREEZE in the breakdown bloque -> SLAM on coro-final ->
+  break the fever to deep wine + 1 faint pen at the cierre (recap of the
+  intro, cooled). Ends as the track fades.
+
+  ## Idle behaviour
+  Fully self-plays: pens run on synthetic stem sins + a 5.22 s synthetic
+  clave clock; the hot-zone drifts on a slow Lissajous. Alive with no
+  audio and no cursor.
+layers:
+  - layer: heat-field
+    blend: normal
+    alpha: 0.0
+    publishes:
+      heat: vec2
+  - layer: heat-bed
+    blend: normal
+    consumes:
+      u_heat: heat
+  - layer: clave-clock
+    blend: screen
+  - layer: pens
+    blend: replace
+    consumes:
+      u_heat: heat
+  - layer: brass-bloom
+    blend: screen
+    consumes:
+      u_heat: heat
+  - layer: grain-tone
+    blend: normal
+published_at: null
+rendered_at: '2026-06-19T23:10:28.210Z'

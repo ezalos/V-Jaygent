@@ -1,0 +1,8 @@
+name: heat-bed
+identity: "colorizes the consumed heat field into a dark warm fever ground"
+default_blend: normal
+uniforms: {}
+reads: []
+publishes: []
+consumes:
+  u_heat: vec2

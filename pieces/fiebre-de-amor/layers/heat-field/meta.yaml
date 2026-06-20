@@ -1,0 +1,8 @@
+name: heat-field
+identity: "invisible data layer; publishes the fever hot-zone field"
+default_blend: normal
+uniforms: {}
+reads: []
+publishes:
+  heat: vec2
+consumes: []

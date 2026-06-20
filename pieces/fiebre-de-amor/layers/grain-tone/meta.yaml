@@ -1,0 +1,9 @@
+name: grain-tone
+identity: "final post: Reinhard tonemap, warm grain, vignette, gamma"
+default_blend: normal
+uniforms: {}
+reads:
+  - u_below
+  - u_history
+publishes: []
+consumes: []
