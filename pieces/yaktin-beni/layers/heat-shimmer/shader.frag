@@ -23,9 +23,9 @@ void main() {
     vec2 uv  = gl_FragCoord.xy / res;
     vec2 p   = (gl_FragCoord.xy - 0.5 * res) / min(res.x, res.y) * 2.0;
 
-    float playing = u_audio_playing;
+    float playing = 1.0;   // force REAL uniforms: stems+section are frozen-VALID when paused, so paused==playing. (u_audio_playing=0 on pause flipped to synthetic = the bug). Idle falls back to the section floor + wallclock u_time.
     float other = mix(0.30 + 0.25 * sin(u_time * 1.3 + 2.0), u_audio_other_stem, playing);
-    float level = mix(0.35 + 0.20 * sin(u_time * 0.9), u_audio_level, playing);
+    float level = 0.35 + 0.20 * sin(u_time * 0.9);   // time-based (not live FFT, consistent paused/playing)
     float sidF  = mix(floor(mod(u_time * 0.066, 7.0)), u_section_id, playing);
 
     // re-seed the warp domain per section so boundaries bring new texture

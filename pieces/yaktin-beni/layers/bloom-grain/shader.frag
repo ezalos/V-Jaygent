@@ -32,24 +32,13 @@ void main() {
     vec2 uv  = gl_FragCoord.xy / res;
     vec2 p   = (gl_FragCoord.xy - 0.5 * res) / min(res.x, res.y) * 2.0;
 
-    float playing = u_audio_playing;
+    float playing = 1.0;   // force REAL uniforms: stems+section are frozen-VALID when paused, so paused==playing. (u_audio_playing=0 on pause flipped to synthetic = the bug). Idle falls back to the section floor + wallclock u_time.
     float kick   = mix(0.5 * pow(max(0.0, sin(u_time * 3.1416)), 8.0), u_audio_kick, playing);
     float snare  = mix(0.0, u_audio_snare, playing);
     float cymbal = mix(0.0, u_audio_cymbal, playing);
     float beatPh = mix(fract(u_time * 1.02), u_beat_phase, playing);
 
     vec3 below = texture(u_below, uv).rgb;
-
-    // open a DARK TUNNEL MOUTH (vanishing point) at the drop: darken the whole
-    // composite's centre so the hyperspace streaks rush out of a dark core
-    // instead of fighting the bright mandala. One authoritative place (the
-    // ground pool + mandala + filament all converge here) beats per-layer fades.
-    float sidF = mix(floor(mod(u_time * 0.066, 7.0)), u_section_id, playing);
-    int   sidB = int(sidF + 0.5);
-    float bassB = max(u_audio_bass_stem, 0.6 * u_audio_level) * playing;
-    float dropB = ((sidB == 3 || sidB == 5) ? 1.0 : (sidB == 2 ? 0.6 : 0.0))
-                * clamp(0.7 + 0.5 * bassB, 0.0, 1.3);
-    below *= mix(1.0, smoothstep(0.0, 0.40, length(p)), clamp(dropB, 0.0, 1.0));
 
     // --- HDR bloom: golden-angle spiral of taps → ISOTROPIC (round) kernel.
     // (Louis redline: the lights had weird corners — an 8-tap ring blooms
@@ -97,7 +86,7 @@ void main() {
     }
 
     // --- grade: Reinhard tonemap, warm grain, vignette --------------------
-    col = reinhard(col * (1.0 + 0.15 * u_audio_level));
+    col = reinhard(col);   // no u_audio_level boost (live FFT, zeroes when paused)
     float grain = (hash21(uv * res + fract(u_time) * 311.0) - 0.5) * 0.04;
     col += grain;
     col *= 0.55 + 0.45 * pow(1.0 - r * 0.5, 1.5);   // vignette to near-black edges

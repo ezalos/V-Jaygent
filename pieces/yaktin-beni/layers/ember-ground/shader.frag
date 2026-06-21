@@ -23,7 +23,7 @@ void main() {
     vec2 p   = (gl_FragCoord.xy - 0.5 * res) / min(res.x, res.y) * 2.0;
 
     // Drivers — synthesise when no audio so the bed still breathes.
-    float playing = u_audio_playing;
+    float playing = 1.0;   // force REAL uniforms: stems+section are frozen-VALID when paused, so paused==playing. (u_audio_playing=0 on pause flipped to synthetic = the bug). Idle falls back to the section floor + wallclock u_time.
     float bass = mix(0.35 + 0.30 * sin(u_time * 1.7), u_audio_bass_stem, playing);
     float prog = mix(fract(u_time * 0.01), u_song_progress, playing);
 
@@ -52,7 +52,7 @@ void main() {
 
     // gentle radial fall-off so the frame edges sit in near-black.
     col *= 0.6 + 0.4 * exp(-dot(p, p) * 0.35);
-    col += 0.02 * u_audio_level;                                // faint overall lift on loud
+    // (no u_audio_level lift — live FFT zeroes when paused, made paused != playing)
 
     fragColor = vec4(max(col, 0.0), 1.0);
 }

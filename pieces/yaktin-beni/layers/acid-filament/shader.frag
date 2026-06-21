@@ -19,21 +19,16 @@ uniform float u_audio_level;
 uniform float u_section_id;
 uniform float u_song_progress;
 uniform float u_bar_phase;
-uniform sampler2D u_below;
-uniform sampler2D u_history;
 uniform float u_keys[15];
 uniform float u_key_event[15];
 
 out vec4 fragColor;
 
-float luma(vec3 c) { return dot(c, vec3(0.30, 0.59, 0.11)); }
-
 void main() {
     vec2 res = u_resolution;
-    vec2 uv  = gl_FragCoord.xy / res;
     vec2 p   = (gl_FragCoord.xy - 0.5 * res) / min(res.x, res.y) * 2.0;
 
-    float playing = u_audio_playing;
+    float playing = 1.0;   // force REAL uniforms: stems+section are frozen-VALID when paused, so paused==playing. (u_audio_playing=0 on pause flipped to synthetic = the bug). Idle falls back to the section floor + wallclock u_time.
     float sidF = mix(floor(mod(u_time * 0.066, 7.0)), u_section_id, playing);
     int sid = int(sidF + 0.5);
 
@@ -47,8 +42,12 @@ void main() {
     float sectE = (sid == 0) ? 0.18 : (sid == 1) ? 0.35 : (sid == 2) ? 0.45
                 : (sid == 3) ? 0.60 : (sid == 4) ? 0.25 : (sid == 5) ? 0.60 : 0.30;
     float live = sectE * (0.60 + 0.50 * (0.5 + 0.5 * sin(u_time * 1.7)));
-    float bass = max(max(u_audio_bass_stem, 0.6 * u_audio_level) * playing, live);
-    float high = mix(0.20 + 0.20 * sin(u_time * 5.0), u_audio_high, playing);
+    // Drive from the STEM (frozen-consistent paused/playing) + the time-based
+    // floor — NOT u_audio_level. Live FFT uniforms (level/kick/high) go to ~0
+    // when paused (silent analyser) even though u_audio_playing stays 1, which
+    // is what made paused look different from playing.
+    float bass = max(u_audio_bass_stem * playing, live);
+    float high = 0.20 + 0.20 * sin(u_time * 5.0);
     float prog = mix(fract(u_time * 0.01), u_song_progress, playing);
     float barPh = mix(fract(u_time * 0.5), u_bar_phase, playing);
 
@@ -128,7 +127,6 @@ void main() {
     glow += keyEv * 0.5 * exp(-pow((rad - 0.4) * 5.0, 2.0));
 
     glow *= (0.55 + 1.5 * bass) * (1.0 + 0.2 * drop);   // tentacles stay; tunnel layer leads the drop
-    glow *= mix(1.0, smoothstep(0.04, 0.32, rad), drop); // open a dark tunnel mouth (vanishing point) at the drop
 
     // colour: ember-red body climbing toward amber over the song (it is fire,
     // not tan — a yellow-tan body reads olive at low glow over the wine ground),
@@ -136,18 +134,14 @@ void main() {
     vec3 col = warmCycle(0.42 - 0.08 * prog) * glow;
     col += vec3(1.0, 0.88, 0.66) * pow(saturate(glow), 2.0) * (0.7 + 0.5 * resonance01);
 
-    // comet light-trails: take only the LUMINANCE of the residual the upper
-    // layers left last frame and repaint it warm — a channel-wise hist-below
-    // subtraction leaks green/blue (warm below has low G/B), so recolour it.
-    vec3 below = texture(u_below, uv).rgb;
-    vec3 hist  = texture(u_history, uv).rgb;
-    float trailLum = luma(max(hist - below, vec3(0.0)));
-    vec3 trail = warmCycle(0.95) * trailLum * 0.65;
-    vec3 outc  = max(col, trail);
-    outc = mix(col, outc, smoothstep(0.0, 1.0, u_frame / 30.0));
-
-    // cool the outro to near-black (the embers die at the cierre).
-    outc *= 1.0 - 0.75 * smoothstep(0.93, 1.0, prog);
+    // NO u_history trail. The comet trail accumulated on a PAUSED frame:
+    // frozen u_time re-adds the same glow every render, blooming the paused
+    // image far brighter/richer than the playing one — the literal "only
+    // beautiful when paused" bug (proven with bin/inspect-pause.mjs: paused at
+    // t=195 was crisp rings + bright bloom, playing was a dim tentacle mandala).
+    // Dropping the feedback makes paused == playing; the tunnel carries motion.
+    vec3 outc = col;
+    outc *= 1.0 - 0.75 * smoothstep(0.93, 1.0, prog);   // outro cool
 
     fragColor = vec4(max(outc, 0.0), 1.0);
 }

@@ -4,8 +4,6 @@ default_blend: max
 
 uniforms: []
 
-reads:
-  - u_below
-  - u_history
+reads: []
 publishes: []
 consumes: []

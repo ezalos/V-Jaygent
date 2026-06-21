@@ -75,7 +75,7 @@ void main() {
     vec2 res = u_resolution;
     vec2 p   = (gl_FragCoord.xy - 0.5 * res) / min(res.x, res.y) * 2.0;
 
-    float playing = u_audio_playing;
+    float playing = 1.0;   // force REAL uniforms: stems+section are frozen-VALID when paused, so paused==playing. (u_audio_playing=0 on pause flipped to synthetic = the bug). Idle falls back to the section floor + wallclock u_time.
 
     // --- section state machine: symmetry order per section ----------------
     // idle (no audio) cycles all vocabularies so the piece still evolves.
@@ -153,10 +153,8 @@ void main() {
 
     // at the drop, recede so the filament's hyperspace tunnel dominates (the
     // mandala stays present as the kaleidoscope walls, just dimmer).
-    float drop = ((sid == 3 || sid == 5) ? 1.0 : (sid == 2 ? 0.5 : 0.0))
-               * saturate(0.5 + 0.8 * u_audio_level);
+    float drop = (sid == 3 || sid == 5) ? 1.0 : (sid == 2 ? 0.5 : 0.0);   // section-only (consistent paused/playing)
     col *= 1.0 - 0.45 * drop;
-    col *= mix(1.0, smoothstep(0.0, 0.42, r), drop);   // open a dark tunnel mouth at the drop
 
     // cool the outro to near-black (the embers die at the cierre).
     col *= 1.0 - 0.7 * smoothstep(0.93, 1.0, prog);
