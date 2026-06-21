@@ -761,6 +761,16 @@ locked to audio, flat between beats.
   motion still have a felt direction — rising, flowing, orbiting — not
   just residual jitter?* Judgment from the quiet clip (research #20 —
   net-coherent-flow ratio is computable later).
+- **`survives_dropout`** — *At a stem-dropout timestamp (a stem's RMS
+  near zero INSIDE a high-energy section — find them in
+  `audio.analysis.json`), does the PLAYING render stay as alive as the
+  idle/paused frame?* Graded from a CLIP at that timestamp, not a seeked
+  still. Fail signature: the piece is "only beautiful when paused"
+  because `mix(synthetic, real, playing)` collapses liveness to a dead
+  floor when a stem drops out, while pause flips to the lively synthetic
+  driver (yaktin-beni v2, t=195.18 bass=0.001). Fix: drive liveness from
+  a section-scaled floor that audio ADDS to (`max(real, floor)`). n/a for
+  theme-only (no-audio) pieces.
 
 ### intensity
 

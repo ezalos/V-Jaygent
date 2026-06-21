@@ -168,3 +168,10 @@ file is the human-readable index.
   (KIFS), bigK matched to the pattern symmetry, subN 2-3; keep round
   lights on the UNFOLDED coords.
   (yaktin-beni watchthrough redline #3 → `feedback_nested_mirror_richness.md`)
+- **Audio dropout deadening ("only beautiful when paused")** — real stems
+  drop to ~0 (breakdowns, 4-on-floor gaps), so mix(synthetic, real,
+  playing) collapses the piece to a dead floor when PLAYING while pause
+  flips to the lively synthetic driver. Drive liveness from a section-
+  scaled floor that audio ADDS to (max(real, floor)); grade a CLIP at a
+  dropout timestamp. taste.md motion `survives_dropout`.
+  (yaktin-beni watchthrough redline batch #2 → `feedback_audio_dropout_deadening.md`)
