@@ -168,10 +168,19 @@ file is the human-readable index.
   (KIFS), bigK matched to the pattern symmetry, subN 2-3; keep round
   lights on the UNFOLDED coords.
   (yaktin-beni watchthrough redline #3 → `feedback_nested_mirror_richness.md`)
-- **Audio dropout deadening ("only beautiful when paused")** — real stems
-  drop to ~0 (breakdowns, 4-on-floor gaps), so mix(synthetic, real,
-  playing) collapses the piece to a dead floor when PLAYING while pause
-  flips to the lively synthetic driver. Drive liveness from a section-
-  scaled floor that audio ADDS to (max(real, floor)); grade a CLIP at a
-  dropout timestamp. taste.md motion `survives_dropout`.
-  (yaktin-beni watchthrough redline batch #2 → `feedback_audio_dropout_deadening.md`)
+- **Audio dropout deadening** — real stems drop to ~0 (breakdowns, 4-on-
+  floor gaps); drive liveness from a section-scaled floor that audio ADDS
+  to (max(real, floor)). taste.md motion `survives_dropout`. NOTE: was the
+  WRONG first guess at the pause bug; real cause below.
+  (`feedback_audio_dropout_deadening.md`)
+- **Pause renders synthetic = THE "only beautiful when paused" bug** — on
+  pause the runtime sets u_audio_playing=0 but keeps stems/section/u_time
+  frozen-VALID, so `mix(synthetic, real, u_audio_playing)` renders the
+  SYNTHETIC idle look when paused (≠ playing). SYSTEMIC across audio pieces.
+  Fix: force `playing=1.0` (or a runtime `u_audio_active` flag). For a
+  "looks different in state X" bug, READ the runtime's state handling
+  first — I mis-modeled it 3× theorizing from the shader. Verify with the
+  new `bin/inspect-pause.mjs` harness (Louis: "invest in the right test
+  architecture"). taste.md motion `paused_equals_playing`.
+  (yaktin-beni watchthrough redline batch #3 → `feedback_pause_renders_synthetic.md`,
+  `reference_inspect_pause_harness.md`)

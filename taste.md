@@ -771,6 +771,16 @@ locked to audio, flat between beats.
   driver (yaktin-beni v2, t=195.18 bass=0.001). Fix: drive liveness from
   a section-scaled floor that audio ADDS to (`max(real, floor)`). n/a for
   theme-only (no-audio) pieces.
+- **`paused_equals_playing`** — *Does the piece render the SAME image when
+  PAUSED as when PLAYING at the same audio time?* Graded with
+  `bin/inspect-pause.mjs <slug> <t>` (compare `play-a.png` vs `paused.png`),
+  NOT inspect-music (which only plays+seeks). Fail signature: "only beautiful
+  when paused" — on pause the runtime sets `u_audio_playing=0` while keeping
+  stems/section/u_time frozen-VALID, so the house `mix(synthetic, real,
+  u_audio_playing)` fallback renders the SYNTHETIC idle look instead of the
+  real one (yaktin-beni v1-v3). Fix: gate the persistent look on a value that
+  is true when paused-mid-track (force `playing=1.0`, or `u_audio_active` once
+  the runtime exposes it). n/a for theme-only pieces.
 
 ### intensity
 
