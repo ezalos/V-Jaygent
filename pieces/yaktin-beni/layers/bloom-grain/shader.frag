@@ -18,6 +18,8 @@ uniform float u_audio_drums_stem;
 uniform float u_audio_level;
 uniform float u_beat_phase;
 uniform float u_downbeat;
+uniform float u_section_id;
+uniform float u_audio_bass_stem;
 uniform sampler2D u_below;
 
 out vec4 fragColor;
@@ -37,6 +39,17 @@ void main() {
     float beatPh = mix(fract(u_time * 1.02), u_beat_phase, playing);
 
     vec3 below = texture(u_below, uv).rgb;
+
+    // open a DARK TUNNEL MOUTH (vanishing point) at the drop: darken the whole
+    // composite's centre so the hyperspace streaks rush out of a dark core
+    // instead of fighting the bright mandala. One authoritative place (the
+    // ground pool + mandala + filament all converge here) beats per-layer fades.
+    float sidF = mix(floor(mod(u_time * 0.066, 7.0)), u_section_id, playing);
+    int   sidB = int(sidF + 0.5);
+    float bassB = max(u_audio_bass_stem, 0.6 * u_audio_level) * playing;
+    float dropB = ((sidB == 3 || sidB == 5) ? 1.0 : (sidB == 2 ? 0.6 : 0.0))
+                * clamp(0.7 + 0.5 * bassB, 0.0, 1.3);
+    below *= mix(1.0, smoothstep(0.0, 0.40, length(p)), clamp(dropB, 0.0, 1.0));
 
     // --- HDR bloom: golden-angle spiral of taps → ISOTROPIC (round) kernel.
     // (Louis redline: the lights had weird corners — an 8-tap ring blooms
@@ -64,15 +77,23 @@ void main() {
     col += warmCycle(0.10) * exp(-r * r * 8.0) * u_downbeat * 0.4;   // downbeat core flash
 
     // --- ember sparks on snare / cymbal transients ------------------------
+    // 3x3 neighbourhood so sparks near a cell edge are NOT clipped into squares
+    // (the single-cell version made cornered sparks — Louis's "weird corners").
     float spark = max(snare, 0.7 * cymbal);
     if (spark > 0.02) {
         vec2 g = p * 7.0;
         vec2 cell = floor(g);
-        vec2 h = hash22(cell + floor(u_time * 6.0));
-        vec2 sp = cell + h;                       // spark position in cell space
-        float d = length(g - sp);
-        float tw = step(0.82, h.x) * (0.5 + 0.5 * sin(u_time * 30.0 + h.y * 40.0));
-        col += vec3(1.0, 0.85, 0.6) * exp(-d * d * 9.0) * tw * spark * 1.4;
+        float tb = floor(u_time * 6.0);
+        float acc = 0.0;
+        for (int oy = -1; oy <= 1; oy++)
+        for (int ox = -1; ox <= 1; ox++) {
+            vec2 cc = cell + vec2(float(ox), float(oy));
+            vec2 h = hash22(cc + tb * 1.7);
+            float d = length(g - (cc + h));
+            float tw = step(0.82, h.x) * (0.5 + 0.5 * sin(u_time * 22.0 + h.y * 40.0));
+            acc = max(acc, exp(-d * d * 11.0) * tw);
+        }
+        col += vec3(1.0, 0.85, 0.6) * acc * spark * 1.4;
     }
 
     // --- grade: Reinhard tonemap, warm grain, vignette --------------------

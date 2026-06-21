@@ -97,6 +97,8 @@ layers:
     blend: replace
   - layer: acid-filament
     blend: max
+  - layer: hyperspace-tunnel
+    blend: screen
   - layer: bloom-grain
     blend: normal
 published_at: null

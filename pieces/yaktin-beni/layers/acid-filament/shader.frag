@@ -34,12 +34,23 @@ void main() {
     vec2 p   = (gl_FragCoord.xy - 0.5 * res) / min(res.x, res.y) * 2.0;
 
     float playing = u_audio_playing;
-    float bass = mix(0.30 + 0.45 * pow(0.5 + 0.5 * sin(u_time * 3.1), 2.0), u_audio_bass_stem, playing);
+    float sidF = mix(floor(mod(u_time * 0.066, 7.0)), u_section_id, playing);
+    int sid = int(sidF + 0.5);
+
+    // per-section expected energy = a lively FLOOR for the drive. This fixes
+    // the "only beautiful when paused" bug: at the long-peak the bass/drum
+    // stems DROP OUT (bass=0.001 at t=195 where Louis paused), so a
+    // mix(synthetic, real, playing) drive collapsed to a dead floor when
+    // PLAYING but used the lively synthetic value when PAUSED. Now real audio
+    // ADDS on top of a section-scaled lively floor — playing is never deader
+    // than the (beautiful) idle baseline; quiet sections keep a low floor.
+    float sectE = (sid == 0) ? 0.18 : (sid == 1) ? 0.35 : (sid == 2) ? 0.45
+                : (sid == 3) ? 0.60 : (sid == 4) ? 0.25 : (sid == 5) ? 0.60 : 0.30;
+    float live = sectE * (0.60 + 0.50 * (0.5 + 0.5 * sin(u_time * 1.7)));
+    float bass = max(max(u_audio_bass_stem, 0.6 * u_audio_level) * playing, live);
     float high = mix(0.20 + 0.20 * sin(u_time * 5.0), u_audio_high, playing);
     float prog = mix(fract(u_time * 0.01), u_song_progress, playing);
     float barPh = mix(fract(u_time * 0.5), u_bar_phase, playing);
-    float sidF = mix(floor(mod(u_time * 0.066, 7.0)), u_section_id, playing);
-    int sid = int(sidF + 0.5);
 
     // fold order matches the mandala (pattern symmetry = 2N); unravels to 1
     // in the breakdown so the serpent writhes free (different vocabulary).
@@ -69,8 +80,11 @@ void main() {
     else if (sid == 2) drop = 0.55;           // rise — building toward it
     drop = saturate(drop * (0.45 + 0.9 * bass));
 
-    // tunnel depth: 1/r vanishing point streaming outward — you fly INTO it.
-    float tz = 1.0 / (rad + 0.07) + u_time * (0.8 + 3.4 * drop);
+    // tunnel depth: 1/r vanishing point, SLOW so the writhe is TRACKABLE, not a
+    // 60fps flicker. (The fast flythrough now lives in the dedicated
+    // hyperspace-tunnel layer; this was the "only beautiful when paused" bug —
+    // the filament's strobe + fast chaos mushed in motion.)
+    float tz = 1.0 / (rad + 0.07) + u_time * (0.3 + 1.0 * drop);
 
     // 303 writhe (calm sections): folded radial ridge on the bass.
     float amp = (0.10 + 0.42 * bass) * (sid == 4 ? 2.2 : 1.0);
@@ -78,46 +92,29 @@ void main() {
     float writhe = amp * sin(rad * waveF - u_time * 2.2
                              + 3.0 * fbmRot(vec2(rad * 1.6, u_time * 0.35)));
 
-    // chaotic tunnel writhe (drop): multi-octave turbulence in (depth, angle),
-    // driven by fbm of depth+time — NOT the beat — so it is unpredictable.
-    float turb = fbmRot(vec2(tz * 0.7, fa * 4.0))
-               + 0.6 * fbmRot(vec2(tz * 1.9 - u_time * 0.6, fa * 2.0 + 3.0));
-    float chaos = (turb - 0.8) * (2.6 * drop);
+    // chaotic writhe at the drop — SLOW multi-octave turbulence (coherent +
+    // trackable), not beat-locked so it stays unpredictable.
+    float turb = fbmRot(vec2(tz * 0.5, fa * 4.0))
+               + 0.5 * fbmRot(vec2(tz * 0.9 - u_time * 0.25, fa * 2.0 + 3.0));
+    float chaos = (turb - 0.75) * (1.9 * drop);
     float aSerp = sector * 0.25 + writhe + chaos;
 
     float resonance01 = saturate(bass * 1.3 + 0.2 * high);
-    float width = mix(0.085, 0.020, resonance01);
+    float width = mix(0.085, 0.022, resonance01);
 
-    // radial envelope: calm = focal; drop = reach the frame edges (the highway
-    // rushing past, over the edge).
+    // radial envelope: calm = focal; drop = reach the frame edges (over the edge).
     float renv = mix(smoothstep(0.04, 0.22, rad) * exp(-rad * rad * 0.55),
-                     smoothstep(0.015, 0.10, rad),
+                     smoothstep(0.015, 0.11, rad),
                      drop);
 
     float dSpace = abs(fa - aSerp) * (rad + 0.15);
     float glow = exp(-(dSpace * dSpace) / (width * width)) * renv;
 
-    // branching fork tentacle (drop) — lightning-like splits off the spine.
-    float fork = fbmRot(vec2(tz * 3.3 + 4.0, fa * 6.0 - u_time * 0.8));
-    float aFork = sector * 0.5 + (fork - 0.5) * 2.6 * drop;
+    // branching fork tentacle (drop) — slow lightning-like split off the spine.
+    float fork = fbmRot(vec2(tz * 1.2 + 4.0, fa * 6.0 - u_time * 0.3));
+    float aFork = sector * 0.5 + (fork - 0.5) * 2.4 * drop;
     float dFork = abs(fa - aFork) * (rad + 0.15);
-    glow = max(glow, exp(-(dFork * dFork) / (width * width)) * renv * drop * 0.9);
-
-    // --- HYPERSPACE TUNNEL (drop): thin radial streaks rushing outward from
-    // the central vanishing point, chaotically bent — you are projected INTO a
-    // highway. Uses the UNFOLDED angle (full-circle streaks), bent by fbm of
-    // depth+time (not the beat → unpredictable), brightness rushing along tz.
-    float lineCount = floor(kfold) * 1.5 + 7.0;
-    float wob = ang + (0.7 + 1.4 * drop)
-              * (fbmRot(vec2(tz * 0.6, ang * 2.0 + u_time * 0.25)) - 0.5);
-    float spokes = pow(0.5 + 0.5 * sin(wob * lineCount), 9.0);     // many thin radial lines
-    float rush = 0.45 + 0.55 * sin(tz * 7.0 - u_time * (6.0 + 11.0 * drop)); // streaming out
-    float tunnel = spokes * rush * smoothstep(0.02, 0.14, rad) * drop;
-    glow = max(glow, tunnel * 1.3);
-
-    // tunnel streaking on the spine too: bright bands rushing outward.
-    float streak = 0.55 + 0.45 * sin(tz * 5.0 - u_time * (3.0 + 7.0 * drop));
-    glow *= mix(1.0, streak, drop * 0.7);
+    glow = max(glow, exp(-(dFork * dFork) / (width * width)) * renv * drop * 0.85);
 
     // travelling accent "head" along the serpent (the 303 accent step).
     float headRad = 0.25 + 0.6 * fract(barPh);
@@ -130,7 +127,8 @@ void main() {
     glow *= 1.0 + 0.5 * saturate(keyHold);
     glow += keyEv * 0.5 * exp(-pow((rad - 0.4) * 5.0, 2.0));
 
-    glow *= (0.55 + 1.5 * bass) * (1.0 + 0.8 * drop);   // crank brightness at the drop
+    glow *= (0.55 + 1.5 * bass) * (1.0 + 0.2 * drop);   // tentacles stay; tunnel layer leads the drop
+    glow *= mix(1.0, smoothstep(0.04, 0.32, rad), drop); // open a dark tunnel mouth (vanishing point) at the drop
 
     // colour: ember-red body climbing toward amber over the song (it is fire,
     // not tan — a yellow-tan body reads olive at low glow over the wine ground),
@@ -144,7 +142,7 @@ void main() {
     vec3 below = texture(u_below, uv).rgb;
     vec3 hist  = texture(u_history, uv).rgb;
     float trailLum = luma(max(hist - below, vec3(0.0)));
-    vec3 trail = warmCycle(0.95) * trailLum * 0.85;
+    vec3 trail = warmCycle(0.95) * trailLum * 0.65;
     vec3 outc  = max(col, trail);
     outc = mix(col, outc, smoothstep(0.0, 1.0, u_frame / 30.0));
 

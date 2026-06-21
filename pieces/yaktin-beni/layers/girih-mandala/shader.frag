@@ -125,14 +125,13 @@ void main() {
 
     float q = girihField(pk, freq, waves, phase);
 
-    // --- round ember lights + strapwork lines ----------------------------
-    // Round embers on the UNFOLDED coords as PURE round lights — do NOT
-    // multiply by the angular folded field (that carved the round blobs into
-    // angular fragments = Louis's "weird corners"). Only the smooth radial env
-    // (applied below) shapes them. Strapwork stays on the kaleidoscope coords.
-    float embers = roundEmbers(pc, u_time);
+    // --- strapwork lines only (the kaleidoscope cells) -------------------
+    // The scattered ember-dot field is GONE: Louis flagged it three runs
+    // running ("square grid" -> "weird corners" -> "not mesmerizing"). The
+    // mandala is now the clean kaleidoscope strapwork; the moving lights are
+    // the hyperspace-tunnel streaks + the filament + bloom, not a dot field.
     float lines = smoothstep(0.045, 0.0, abs(q)) * 0.9;           // zero-contour strapwork
-    float intensity = max(embers, lines);
+    float intensity = lines;
 
     // focal radial envelope — bright always-on core (lead silhouette), edges
     // fall toward near-black so it reads as a mandala, not a wall-to-wall grid.
@@ -147,15 +146,17 @@ void main() {
     bright += 0.6 * keyEnergy * smoothstep(0.4, 0.0, r);          // key petal flash
     bright += 0.35 * vjCursorHeat(p, mw, 0.4) * intensity;        // cursor brighten
 
-    // colour: strapwork in ember/wine, ember-lights flare to cream.
-    vec3 col = warmCycle(0.83 + 0.12 * embers + 0.05 * prog) * bright * 1.2;
-    col += vec3(1.0, 0.86, 0.62) * pow(embers, 2.0) * starGain * 0.8;   // cream ember cores
+    // colour: strapwork in ember/wine, dense strapwork near the core flares
+    // to cream (soft, round — derived from the smooth line field, not dots).
+    vec3 col = warmCycle(0.83 + 0.10 * lines + 0.05 * prog) * bright * 1.2;
+    col += vec3(1.0, 0.86, 0.62) * pow(lines, 2.0) * starGain * 0.7 * smoothstep(0.6, 0.0, r);
 
     // at the drop, recede so the filament's hyperspace tunnel dominates (the
     // mandala stays present as the kaleidoscope walls, just dimmer).
     float drop = ((sid == 3 || sid == 5) ? 1.0 : (sid == 2 ? 0.5 : 0.0))
                * saturate(0.5 + 0.8 * u_audio_level);
     col *= 1.0 - 0.45 * drop;
+    col *= mix(1.0, smoothstep(0.0, 0.42, r), drop);   // open a dark tunnel mouth at the drop
 
     // cool the outro to near-black (the embers die at the cierre).
     col *= 1.0 - 0.7 * smoothstep(0.93, 1.0, prog);
