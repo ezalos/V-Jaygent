@@ -56,8 +56,21 @@ notes: |
   near-empty) perpetually re-seeds dead regions while colonies evolve cleanly,
   so the field never dies; beat blooms re-seed on the groove.
 
-  Display: A -> warm palette (luminance), |grad A| -> ember creature rims
-  (native fine texture + depth), bloom on dense colony cores.
+  Destruction (music-linked, method evolves per section): a damage channel (.g)
+  carves the colony, which regrows into the scars (a growth/destruction cycle =
+  lots of motion). The METHOD changes per section: verse/drop = expanding
+  SHOCKWAVE rings; vocal = radial CRACKS from a wandering fault; build = a
+  sweeping RIP/slash; climax = multi-point SHATTER blasts every beat; outro/fade =
+  global DISSOLUTION burn. Idle cycles the methods so it stays alive + varied.
+
+  Palette (3 colours by meaning — cold exception, the warm has physical meaning):
+  TEAL = living colony; AMBER/GOLD = membrane rims; MAGENTA->white = destruction
+  front, ORANGE embers in the cooling wake. (lint-palette flags the teal as a
+  warm-only violation; that override is intentional — Louis asked for more than
+  orange; teal=life / warm=destruction fits VISION's cold exception.)
+
+  Display: A -> teal colony (luminance), |grad A| -> amber rims, damage .g ->
+  magenta/white destruction flash with orange ember wake.
 
   Audio (life + motion, not glow):
     - kick / bass -> beat blooms: a growth pulse + sparse fresh spawn (the field
@@ -77,11 +90,8 @@ notes: |
   (garden the ecosystem). Keyboard synth: each key plants a seed patch at a
   key-mapped position.
 
-  Palette: near-black -> wine -> ember -> amber -> cream. Luminance contrast,
-  no cool intrusions.
-
   Arc: intro sparse soup -> verse gliders + small colonies -> drop turbulent
   bloom -> vocal lush dense colony -> build colonies migrate and merge -> climax
   frantic life everywhere -> outro die-off into voids -> fade to a last glider,
   then near-black.
-rendered_at: '2026-06-21T00:41:41.406Z'
+rendered_at: '2026-06-21T09:54:51.419Z'

@@ -1,12 +1,12 @@
-// ABOUTME: Days Without You display — renders the Lenia ecosystem state A as warm life.
-// ABOUTME: Luminance from A, ember rims from |grad A| (creature edges = depth), beat + cursor accents.
+// ABOUTME: Days Without You display — Lenia ecosystem in teal(life)+amber(rims)+magenta(destruction).
+// ABOUTME: A->teal colony, |grad A|->gold rims, damage .g->magenta/white flash with orange ember wake.
 #version 300 es
 precision highp float;
 
 uniform vec2      u_resolution;
 uniform float     u_time;
 uniform vec2      u_mouse;
-uniform sampler2D u_state;     // A in .r
+uniform sampler2D u_state;     // .r = A (density), .g = D (damage/destruction)
 
 uniform float u_audio_bass_stem;
 uniform float u_audio_other_stem;
@@ -26,18 +26,16 @@ out vec4 fragColor;
 
 vec2 worldQ(vec2 fc) { return (fc - 0.5 * u_resolution) / min(u_resolution.x, u_resolution.y); }
 
-// near-black -> wine -> ember -> amber -> cream. Luminance carries the signal.
-vec3 warm(float t) {
+// Teal life ramp: near-black -> deep teal -> teal-green -> pale cyan-cream.
+vec3 teal(float t) {
     t = clamp(t, 0.0, 1.0);
-    vec3 c0 = vec3(0.015, 0.008, 0.012);
-    vec3 c1 = vec3(0.30,  0.05,  0.12);
-    vec3 c2 = vec3(0.72,  0.18,  0.06);
-    vec3 c3 = vec3(0.98,  0.58,  0.20);
-    vec3 c4 = vec3(1.00,  0.94,  0.80);
-    if (t < 0.25) return mix(c0, c1,  t / 0.25);
-    if (t < 0.50) return mix(c1, c2, (t - 0.25) / 0.25);
-    if (t < 0.75) return mix(c2, c3, (t - 0.50) / 0.25);
-    return                mix(c3, c4, (t - 0.75) / 0.25);
+    vec3 c0 = vec3(0.010, 0.020, 0.022);
+    vec3 c1 = vec3(0.020, 0.230, 0.250);
+    vec3 c2 = vec3(0.090, 0.560, 0.470);
+    vec3 c3 = vec3(0.720, 0.970, 0.880);
+    if (t < 0.34) return mix(c0, c1, t / 0.34);
+    if (t < 0.68) return mix(c1, c2, (t - 0.34) / 0.34);
+    return                mix(c2, c3, (t - 0.68) / 0.32);
 }
 
 void main() {
@@ -46,40 +44,50 @@ void main() {
     vec2 q     = worldQ(gl_FragCoord.xy);
 
     float A = texture(u_state, uv).r;
+    float D = texture(u_state, uv).g;   // destruction/damage
 
-    // Gradient of A -> creature rims (native fine texture + a sense of depth).
+    // Gradient of A -> creature rims.
     float ax = texture(u_state, uv + vec2(texel.x, 0.0)).r - texture(u_state, uv - vec2(texel.x, 0.0)).r;
     float ay = texture(u_state, uv + vec2(0.0, texel.y)).r - texture(u_state, uv - vec2(0.0, texel.y)).r;
     float edge = length(vec2(ax, ay));
 
-    // ---- background: warm near-black with a faint central vignette glow ----
-    vec3 col = vec3(0.020, 0.012, 0.015) * (1.0 - 0.5 * length(q));
+    // ---- background: deep teal-black with a faint central glow ----
+    vec3 col = vec3(0.012, 0.020, 0.024) * (1.0 - 0.5 * length(q));
 
-    // ---- the living field ----
+    // ---- the living colony (TEAL) ----
     float l   = pow(clamp(A, 0.0, 1.0), 0.75);
-    float hue = l + 0.05 * sin(A * 9.0 + u_time * 0.05);   // subtle within-warm drift on creature interiors
-    col = max(col, warm(hue) * l);
+    vec3  life = teal(l);
+    col = max(col, life * smoothstep(0.02, 0.30, A));
+    col += vec3(0.55, 0.95, 0.85) * smoothstep(0.72, 1.0, A) * 0.4;   // bright cyan cores
 
-    // Hot colony cores glow (bloom-ish).
-    col += warm(0.9) * smoothstep(0.7, 1.0, A) * 0.5;
+    // ---- AMBER/GOLD membrane rims (the warm structure, always present) ----
+    vec3 amber = vec3(0.98, 0.62, 0.16);
+    col += amber * smoothstep(0.04, 0.30, edge) * (0.45 + 0.55 * A) * 0.75;
 
-    // Ember rims on creature edges — the fine structure.
-    col += vec3(0.95, 0.45, 0.14) * smoothstep(0.04, 0.30, edge) * (0.5 + 0.5 * A) * 0.6;
+    // ---- DESTRUCTION (MAGENTA flash -> white hot, ORANGE ember wake) ----
+    // Damage cools white-hot -> magenta -> ember as D decays, so a blast front
+    // reads as a bright magenta/white edge leaving burning orange scars behind.
+    vec3 ember   = vec3(0.95, 0.34, 0.07);
+    vec3 magenta = vec3(0.95, 0.12, 0.66);
+    col = mix(col, ember, smoothstep(0.06, 0.30, D));            // cooled burning wake (orange)
+    col = mix(col, magenta, smoothstep(0.28, 0.62, D) * 0.92);   // destruction front (MAGENTA, dominant)
+    col += magenta * smoothstep(0.30, 0.70, D) * 0.6;            // magenta bloom
+    col += vec3(1.0, 0.92, 0.98) * smoothstep(0.80, 1.0, D);     // white-hot blast core
 
     // ---- visible phase-lock: a ring breathes out from centre on the downbeat ----
     float ring = u_downbeat * smoothstep(0.02, 0.0, abs(length(q) - u_bar_phase * 0.6));
-    col += vec3(0.9, 0.45, 0.16) * ring * 0.25;
+    col += vec3(0.95, 0.3, 0.5) * ring * 0.25;
 
-    // Cursor halo (the fertile zone).
+    // Cursor halo (the fertile zone — teal).
     if (!(u_mouse.x == 0.0 && u_mouse.y == 0.0)) {
         vec2 mq = worldQ(u_mouse);
-        col += vec3(0.9, 0.5, 0.2) * exp(-dot(q - mq, q - mq) / 0.012) * 0.16;
+        col += vec3(0.3, 0.9, 0.8) * exp(-dot(q - mq, q - mq) / 0.012) * 0.16;
     }
 
-    // Keyboard flares (direct feedback at the planting site).
+    // Keyboard flares.
     for (int kk = 0; kk < 15; kk++) {
         vec2 kc = vec2((float(kk) / 14.0 - 0.5) * 1.4, 0.0);
-        col += vec3(0.95, 0.55, 0.22) * u_key_event[kk] * exp(-dot(q - kc, q - kc) / 0.02) * 0.6;
+        col += vec3(0.5, 0.95, 0.85) * u_key_event[kk] * exp(-dot(q - kc, q - kc) / 0.02) * 0.6;
     }
 
     // ---- finish ----
@@ -87,6 +95,6 @@ void main() {
     col = reinhard(col * exposure);
     col += (hash21(gl_FragCoord.xy + u_time) - 0.5) * 0.03;   // grain
     col *= 1.0 - 0.24 * dot(q, q);                            // vignette
-    col = pow(max(col, 0.0), vec3(0.88));                     // gamma
+    col = pow(max(col, 0.0), vec3(0.90));                     // gamma
     fragColor = vec4(col, 1.0);
 }

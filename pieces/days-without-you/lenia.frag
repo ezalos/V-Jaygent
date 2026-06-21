@@ -17,6 +17,7 @@ uniform float u_audio_other_stem;
 uniform float u_audio_playing;
 uniform int   u_section_id;
 uniform float u_downbeat;
+uniform float u_bar_phase;
 uniform int   u_bar_index;
 uniform float u_keys[15];
 uniform float u_key_event[15];
@@ -65,6 +66,47 @@ float secEnergy(int s) {
     return 0.03;               // fade — near-empty
 }
 
+float h11(float n) { return fract(sin(n * 91.73) * 43758.5453); }
+vec2  blastC(float seed) { return vec2(h11(seed) * 1.6 - 0.8, h11(seed + 3.7) - 0.5); }
+
+// DESTRUCTION: damage [0,1] to erase from the colony this frame. The METHOD
+// changes per section so the way the music tears the field apart evolves:
+//   1 verse / 2 drop -> expanding SHOCKWAVE rings (a blast carves outward)
+//   3 vocal          -> radial CRACKS spreading from a wandering fault
+//   4 build          -> a sweeping RIP / slash line
+//   5 climax         -> multi-point SHATTER blasts, every beat
+//   6 outro / 7 fade -> global DISSOLUTION burn
+float destruction(vec2 q, int sec, float bphase, float fbi, float intensity, float tt) {
+    float dmg = 0.0;
+    if (sec == 1 || sec == 2) {
+        vec2  c    = blastC(fbi);
+        float rmax = (sec == 2) ? 1.2 : 0.8;
+        float r    = bphase * rmax;
+        float ring = exp(-pow(length(q - c) - r, 2.0) / 0.0045);
+        dmg = ring * (0.6 + 0.4 * intensity) * ((sec == 2) ? 1.1 : 0.6);
+    } else if (sec == 3) {
+        vec2  c   = blastC(floor(tt * 0.22));
+        vec2  rel = q - c;
+        float ang = atan(rel.y, rel.x);
+        float crk = pow(0.5 + 0.5 * cos(ang * 6.0 + h11(floor(tt * 0.22)) * 6.283), 22.0);
+        dmg = crk * smoothstep(0.0, 0.4, bphase) * smoothstep(1.3, 0.0, length(rel)) * (0.5 + 0.5 * intensity);
+    } else if (sec == 4) {
+        float dir   = (mod(fbi, 2.0) < 0.5) ? 1.0 : -1.0;
+        float sweep = bphase * 1.9 - 0.95;
+        dmg = exp(-(q.x * dir - sweep) * (q.x * dir - sweep) / 0.0035) * (0.7 + 0.3 * intensity);
+    } else if (sec == 5) {
+        vec2  cell = floor((q + 1.0) * 2.0);
+        vec2  cc   = (cell + 0.5) / 2.0 - 1.0
+                   + 0.3 * vec2(h11(cell.x + cell.y * 5.0) - 0.5, h11(cell.x * 3.1 + cell.y) - 0.5);
+        float pulse = smoothstep(0.0, 0.10, bphase) * smoothstep(0.55, 0.10, bphase);
+        dmg = exp(-dot(q - cc, q - cc) / 0.02) * pulse * (0.8 + 0.2 * intensity);
+    } else if (sec >= 6) {
+        float n = vnoise(q * 4.0 + tt * 0.15);
+        dmg = ((sec == 7) ? 0.55 : 0.32) * smoothstep(0.45, 0.92, n) * (0.5 + 0.5 * intensity);
+    }
+    return clamp(dmg, 0.0, 1.0);
+}
+
 void main() {
     vec2 uv    = gl_FragCoord.xy / u_resolution.xy;
     vec2 texel = 1.0 / u_resolution.xy;
@@ -99,7 +141,7 @@ void main() {
     float tau  = u_time;
     float muI  = 0.165 + 0.020 * sin(tau * 0.07);
     float sgI  = 0.024 + 0.006 * sin(tau * 0.043);
-    float dtI  = 0.12  + 0.03  * sin(tau * 0.11);
+    float dtI  = 0.16  + 0.04  * sin(tau * 0.11);   // livelier base churn
     float fdI  = 0.07;
     float mu   = mix(muI, rg.x + 0.010 * u_audio_vocals_stem, p);
     float sig  = mix(sgI, rg.y + 0.012 * u_audio_other_stem,  p);
@@ -154,5 +196,33 @@ void main() {
         }
     }
 
-    fragColor = vec4(clamp(Anew, 0.0, 1.0), 0.0, 0.0, 1.0);
+    // ---- DESTRUCTION linked to the music ----
+    // Beat clock + intensity: from the audio bar grid when playing, from the
+    // internal clock (synthetic ~2s bar) when idle. Idle CYCLES the destruction
+    // method so it stays alive + varied with no audio.
+    float bphase, fbi;
+    int   dsec;
+    float intensity;
+    if (p > 0.5) {
+        bphase = u_bar_phase;
+        fbi    = float(u_bar_index);
+        dsec   = u_section_id;
+        intensity = clamp(max(u_audio_kick, u_audio_drums_stem) + 0.3 * u_downbeat, 0.0, 1.0);
+    } else {
+        float c = tau * 0.5;
+        bphase = fract(c);
+        fbi    = floor(c);
+        dsec   = 1 + int(mod(tau * 0.05, 6.0));   // cycle modes 1..6
+        intensity = 0.65 + 0.35 * sin(tau * 0.9);
+    }
+    float dmg = destruction(qm, dsec, bphase, fbi, intensity, tau);
+
+    Anew -= dmg * 1.3;                              // carve the colony
+
+    // Damage channel (.g): holds the destruction flash, decays so scars cool
+    // from white-hot -> magenta -> ember -> gone over ~0.5s.
+    float Dold = texture(u_state, uv).g;
+    float D = max(Dold * 0.93, dmg);   // scars cool slowly -> wider magenta front + lingering embers
+
+    fragColor = vec4(clamp(Anew, 0.0, 1.0), clamp(D, 0.0, 1.0), 0.0, 1.0);
 }
