@@ -2,144 +2,129 @@
 
 Track: **Days Without You** — Satori feat. Miou Amadée (organic/deep house,
 80.7 BPM, C minor, 401s). Source (Spotify):
-https://open.spotify.com/track/4FBfibrcrzJ2aqeNMbPYGu — audio sourced from
-the KROOKS Records YouTube upload (duration-matched 401s, the 2015 album
-version, NOT the 643s Crussen Remix).
+https://open.spotify.com/track/4FBfibrcrzJ2aqeNMbPYGu — audio from the
+KROOKS Records YouTube upload (duration-matched 401s, the 2015 album version).
+
+## RESTART (2026-06-21) — the v1 thesis was boring
+
+First thesis was a two-mode Bose-Einstein condensate (Josephson junction):
+two lobes + an interference bridge. Shipped, then Louis: **"booooooring."**
+He's right — it was ONE smooth motif stretched over 6.5 min, gentle and
+low-energy, ignoring the track's groove. It failed the 20-second-window
+test: every window the same rule at a different brightness. Restarting with
+a thesis built for variety, groove, depth, and unpredictability.
 
 ## Thesis
 
-A Bose–Einstein condensate trapped in a **double-well potential** — a bosonic
-Josephson junction. The nonlinear Schrödinger (Gross–Pitaevskii) equation. The
-condensate *tunnels* between the two wells (being together) — but when the
-barrier rises or the self-interaction dominates, it undergoes **macroscopic
-quantum self-trapping**: it gets stuck on one side, unable to cross. That is
-the literal physics of "days without you" — the longing to reach the other
-well and the inability to. The tunnel-splitting beat period IS the song's
-rhythm of presence and absence.
+A **living Lenia ecosystem** — continuous cellular automata (Bert Chan,
+2018). A warm field where emergent organisms bloom, glide, meet, merge, and
+dissolve, never settling. The music animates the ecosystem: the **beat feeds
+and spawns life**, and each section drives it through a dramatically
+different life-regime — sparse gliders → lush colony → turbulent bloom →
+die-off → rebirth. For "Days Without You": presence and loss as the endless
+cycle of forms emerging and passing; the groove is the pulse that keeps the
+field alive.
 
 ## Canonical-name check
 
-**Time-dependent Schrödinger equation**, `iħ ∂ψ/∂t = -ħ²/2m ∇²ψ + Vψ`, extended
-to the **Gross–Pitaevskii / nonlinear Schrödinger equation** with a `g·|ψ|²ψ`
-self-interaction term (canonical model for a Bose–Einstein condensate). Integrated
-by the **Visscher (1991) staggered-leapfrog** scheme — ψ split into real/imag parts
-updated at staggered half-time-steps; explicit and stable (FTCS is unstable). See
-`brainstorming/inspirations/days-without-you-refs.md` for the exact update equations
-and stability condition.
+**Lenia** — continuous-state, continuous-space generalization of Conway's
+Life. State `A ∈ [0,1]` on a grid evolves as:
 
-Double-well = `V(x,y) = A·(x²/w² − 1)² + ½·ωy²·y²` (quartic in x → two minima at
-x=±w with a barrier of height A at x=0; harmonic confinement in y). Barrier height
-A(t) and nonlinearity g(t) are the audio-coupled knobs. **No length-scale-mesa risk**
-(this is a wave-propagation PDE seeded with a defined packet, not a pattern-former
-growing from noise): the de Broglie wavelength and well geometry set the scale
-explicitly.
+    A(t+dt) = clamp( A + dt · G(K * A), 0, 1 )
+
+- `K` = a smooth radial kernel (a ring/shell), `K*A` = convolution =
+  neighbourhood potential `U`.
+- `G` = growth mapping, a gaussian bump: `G(u) = 2·exp(-(u-μ)²/(2σ²)) - 1`,
+  range [-1,1]. μ = growth centre, σ = growth width.
+- Orbium reference: R=13, μ=0.15, σ=0.015, dt=0.1. For a lively SOUP (not a
+  single glider) push toward the turbulent-life regime (higher μ/σ).
+
+Pure gather (convolution + local growth) → fits the ping-pong engine with NO
+scatter (unlike Physarum, which the engine can't do). Architecture C.
+
+**Robustness / liveness mechanism (the anti-knife-edge fix):** Lenia from a
+random soup can die or freeze. Two guards keep it perpetually alive without a
+global reduction: (1) **primordial-soup feed** — inject faint noise ONLY
+where the local field is below a threshold, so empty regions keep birthing
+life while populated regions evolve cleanly; (2) **beat blooms** — kick/bass
+inject seed patches, so the ecosystem breathes and re-seeds on the groove.
+Death + rebirth is also the emotional arc.
 
 ## Brief gates (vjay-new-piece §1b + §1c)
 
 ```
-canonical_ref: "novel for this catalog: time-dependent (nonlinear) Schrödinger
-  equation in a double well — bosonic Josephson junction. Nearest sibling is
-  ferment (Gray-Scott) for the ping-pong state-bearing-PDE architecture; the
-  physics is entirely different (unitary complex wave vs. dissipative chemistry)."
+canonical_ref: "novel for this catalog: Lenia continuous cellular automata
+  (Bert Chan 2018). Nearest sibling is ferment (Gray-Scott RD) for the
+  ping-pong state-bearing architecture; the dynamics are different (wide
+  smooth kernel + growth mapping -> emergent gliders/organisms, not RD spots)."
 eye_landing_candidates:
-  - two probability lobes (the two wells — |ψ|² cores)
-  - interference fringes over the barrier (the de Broglie ripples where the lobes overlap)
-  - the tunneling slosh / self-trapping slam (probability crossing or rebounding — section events)
-  - probability-current streaks (flowing warm filaments showing where ψ flows)
-  - drum-kick scatter rings (momentum kicks exciting higher modes)
+  - emergent organisms (gliders/rotators) drifting across the field
+  - dense colony cores (bright lush clusters) that bloom and migrate
+  - the birth front (where primordial-soup noise crystallizes into life)
+  - beat-bloom spawns (kick-triggered patches erupting into creatures)
+  - die-off voids (dark regions where a colony collapsed)
 warm_cycle: [near-black, deep-wine, ember, amber, cream]
-idle_behaviour: "the condensate Josephson-oscillates between the wells on its own
-  (the PDE evolves autonomously from the seeded packet); a slow idle drift of the
-  barrier height cycles it through tunneling↔self-trapping regimes. Rich without cursor."
-architecture: C   # ping-pong feedback — TDSE/GPE is state-bearing complex field
-arch_rationale: "ψ must persist between frames (a wave equation). Two coupled
-  passes per frame implement the Visscher stagger: pass psi_i updates Im(ψ) from
-  the old Re(ψ); pass psi_r then updates Re(ψ) from the just-computed Im(ψ). A
-  single pass cannot do this (the I-update needs the NEW R at neighbors). Display
-  pass reads both. Wrong choices: A loses state every frame; B is for ≤200 discrete
-  agents not a continuous field; E (layers) has no clean rgba16f persistent publish."
+idle_behaviour: "the ecosystem evolves autonomously (Lenia is self-driving);
+  the gated noise-feed perpetually re-seeds empty regions and a slow internal
+  clock drifts the regime, so it never repeats and never dies. Rich w/o input."
+architecture: C   # ping-pong feedback — Lenia is a state-bearing CA
+arch_rationale: "A(t) must persist between frames (a cellular automaton). One
+  sim pass (lenia.frag, rgba16f ping-pong) computes the kernel convolution +
+  growth update; display reads the state. Wrong choices: A loses state; B is
+  for <=200 discrete agents; layers have no clean persistent publish."
 ```
-
-## Realtime-fit pivot (build note, 2026-06-20)
-
-First implementation was the full 2D time-dependent Schrödinger/GP PDE via the
-Visscher staggered-leapfrog (two coupled passes). It compiled and was stable,
-BUT explicit Schrödinger integration is `dt ~ dx²`-bound: at any grid fine
-enough for crisp de Broglie fringes the q-space dynamics are far too slow to
-read (the packet barely tunnels in 30s), and coarsening the grid to speed it up
-destroys the fringes. Confirmed live=headless at 60fps, so it wasn't a capture
-artifact — it's the algorithm. This is exactly the "offline-ref needs a realtime
-algorithm check at the brief stage" lesson ([[feedback_realtime_basin_pieces]]).
-
-Pivoted to the **two-mode reduction** (Smerzi/Raghavan bosonic Josephson
-junction): a 2-variable ODE (z, φ) integrated in a tiny pass, with the
-wavefunction `ψ = c_L g_L e^{ikx} + c_R g_R e^{-ikx+iφ}` rendered analytically.
-Crisp fringes at full resolution, exact tunneling/self-trapping control, and the
-honest canonical model for this exact physics. The thesis is unchanged.
 
 ## Two-timescale unpredictability (VISION)
 
-- **Continuity ~0.6s:** the wavefunction sloshes smoothly; |ψ|² flows continuously,
-  the eye tracks the probability mass moving between wells.
-- **Divergence ~25s:** the **nonlinearity (g·|ψ|²) makes the dynamics genuinely
-  Lyapunov-divergent** — anharmonic Josephson oscillation, self-trapping transitions,
-  higher-mode scatter after kicks — so the field never settles into a clean fixed
-  beat period (the failure mode for oscillator/lattice pieces). Section-driven barrier
-  + nonlinearity changes give each ~25s window a different regime: ghostly slow
-  tunneling vs. fast sloshing vs. locked self-trapping vs. turbulent scatter.
+- **Continuity ~0.4-0.8s:** organisms glide and morph smoothly; the eye tracks
+  a creature across the field.
+- **Divergence ~15-25s:** the ecosystem reconfigures completely — a colony
+  that dominated one window has dissolved and a new regime (triggered by the
+  section's μ/σ/dt) has taken over by the next. Lenia is a genuinely chaotic
+  CA, so windows are categorically different event vocabularies (gliders vs
+  turbulence vs colony vs die-off), not re-shaded params. This is the explicit
+  fix for the v1 boringness.
 
-This is the explicit fix for VISION's "pattern-grid pieces are systematically at
-risk" warning: it's NOT a lattice of independent oscillators — it's a single
-nonlinear PDE with genuine state-bearing chaotic dynamics.
-
-## Section → regime map (derived from per-stem analysis)
+## Section -> regime map (μ, σ, dt, feed)
 
 ```
-0  0–31s    intro, no voice        packet localized in LEFT well, alone. high barrier.
-1  31–126s  verse, voice enters    barrier lowers, slow tunneling begins (vocals → coupling)
-2  126–158s instrumental peak/drop bass+synth max, voice recedes → barrier SPIKES, self-trap slam
-3  158–236s vocal centerpiece      vocals MAX → barrier lowest, full coherent beating (together)
-4  236–284s melodic build          synth (other) MAX → wide gentle sloshing, current-streak bloom
-5  284–331s percussion climax      drums MAX → repeated momentum kicks, turbulent higher modes
-6  331–378s outro wind-down        barrier rises, packet settles back toward one well, decoheres
-7  378–401s fade to silence        amplitude damped to near-zero; single dim lobe; flash-to-black end
+0  0-31s    intro      sparse, slow: low feed, few gliders forming
+1  31-126s  verse      gliders + small colonies (vocals warm the regime)
+2  126-158s drop       turbulent bloom: dt up, feed up, frantic spawning
+3  158-236s vocal      lush colony: high growth, dense bright clusters (together)
+4  236-284s build      colonies migrate + merge, rising density
+5  284-331s climax     frantic/chaotic: max dt + drum agitation, life everywhere
+6  331-378s outro      die-off: feed down, colonies collapse into voids
+7  378-401s fade       near-empty, a last glider, then to near-black
 ```
 
-## Audio bindings (motion, not brightness)
+## Audio bindings (motion + life, not glow)
 
-- `u_audio_vocals_stem` → **lowers the barrier height** (vocals = the wells connect;
-  tunneling speeds up, probability floods across). The single most thesis-load-bearing
-  binding.
-- `u_audio_bass_stem` → well depth + condensate amplitude (deeper wells, brighter cores).
-- `u_audio_drums_stem` / `u_audio_kick` → momentum kick: injects a phase ramp
-  `ψ·exp(i k·x)` pulse → higher-mode excitation + a scatter ring.
-- `u_audio_other_stem` → nonlinearity g + probability-current streak intensity.
-- `u_section_id` / `u_section_progress` → the regime map above (barrier baseline,
-  well separation, g baseline).
-- `u_downbeat` / `u_bar_phase` → small barrier "breathing" so the slosh phase-locks
-  to the bar.
+- `u_audio_kick` / `u_audio_bass_stem` -> beat blooms: inject seed patches +
+  a global growth pulse (the field breathes/spawns on the kick).
+- `u_audio_drums_stem` -> agitation: raise dt (faster evolution = frantic life).
+- `u_audio_vocals_stem` -> μ shift toward the lush-life regime (warmer growth).
+- `u_audio_other_stem` -> σ / kernel width -> morphology change.
+- `u_section_id` -> regime preset (the map above); `u_downbeat` -> spawn ring.
 
-## Inputs (multi-input coupling)
+## Inputs
 
-- **Cursor** (`u_mouse`): a draggable Gaussian potential bump — push the probability
-  around, stir the condensate, dam one well. Idle → no bump.
-- **Keyboard synth** (`keyboard_synth: true`): each key injects a fresh Gaussian
-  wavepacket with momentum at a key-mapped position — the synth literally launches
-  condensate. (Uniforms fed regardless; audio + injection fire only with the flag.)
+- **Cursor**: a fertile zone — drag to inject living matter + boost local
+  growth (garden the ecosystem). Idle -> none.
+- **Keyboard synth**: each key plants a seed patch at a key-mapped position.
 
 ## What I don't want
 
-- Clinical blue-on-black "physics demo" look (warm palette, luminance contrast).
-- Two fuzzy blobs with no structure (the interference fringes + current streaks +
-  well cores are the richness; keep the de Broglie wavelength visible).
-- A clean periodic beat (the nonlinearity + section modulation prevent this — verify
-  with cross-window clips, not stills).
-- Blow-up / wash-to-flat-bright (renormalize gently + absorbing boundary ring).
+- A single repeated motif (the v1 failure). The regimes MUST look categorically
+  different across sections — verify with cross-window clips, not stills.
+- A dead or frozen field (the Lenia knife-edge) — the gated noise-feed +
+  beat blooms + auto-reseed guard against it.
+- Blow-out to flat-bright (clamp A to [0,1]; growth is bounded).
+- Smooth low-detail blobs (the v1 depth fail) — Lenia creatures have ringed
+  interiors = native fine texture + depth.
 
-## Open questions (know only after it runs)
+## Open questions
 
-- Visscher dt vs. visible slosh speed at headless 17fps vs. live 60fps (sim advances
-  per rendered frame, not audio time — headless lags ~3.5x; grade live clips).
-- Does g need to be small to avoid blow-up, costing the self-trapping drama? Fallback:
-  g=0 (linear) is still beautiful; lean harder on barrier modulation + kicks for divergence.
-- Are the de Broglie fringes visible at sim scale 0.5, or do I need 0.6+?
+- Which μ/σ/dt regime gives the most gorgeous lively SOUP (tune live).
+- Kernel radius R vs cost (R=13 = 729 taps; RTX 4090 handles it at scale 0.5).
+- Does the gated noise-feed disrupt creatures or feed them — tune the gate.

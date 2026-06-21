@@ -1,23 +1,20 @@
-// ABOUTME: Days Without You display — analytic two-mode BEC wavefunction in a double well.
-// ABOUTME: psi = c_L*gL*e^{ikx} + c_R*gR*e^{-ikx+i*phi}; |psi|^2 in warm, the empty well = absence.
+// ABOUTME: Days Without You display — renders the Lenia ecosystem state A as warm life.
+// ABOUTME: Luminance from A, ember rims from |grad A| (creature edges = depth), beat + cursor accents.
 #version 300 es
 precision highp float;
 
 uniform vec2      u_resolution;
 uniform float     u_time;
 uniform vec2      u_mouse;
-uniform sampler2D u_state;     // junction: .r=z, .g=phi, .b=K
+uniform sampler2D u_state;     // A in .r
 
-uniform float u_audio_vocals_stem;
 uniform float u_audio_bass_stem;
 uniform float u_audio_other_stem;
-uniform float u_audio_kick;
 uniform float u_audio_level;
 uniform float u_audio_playing;
 uniform float u_downbeat;
 uniform float u_bar_phase;
 uniform float u_beat_phase;
-uniform float u_section_progress;
 uniform int   u_section_id;
 uniform float u_key_event[15];
 
@@ -27,9 +24,7 @@ uniform float u_key_event[15];
 
 out vec4 fragColor;
 
-vec2 worldQ(vec2 fc) {
-    return (fc - 0.5 * u_resolution) / min(u_resolution.x, u_resolution.y);
-}
+vec2 worldQ(vec2 fc) { return (fc - 0.5 * u_resolution) / min(u_resolution.x, u_resolution.y); }
 
 // near-black -> wine -> ember -> amber -> cream. Luminance carries the signal.
 vec3 warm(float t) {
@@ -46,95 +41,52 @@ vec3 warm(float t) {
 }
 
 void main() {
-    vec2 uv = gl_FragCoord.xy / u_resolution.xy;
-    vec2 q  = worldQ(gl_FragCoord.xy);
+    vec2 uv    = gl_FragCoord.xy / u_resolution.xy;
+    vec2 texel = 1.0 / u_resolution.xy;
+    vec2 q     = worldQ(gl_FragCoord.xy);
 
-    vec4  st  = texture(u_state, vec2(0.5));
-    float z   = clamp(st.r, -0.999, 0.999);
-    float phi = st.g;
-    float tau = st.a;                      // junction internal clock (advances in idle too)
+    float A = texture(u_state, uv).r;
 
-    float cL = sqrt(0.5 * (1.0 + z));     // left amplitude
-    float cR = sqrt(0.5 * (1.0 - z));     // right amplitude
+    // Gradient of A -> creature rims (native fine texture + a sense of depth).
+    float ax = texture(u_state, uv + vec2(texel.x, 0.0)).r - texture(u_state, uv - vec2(texel.x, 0.0)).r;
+    float ay = texture(u_state, uv + vec2(0.0, texel.y)).r - texture(u_state, uv - vec2(0.0, texel.y)).r;
+    float edge = length(vec2(ax, ay));
 
-    // Well separation: closer when the wells are coupled (tunneling / vocals);
-    // they drift APART as the condensate self-traps (|z| -> 1) — the absence widens.
-    float D = 0.13 + 0.15 * abs(z) - 0.03 * u_audio_vocals_stem;
-    // Slow incommensurate wander of each well (migration -> long-window divergence).
-    vec2 wL = vec2(0.035 * sin(tau * 0.61), 0.045 * sin(tau * 0.83 + 1.7));
-    vec2 wR = vec2(0.035 * sin(tau * 0.52 + 2.1), 0.045 * sin(tau * 0.73));
-    vec2 L  = vec2(-D, 0.0) + wL;
-    vec2 R  = vec2( D, 0.0) + wR;
+    // ---- background: warm near-black with a faint central vignette glow ----
+    vec3 col = vec3(0.020, 0.012, 0.015) * (1.0 - 0.5 * length(q));
 
-    float sig = 0.145;
-    float gL  = exp(-dot(q - L, q - L) / (2.0 * sig * sig));
-    float gR  = exp(-dot(q - R, q - R) / (2.0 * sig * sig));
+    // ---- the living field ----
+    float l   = pow(clamp(A, 0.0, 1.0), 0.75);
+    float hue = l + 0.05 * sin(A * 9.0 + u_time * 0.05);   // subtle within-warm drift on creature interiors
+    col = max(col, warm(hue) * l);
 
-    // Global phase winds steadily (the e^{-i*mu*t} of the condensate) so the
-    // interference fringes continuously SCROLL — the always-on flow of the bridge.
-    float phiD = phi + tau * 1.2;
-    float k = 24.0;                       // de Broglie momentum -> bridge fringes
-    float pL = k * q.x;
-    float pR = -k * q.x;
-    float re = cL * gL * cos(pL) + cR * gR * cos(pR + phiD);
-    float im = cL * gL * sin(pL) + cR * gR * sin(pR + phiD);
-    float rho = re * re + im * im;        // |psi|^2 incl. the interference bridge
+    // Hot colony cores glow (bloom-ish).
+    col += warm(0.9) * smoothstep(0.7, 1.0, A) * 0.5;
 
-    // ---- background ----
-    vec3 col = vec3(0.020, 0.012, 0.015) * (1.0 - 0.55 * length(q));
-
-    // The two wells always present as dim pools — the EMPTY one reads as absence.
-    col = max(col, warm(0.19) * (gL + gR) * 0.30);
-
-    // Barrier — faint dark gap between the wells.
-    col *= 1.0 - 0.40 * exp(-(q.x * q.x) / 0.018);
-
-    // ---- the condensate ----
-    float l    = 1.0 - exp(-rho * 2.5);
-    float tcol = pow(l, 0.80);
-    float tph  = tcol + 0.045 * sin(phiD + atan(im, re));   // hue-drift in warm band
-    col = max(col, warm(tph) * tcol);
-
-    // Hot core glow where probability concentrates.
-    col += warm(0.85) * smoothstep(0.55, 1.0, l) * 0.55;
-
-    // Bridge accent — the interference where the wells overlap (their connection).
-    // A faint beat shimmer rides the connection so the pulse reads on the bridge.
-    float bridge = gL * gR;
-    col += vec3(0.95, 0.5, 0.18) * bridge * (0.4 + 0.6 * cL * cR)
-         * (0.85 + 0.15 * sin(u_beat_phase * 6.2831853)) * 0.9;
-
-    // Keyboard — each key flares a warm burst at its mapped position (direct
-    // visual feedback; the junction also responds by shoving the condensate).
-    for (int kk = 0; kk < 15; kk++) {
-        float kx = (float(kk) / 14.0 - 0.5) * 1.4;
-        vec2  d  = q - vec2(kx, 0.0);
-        col += vec3(0.95, 0.55, 0.22) * u_key_event[kk] * exp(-dot(d, d) / 0.02) * 0.7;
-    }
+    // Ember rims on creature edges — the fine structure.
+    col += vec3(0.95, 0.45, 0.14) * smoothstep(0.04, 0.30, edge) * (0.5 + 0.5 * A) * 0.6;
 
     // ---- visible phase-lock: a ring breathes out from centre on the downbeat ----
-    float ring = u_downbeat * smoothstep(0.025, 0.0, abs(length(q) - u_bar_phase * 0.62));
-    col += vec3(0.9, 0.45, 0.16) * ring * 0.30;
+    float ring = u_downbeat * smoothstep(0.02, 0.0, abs(length(q) - u_bar_phase * 0.6));
+    col += vec3(0.9, 0.45, 0.16) * ring * 0.25;
 
-    // Cursor halo.
+    // Cursor halo (the fertile zone).
     if (!(u_mouse.x == 0.0 && u_mouse.y == 0.0)) {
         vec2 mq = worldQ(u_mouse);
-        col += vec3(0.9, 0.5, 0.2) * exp(-dot(q - mq, q - mq) / 0.012) * 0.18;
+        col += vec3(0.9, 0.5, 0.2) * exp(-dot(q - mq, q - mq) / 0.012) * 0.16;
     }
 
-    // Absence reads in HUE, not only luminance: when the condensate self-traps
-    // (|z|->1, the wells apart) the whole field redshifts toward wine; when it
-    // couples (|z|->0, the bridge bright) it warms back to amber. The dominant
-    // hue drifts with the state across the song (stays warm — only reddens).
-    float trap = abs(z);
-    col.g *= 1.0 - 0.20 * trap;
-    col.b *= 1.0 - 0.12 * trap;
+    // Keyboard flares (direct feedback at the planting site).
+    for (int kk = 0; kk < 15; kk++) {
+        vec2 kc = vec2((float(kk) / 14.0 - 0.5) * 1.4, 0.0);
+        col += vec3(0.95, 0.55, 0.22) * u_key_event[kk] * exp(-dot(q - kc, q - kc) / 0.02) * 0.6;
+    }
 
     // ---- finish ----
-    float exposure = 1.45 + 0.35 * u_audio_level;
+    float exposure = 1.35 + 0.30 * u_audio_level;
     col = reinhard(col * exposure);
-    col += (hash21(gl_FragCoord.xy + u_time) - 0.5) * 0.035;   // grain
-    col *= 1.0 - 0.25 * dot(q, q);                             // vignette
-    col = pow(max(col, 0.0), vec3(0.88));                      // gamma
+    col += (hash21(gl_FragCoord.xy + u_time) - 0.5) * 0.03;   // grain
+    col *= 1.0 - 0.24 * dot(q, q);                            // vignette
+    col = pow(max(col, 0.0), vec3(0.88));                     // gamma
     fragColor = vec4(col, 1.0);
 }
